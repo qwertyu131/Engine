@@ -1,0 +1,8 @@
+build/
+out/
+.vs/
+*.user
+third_party/sdk/
+Saved/
+tests/golden/out/
+.claude/settings.local.json
