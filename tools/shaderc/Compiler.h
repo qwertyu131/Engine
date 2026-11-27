@@ -7,6 +7,9 @@
 //   WGSL        SPIR-V -> Tint
 //   DXBC        Direct: HLSL -> DXC preprocessor -> registers flattened -> FXC (SM 5.0)
 //               Cross:  SPIR-V -> SPIRV-Cross HLSL SM 5.0 -> FXC
+// Before any target is emitted (plan F1 Task 3): the binding convention is checked on the declared
+// registers ("binding collision in space<S>: b<i> and t<i>") and features the target cannot express
+// are rejected ("target <t> does not support <feature> (TIER=<n>)").
 #include "Reflection.h"
 #include "Targets.h"
 

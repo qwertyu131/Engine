@@ -29,7 +29,8 @@ if(ENG_BUILD_SHADERC)
     add_executable(shaderc_unit_tests
         shaderc/test_main.cpp
         shaderc/ShaderTestTools.h
-        shaderc/test_targets.cpp)
+        shaderc/test_targets.cpp
+        shaderc/test_reflection.cpp)
     target_link_libraries(shaderc_unit_tests PRIVATE shaderc_core nlohmann_json::nlohmann_json doctest::doctest)
     target_compile_definitions(shaderc_unit_tests PRIVATE
         ENG_TEST_DXC="${ENG_DXC}"
@@ -100,6 +101,14 @@ if(ENG_BUILD_SHADERC)
         ARGS compile --src ${sc_src} --entry VSMain --stage vs --target spirv)
     shaderc_cli_test(bad_target 2 EXPECT_IN_OUTPUT "unknown target"
         ARGS compile --src ${sc_src} --entry VSMain --stage vs --target hlsl --out @WORK@/out)
+    # Review Focus 1 + 2: convention violation / unsupported feature -> exit 1 with the error text.
+    shaderc_cli_test(binding_collision 1 EXPECT_IN_OUTPUT "binding collision in space2: b0 and t0"
+        ARGS compile --src ${PROJECT_SOURCE_DIR}/shaders/test/bindings_collide.hlsl --entry PSMain --stage fs
+             --target all --out @WORK@/out)
+    shaderc_cli_test(unsupported_feature 1
+        EXPECT_IN_OUTPUT "target glsl-es300 does not support storage buffers (TIER=1)"
+        ARGS compile --src ${PROJECT_SOURCE_DIR}/shaders/test/needs_storage.hlsl --entry VSMain --stage vs
+             --target glsl-es300 --define TIER=1 --out @WORK@/out)
     shaderc_cli_test(compile_error 1 EXPECT_IN_OUTPUT "NoSuchEntry"
         ARGS compile --src ${sc_src} --entry NoSuchEntry --stage vs --target spirv --out @WORK@/out)
 endif()

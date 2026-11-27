@@ -79,10 +79,12 @@ private:
     std::expected<void, std::string> toGlsl(CompileResult& out, uint32_t version);
     std::expected<void, std::string> toDxbcCross(CompileResult& out);
     std::expected<void, std::string> toDxbcDirect(CompileResult& out);
+    std::expected<void, std::string> checkTargetFeatures() const;
 
     const CompileRequest& req_;
     const ToolPaths& tools_;
     TempDir tmp_;
+    std::string preprocessed_; // DXC -P output: every declaration, includes and defines resolved
     std::vector<uint8_t> spirvBytes_;
     std::vector<uint32_t> spirv_;
     Reflection refl_;
@@ -346,22 +348,11 @@ std::expected<void, std::string> Job::toDxbcCross(CompileResult& out) {
 }
 
 std::expected<void, std::string> Job::toDxbcDirect(CompileResult& out) {
-    // SM5 has no register spaces: preprocess with DXC (resolves includes/defines), then rewrite every
-    // register(<c><i>, space<S>) to the flattened D3D11 slot.
-    auto pre = dxc({"-P", "-Fi"}, "pre.hlsl", false);
-    if (!pre) {
-        return std::unexpected(pre.error());
-    }
-    const std::string text(pre->begin(), pre->end());
+    // SM5 has no register spaces: take the DXC-preprocessed source (includes/defines resolved), then
+    // rewrite every register(<c><i>, space<S>) to the flattened D3D11 slot.
+    const std::string& text = preprocessed_;
     static const std::regex reg(R"(register\s*\(\s*([bBtTsSuU])\s*(\d+)\s*(?:,\s*space\s*(\d+)\s*)?\))");
-    std::vector<RegisterKey> declared;
-    for (auto it = std::sregex_iterator(text.begin(), text.end(), reg); it != std::sregex_iterator(); ++it) {
-        const auto& m = *it;
-        declared.emplace_back(static_cast<char>(std::tolower(static_cast<unsigned char>(m[1].str()[0]))),
-                              m[3].matched ? static_cast<uint32_t>(std::stoul(m[3].str())) : 0u,
-                              static_cast<uint32_t>(std::stoul(m[2].str())));
-    }
-    const auto flat = d3d11FlatRegisters(refl_, declared);
+    const auto flat = d3d11FlatRegisters(refl_, declaredRegisters(text));
     std::string rewritten;
     size_t last = 0;
     for (auto it = std::sregex_iterator(text.begin(), text.end(), reg); it != std::sregex_iterator(); ++it) {
@@ -391,11 +382,59 @@ std::expected<void, std::string> Job::toDxbcDirect(CompileResult& out) {
     return {};
 }
 
+// Features a target cannot express are rejected here, by name, instead of emitting a shader that a
+// validator or the driver rejects later (Review Focus 2):
+//   GLSL ES 3.00 (T0: GLES 3.0 / WebGL2): no storage buffers, no storage images, no compute.
+//   WGSL (WebGPU): no read-write storage in the vertex stage; no resource arrays (binding_array is
+//   not core WGSL).
+std::expected<void, std::string> Job::checkTargetFeatures() const {
+    std::string tier = "TIER undefined";
+    for (const auto& [k, v] : req_.defines) {
+        if (k == "TIER") {
+            tier = "TIER=" + v; // last definition wins, as on the DXC command line
+        }
+    }
+    auto unsupported = [&](const std::string& feature) {
+        return std::unexpected("target " + toString(req_.target) + " does not support " + feature + " (" + tier + ")");
+    };
+    if (req_.target == Target::GLSL_ES300) {
+        if (req_.stage == Stage::Compute) {
+            return unsupported("compute shaders");
+        }
+        for (const Resource& r : refl_.resources) {
+            if (r.kind == "storage_rw" && r.image) {
+                return unsupported("storage images");
+            }
+            if (r.kind == "storage_ro" || r.kind == "storage_rw") {
+                return unsupported("storage buffers");
+            }
+        }
+    }
+    if (req_.target == Target::WGSL) {
+        for (const Resource& r : refl_.resources) {
+            if (req_.stage == Stage::Vertex && r.kind == "storage_rw") {
+                return unsupported("read-write storage in the vertex stage");
+            }
+            if (r.arraySize != 1) {
+                return unsupported("resource arrays");
+            }
+        }
+    }
+    return {};
+}
+
 std::expected<CompileResult, std::string> Job::run() {
     std::error_code ec;
     if (!fs::is_regular_file(req_.src, ec)) {
         return std::unexpected("source not found: " + toUtf8(req_.src));
     }
+    // Preprocessed source: the declared registers for the binding-convention check (all of them, also
+    // the ones other entries use) and the input of the direct DXBC path.
+    auto pre = dxc({"-P", "-Fi"}, "pre.hlsl", false);
+    if (!pre) {
+        return std::unexpected(pre.error());
+    }
+    preprocessed_.assign(pre->begin(), pre->end());
     // SPIR-V first: it is the reflection source for every target and the input of the cross paths.
     auto spv = dxc({"-spirv", "-fspv-target-env=vulkan1.1", "-Fo"}, "out.spv");
     if (!spv) {
@@ -416,6 +455,12 @@ std::expected<CompileResult, std::string> Job::run() {
         return std::unexpected(refl.error());
     }
     refl_ = std::move(*refl);
+    if (auto c = checkBindingConvention(refl_, declaredRegisters(preprocessed_)); !c) {
+        return std::unexpected(c.error());
+    }
+    if (auto f = checkTargetFeatures(); !f) {
+        return std::unexpected(f.error());
+    }
 
     CompileResult out;
     std::expected<void, std::string> r;

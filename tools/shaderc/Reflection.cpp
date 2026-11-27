@@ -3,7 +3,10 @@
 #include <spirv_cross.hpp>
 
 #include <algorithm>
+#include <cctype>
+#include <regex>
 #include <set>
+#include <string_view>
 
 namespace eng::sc {
 
@@ -54,7 +57,7 @@ std::expected<Reflection, std::string> reflectSpirv(const std::vector<uint32_t>&
         const spirv_cross::ShaderResources res = comp.get_shader_resources();
         Reflection out;
 
-        auto add = [&](const spirv_cross::Resource& r, const std::string& kind) {
+        auto add = [&](const spirv_cross::Resource& r, const std::string& kind, bool image = false) {
             Resource x;
             x.spirvId = r.id;
             x.name = comp.get_name(r.id);
@@ -62,6 +65,7 @@ std::expected<Reflection, std::string> reflectSpirv(const std::vector<uint32_t>&
                 x.name = r.name;
             }
             x.kind = kind;
+            x.image = image;
             x.space = comp.get_decoration(r.id, spv::DecorationDescriptorSet);
             x.index = comp.get_decoration(r.id, spv::DecorationBinding);
             x.arraySize = arraySizeOf(comp.get_type(r.type_id));
@@ -84,7 +88,7 @@ std::expected<Reflection, std::string> reflectSpirv(const std::vector<uint32_t>&
             add(r, readOnly ? "storage_ro" : "storage_rw");
         }
         for (const auto& r : res.storage_images) {
-            add(r, "storage_rw");
+            add(r, "storage_rw", true);
         }
         if (!res.sampled_images.empty()) {
             return std::unexpected("combined image samplers are not part of the HLSL binding convention ('" +
@@ -97,6 +101,14 @@ std::expected<Reflection, std::string> reflectSpirv(const std::vector<uint32_t>&
             return std::tie(a.space, a.index, a.name) < std::tie(b.space, b.index, b.name);
         });
 
+        if (stage == Stage::Fragment) {
+            for (const auto& r : res.stage_outputs) {
+                if (comp.has_decoration(r.id, spv::DecorationLocation)) {
+                    out.renderTargets =
+                        std::max(out.renderTargets, comp.get_decoration(r.id, spv::DecorationLocation) + 1);
+                }
+            }
+        }
         if (stage == Stage::Vertex) {
             std::map<uint32_t, std::string> semanticByLocation;
             if (semantics) {
@@ -133,7 +145,7 @@ std::map<RegisterKey, uint32_t> d3d11FlatRegisters(const Reflection& r, const st
     for (const Resource& x : r.resources) {
         used.insert({registerClass(x.kind), x.space, x.index});
     }
-    std::map<char, uint32_t> next;
+    std::map<char, uint32_t> next{{'u', r.renderTargets}};
     std::map<RegisterKey, uint32_t> flat;
     auto assign = [&](const RegisterKey& k) {
         if (!flat.contains(k)) {
@@ -148,6 +160,68 @@ std::map<RegisterKey, uint32_t> d3d11FlatRegisters(const Reflection& r, const st
         assign(k);
     }
     return flat;
+}
+
+std::vector<RegisterKey> declaredRegisters(const std::string& text) {
+    static const std::regex reg(R"(register\s*\(\s*([bBtTsSuU])\s*(\d+)\s*(?:,\s*space\s*(\d+)\s*)?\))");
+    std::vector<RegisterKey> out;
+    for (auto it = std::sregex_iterator(text.begin(), text.end(), reg); it != std::sregex_iterator(); ++it) {
+        const auto& m = *it;
+        out.emplace_back(static_cast<char>(std::tolower(static_cast<unsigned char>(m[1].str()[0]))),
+                         m[3].matched ? static_cast<uint32_t>(std::stoul(m[3].str())) : 0u,
+                         static_cast<uint32_t>(std::stoul(m[2].str())));
+    }
+    return out;
+}
+
+std::expected<void, std::string> checkBindingConvention(const Reflection& r, const std::vector<RegisterKey>& declared) {
+    // One entry per declared register (a register declared twice is two entries), plus reflected
+    // resources the declarations did not show; each occupies [index, index + arraySize).
+    struct Occupant {
+        char cls;
+        uint32_t space, index, count;
+    };
+    std::vector<Occupant> occupants;
+    auto countOf = [&](const RegisterKey& k) {
+        for (const Resource& x : r.resources) {
+            if (RegisterKey(registerClass(x.kind), x.space, x.index) == k) {
+                return std::max<uint32_t>(x.arraySize, 1); // unbounded (0): its base binding only
+            }
+        }
+        return 1u;
+    };
+    std::set<RegisterKey> seen;
+    for (const RegisterKey& k : declared) {
+        occupants.push_back({std::get<0>(k), std::get<1>(k), std::get<2>(k), countOf(k)});
+        seen.insert(k);
+    }
+    for (const Resource& x : r.resources) {
+        const RegisterKey k(registerClass(x.kind), x.space, x.index);
+        if (!seen.contains(k)) {
+            occupants.push_back({std::get<0>(k), x.space, x.index, std::max<uint32_t>(x.arraySize, 1)});
+            seen.insert(k);
+        }
+    }
+    // Report the collision with the lowest (space, index), classes in b t s u order: deterministic.
+    auto classOrder = [](char c) { return std::string_view("btsu").find(c); };
+    std::sort(occupants.begin(), occupants.end(), [&](const Occupant& a, const Occupant& b) {
+        return std::tuple(a.space, a.index, classOrder(a.cls)) < std::tuple(b.space, b.index, classOrder(b.cls));
+    });
+    for (size_t i = 0; i < occupants.size(); ++i) {
+        for (size_t j = i + 1; j < occupants.size(); ++j) {
+            const Occupant& a = occupants[i];
+            const Occupant& b = occupants[j];
+            if (a.space != b.space) {
+                break;
+            }
+            if (b.index < a.index + a.count) {
+                return std::unexpected("binding collision in space" + std::to_string(a.space) + ": " +
+                                       std::string(1, a.cls) + std::to_string(a.index) + " and " +
+                                       std::string(1, b.cls) + std::to_string(b.index));
+            }
+        }
+    }
+    return {};
 }
 
 nlohmann::json toJson(const Reflection& r, Stage stage, const std::string& entry, Target target) {

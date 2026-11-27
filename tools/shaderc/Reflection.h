@@ -24,6 +24,7 @@ struct Resource {
     uint32_t arraySize = 1; // 0 = unbounded
     std::optional<uint32_t> sizeBytes;
     uint32_t spirvId = 0; // variable id in the SPIR-V module it was reflected from
+    bool image = false;   // storage_rw: RWTexture (storage image) rather than a RWStructuredBuffer
     nlohmann::json targetBinding = nlohmann::json::object();
 };
 
@@ -36,6 +37,7 @@ struct VertexInput {
 struct Reflection {
     std::vector<Resource> resources; // sorted by (space, index, name)
     std::vector<VertexInput> vertexInputs;
+    uint32_t renderTargets = 0; // fragment stage: highest SV_Target location + 1
 };
 
 // D3D register class of a resource kind: b (cbuffer), t (texture, storage_ro), s (sampler), u (storage_rw).
@@ -49,9 +51,20 @@ std::expected<Reflection, std::string> reflectSpirv(const std::vector<uint32_t>&
 
 // D3D11 (SM5 has no register spaces): per register class, the reflected resources sorted by
 // (space, index) get slots 0..n-1. `extra` are further declared registers (unused ones; only the direct
-// FXC path sees them); they get the slots after the reflected ones.
+// FXC path sees them); they get the slots after the reflected ones. Pixel-shader UAVs share the slot
+// range of the render targets (D3D11 OMSetRenderTargetsAndUnorderedAccessViews), so `u` slots of a
+// fragment shader start at r.renderTargets.
 using RegisterKey = std::tuple<char, uint32_t, uint32_t>; // class, space, index
 std::map<RegisterKey, uint32_t> d3d11FlatRegisters(const Reflection& r, const std::vector<RegisterKey>& extra = {});
+
+// Every register(<c><i>[, space<S>]) declared in preprocessed HLSL, in source order (duplicates kept).
+std::vector<RegisterKey> declaredRegisters(const std::string& preprocessedHlsl);
+
+// Binding convention (plan F1 Global Constraints): within one space the index is unique across
+// b/t/s/u, because Vulkan/WGSL bind (set = space, binding = index) and GLSL ES flattens space*16+index.
+// Checks the declared registers (all of them, also the ones this entry does not use) plus the ranges of
+// reflected resource arrays. Error: "binding collision in space<S>: <c><i> and <c><j>".
+std::expected<void, std::string> checkBindingConvention(const Reflection& r, const std::vector<RegisterKey>& declared);
 
 nlohmann::json toJson(const Reflection& r, Stage stage, const std::string& entry, Target target);
 

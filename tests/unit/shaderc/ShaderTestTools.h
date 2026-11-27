@@ -23,8 +23,13 @@ inline ToolPaths tools() {
     return t;
 }
 
+// `rel` is relative to the repo's shaders/ directory, e.g. "test/triangle.hlsl".
+inline std::filesystem::path shaderSrc(std::string_view rel) {
+    return u8path(ENG_TEST_SHADER_DIR) / u8path(rel);
+}
+
 inline std::filesystem::path triangleSrc() {
-    return u8path(ENG_TEST_SHADER_DIR) / "test" / "triangle.hlsl";
+    return shaderSrc("test/triangle.hlsl");
 }
 
 } // namespace eng::sc::test
