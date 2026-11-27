@@ -20,6 +20,9 @@ cbuffer Material : register(b0, space2)
 {
     float4 baseColorFactor;
 };
+// Commented-out declarations must not count for the collision check (DXC -P strips comments):
+// Texture2D<float4> oldTexture : register(t0, space2);
+/* SamplerState oldSampler : register(s0, space2); */
 Texture2D<float4> baseColorTexture : register(t1, space2);
 SamplerState baseColorSampler : register(s2, space2);
 TextureCube<float4> envTexture : register(t3, space2);
