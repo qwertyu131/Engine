@@ -48,8 +48,16 @@ class FakeGit:
         self.head = head
         self.calls: list[list[str]] = []
 
+    fail_set_url = False  # simulates a run killed between `git init` and `git remote add`
+
     def __call__(self, args: list[str], cwd: Path) -> str:
         self.calls.append(list(args))
+        if args[:2] == ["rev-parse", "--show-toplevel"]:
+            if not (cwd / ".git").exists():
+                raise fa.FetchError("fatal: not a git repository")
+            return str(cwd) + "\n"
+        if args[:3] == ["remote", "set-url", "origin"] and self.fail_set_url:
+            raise fa.FetchError("error: No such remote 'origin'")
         if args[:2] == ["rev-parse", "HEAD"]:
             if self.head is None:
                 raise fa.FetchError("fatal: ambiguous argument 'HEAD'")
@@ -134,6 +142,39 @@ class FetchAssetsTest(unittest.TestCase):
         fetch = [c for c in git.calls if c[0] == "fetch"][0]
         self.assertIn("--filter=blob:none", fetch)
         self.assertIn("--depth", fetch)
+
+    def test_sample_assets_missing_origin_is_added(self) -> None:
+        (self.root / "glTF-Sample-Assets" / ".git").mkdir(parents=True)
+        git = FakeGit(head=None)
+        git.fail_set_url = True
+        self.fetcher(git).sample_assets()
+        self.assertIn(["remote", "add", "origin", "https://example.invalid/glTF-Sample-Assets"], git.calls)
+        self.assertEqual(git.head, COMMIT)
+
+    @unittest.skipUnless(shutil.which("git"), "git not on PATH")
+    def test_invalid_inner_git_dir_never_touches_enclosing_repo(self) -> None:
+        # Real git, no network: an empty (invalid) .git inside another repo must not make git
+        # operate on the enclosing repository.
+        outer = self.root / "outer"
+        outer.mkdir()
+        fa.run_git(["init", "-q"], outer)
+        assets_root = outer / "assets"
+        (assets_root / "glTF-Sample-Assets" / ".git").mkdir(parents=True)
+        shutil.copy(self.lock_path, assets_root / "assets.lock.json")
+
+        def no_network_git(args: list[str], cwd: Path) -> str:
+            if args and args[0] == "fetch":
+                raise fa.FetchError("network disabled in test")
+            return fa.run_git(args, cwd)
+
+        f = fa.Fetcher(root=assets_root, git=no_network_git, download=self.fake_download(self.zip_bytes),
+                       log=self.log.append, platform_key="win64")
+        with self.assertRaisesRegex(fa.FetchError, "network disabled"):
+            f.sample_assets()
+        self.assertEqual(fa.run_git(["remote"], outer).strip(), "", "outer repo got a remote")
+        self.assertFalse((outer / ".git" / "info" / "sparse-checkout").exists(), "outer repo got sparse-checkout")
+        inner_top = fa.run_git(["rev-parse", "--show-toplevel"], assets_root / "glTF-Sample-Assets").strip()
+        self.assertEqual(Path(inner_top).resolve(), (assets_root / "glTF-Sample-Assets").resolve())
 
     def test_sample_assets_verify_mode_never_fetches(self) -> None:
         (self.root / "glTF-Sample-Assets" / ".git").mkdir(parents=True)

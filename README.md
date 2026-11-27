@@ -75,7 +75,7 @@ python scripts/gen_extension_list.py   # regenerates docs/gltf-extensions.md
 ```
 
 `fetch_assets.py` makes a shallow, blob-filtered, sparse checkout of KhronosGroup/glTF-Sample-Assets
-at the commit pinned in `tests/assets/assets.lock.json` (`Models/` without screenshots, ~1.3 GB)
+at the commit pinned in `tests/assets/assets.lock.json` (`Models/` without screenshots: 1.3 GB working tree, 2.2 GB on disk with `.git`)
 into `tests/assets/glTF-Sample-Assets/`, and downloads the pinned glTF-Validator release
 (sha256-checked) into `tests/assets/tools/`. Re-running is idempotent (`up to date`, no download);
 `--verify` checks the pins offline. The verified extension list is `docs/gltf-extensions.md`.

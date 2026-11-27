@@ -51,8 +51,12 @@ Downloader = Callable[[str, Path], None]
 
 
 def run_git(args: list[str], cwd: Path) -> str:
+    # GIT_CEILING_DIRECTORIES = parent of cwd: git never searches above `cwd` for a repository, so a
+    # broken checkout can never make git operate on an enclosing repo (e.g. the Engine repo itself).
+    env = dict(os.environ)
+    env["GIT_CEILING_DIRECTORIES"] = str(Path(cwd).resolve().parent)
     proc = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8",
-                          errors="replace")
+                          errors="replace", env=env)
     if proc.returncode != 0:
         raise FetchError(f"git {' '.join(args)} failed ({proc.returncode}): {proc.stderr.strip()}")
     return proc.stdout
@@ -106,13 +110,27 @@ class Fetcher:
     def sample_dir(self) -> Path:
         return self.root / "glTF-Sample-Assets"
 
-    def _head(self) -> str | None:
+    def _is_own_repo(self) -> bool:
+        """True only if sample_dir is itself a valid repository root (not a broken .git that would
+        make git fall through to an enclosing repository)."""
         if not (self.sample_dir / ".git").exists():
+            return False
+        try:
+            top = self.git(["rev-parse", "--show-toplevel"], self.sample_dir).strip()
+        except FetchError:
+            return False
+        try:
+            return Path(top).resolve() == self.sample_dir.resolve()
+        except OSError:
+            return False
+
+    def _head(self) -> str | None:
+        if not self._is_own_repo():
             return None
         try:
             return self.git(["rev-parse", "HEAD"], self.sample_dir).strip()
         except FetchError:
-            return None  # unborn HEAD (interrupted before checkout) or broken repo
+            return None  # unborn HEAD (interrupted before checkout)
 
     def sample_assets(self, verify: bool = False) -> None:
         entry = self.lock["glTF-Sample-Assets"]
@@ -126,16 +144,19 @@ class Fetcher:
             raise FetchError(f"glTF-Sample-Assets: expected commit {commit}, found {head or 'no checkout'}")
 
         d = self.sample_dir
-        if d.exists() and not (d / ".git").exists():
-            self.log(f"glTF-Sample-Assets: '{d}' is not a git checkout, recreating it")
+        if d.exists() and not self._is_own_repo():
+            self.log(f"glTF-Sample-Assets: '{d}' is not a valid git checkout, recreating it")
             shutil.rmtree(d)
-        if not (d / ".git").exists():
-            d.mkdir(parents=True, exist_ok=True)
+        if not d.exists():
+            d.mkdir(parents=True)
             self.git(["init", "-q"], d)
             self.git(["remote", "add", "origin", repo], d)
         else:
             self.log(f"glTF-Sample-Assets: at {head or 'no commit'}, re-checking out {commit}")
-            self.git(["remote", "set-url", "origin", repo], d)
+            try:
+                self.git(["remote", "set-url", "origin", repo], d)
+            except FetchError:  # run interrupted between `init` and `remote add`
+                self.git(["remote", "add", "origin", repo], d)
         if sparse:
             self.git(["sparse-checkout", "set", "--no-cone", *sparse], d)
         else:
