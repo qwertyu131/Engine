@@ -29,7 +29,21 @@ ctest --preset linux-clang -C Debug --output-on-failure
 | Path | Content |
 |---|---|
 | `engine/core/` | log, assert, cvar registry |
+| `tools/golden/` | `golden` image diff CLI (NVIDIA FLIP + PSNR) and `golden_core` library |
 | `tests/unit/` | doctest unit tests (one CTest entry per suite: `unit.<suite>`, plus `unit.all`) |
+| `tests/golden/` | golden CLI exit-code tests (`golden.cli.*`), fixtures (`fixtures/make_fixtures.py`) |
 | `cmake/Dependencies.cmake` | pinned FetchContent dependencies |
 
 Options: `ENG_BUILD_TESTS` (ON), `ENG_ENABLE_ASSERTS` (`DEBUG_ONLY` default, `ON`, `OFF`).
+
+## Golden image diff
+
+```powershell
+build\win-msvc	ools\golden\Debug\golden.exe compare --test a.png --ref b.png --out-diff diff.png [--threshold-flip 0.05] [--json r.json]
+build\win-msvc	ools\golden\Debug\golden.exe batch --manifest manifest.json --out outdir
+```
+
+Exit codes: `0` all PASS, `1` at least one FAIL, `2` usage / IO error (in `compare`, also a size or
+channel-count mismatch). `batch` writes `outdir/results.json` (schema in `tools/golden/Batch.h`;
+paths relative to `results.json`) and one `<case>.diff.png` FLIP heatmap per compared case.
+The golden targets are compiled as C++23 (`std::expected`); `engine` stays C++20.

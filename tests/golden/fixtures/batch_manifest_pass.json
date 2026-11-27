@@ -1,0 +1,7 @@
+{
+  "phase": "f00-cli",
+  "cases": [
+    {"name": "red_vs_copy", "test": "solid_red_64.png", "ref": "solid_red_64_copy.png", "thresholdFlip": 0.05},
+    {"name": "red_vs_dot", "test": "red_with_dot_64.png", "ref": "solid_red_64.png", "thresholdFlip": 0.05}
+  ]
+}

@@ -14,8 +14,10 @@ option(ENG_BUILD_TESTS "Build unit tests" ON)
 include(cmake/Dependencies.cmake)
 
 add_subdirectory(engine)
+add_subdirectory(tools/golden)
 
 if(ENG_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests/unit)
+    add_subdirectory(tests/golden)
 endif()
