@@ -117,9 +117,9 @@ tests/
 - Tek kaynak dil: **HLSL** (SM 6.x).
 - Derleme:
   - D3D12: DXC → DXIL
-  - D3D11: DXC → SPIR-V → SPIRV-Cross → HLSL SM5 → FXC → DXBC   *(veya doğrudan FXC uyumlu alt küme — spike karar verir)*
+  - D3D11: DXC → SPIR-V → SPIRV-Cross → HLSL SM5 → FXC → DXBC. **F1 kararı (2026-11-27): bu yol (`--dxbc-path cross`) varsayılan**; pixel shader SPIR-V'si `-fspv-preserve-interface` ile derlenir (yoksa D3D11 VS→PS linkage hatası). Doğrudan FXC yolu (`--dxbc-path direct`) yedek olarak kalır. Kanıt: `docs/spikes/f01-shader-pipeline.md`
   - Vulkan: DXC → SPIR-V
-  - Metal: DXC → SPIR-V → SPIRV-Cross → MSL (+ `xcrun metal` doğrulama CI'da)
+  - Metal: DXC → SPIR-V → SPIRV-Cross → MSL (+ `xcrun metal` doğrulama CI'da; F1 sonucu: **PENDING-CI**, GitHub billing kilidi f00.t08, "geçti" sayılmaz)
   - GLES3 / WebGL2: DXC → SPIR-V → SPIRV-Cross → GLSL ES 3.00 / 3.20
   - WebGPU: DXC → SPIR-V → **Tint** → WGSL
 - Offline derleme; çıktı `.shaderpack` (permutation key → backend blob). Runtime'da derleme yok (Web/GLES hariç driver-level link).
