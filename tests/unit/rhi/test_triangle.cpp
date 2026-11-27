@@ -176,6 +176,8 @@ TEST_CASE("negative: draw with a mismatched input layout -> exit 4") {
     REQUIRE_FALSE(r.has_value());
     CHECK(r.error().exitCode == 4);
     CAPTURE(r.error().message);
+    // Debug layer: "WARNING id=391 ID3D11Device::CreateInputLayout: ... mismatched format".
+    CHECK(r.error().message.find("CreateInputLayout") != std::string::npos);
     CHECK(dev->validationErrorCount() > 0);
 }
 
