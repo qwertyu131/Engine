@@ -1,0 +1,11 @@
+# engine_ui: Dear ImGui drawn through engine/rhi (plan F2 Task 6). Shader: shaders/ui/imgui.hlsl (library).
+add_library(engine_ui STATIC ImGuiRenderer.h ImGuiRenderer.cpp)
+add_library(engine::ui ALIAS engine_ui)
+target_include_directories(engine_ui PUBLIC "${PROJECT_SOURCE_DIR}/engine")
+target_link_libraries(engine_ui PUBLIC engine::rhi eng_imgui)
+if(TARGET engine_platform)
+    target_link_libraries(engine_ui PUBLIC engine::platform)
+endif()
+if(MSVC)
+    target_compile_options(engine_ui PRIVATE /W4 /WX /permissive- /utf-8 /external:W0)
+endif()

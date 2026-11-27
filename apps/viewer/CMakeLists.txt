@@ -1,0 +1,12 @@
+# viewer: windowed renderer with an RHI-drawn ImGui (plan F2 Task 6). Windows only for now (Win32 window).
+add_executable(viewer main.cpp Panels.h Panels.cpp)
+target_link_libraries(viewer PRIVATE headless_core golden_core engine::engine engine::rhi engine::platform engine::ui)
+if(TARGET shaders)
+    target_compile_definitions(viewer PRIVATE ENG_DEFAULT_SHADER_DIR="${ENG_SHADER_LIB_DIR}")
+    add_dependencies(viewer shaders)
+endif()
+target_compile_definitions(viewer PRIVATE ENG_DEFAULT_ASSET_DIR="${PROJECT_SOURCE_DIR}/tests/assets")
+if(MSVC)
+    target_compile_options(viewer PRIVATE /W4 /WX /permissive- /utf-8 /external:W0)
+    target_link_options(viewer PRIVATE /SUBSYSTEM:CONSOLE)
+endif()

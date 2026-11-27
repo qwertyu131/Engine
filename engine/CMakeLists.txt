@@ -30,3 +30,7 @@ endif()
 
 # RHI (plan F2 Task 2): separate target, C++23 (std::expected in the pinned interface).
 add_subdirectory(rhi)
+
+# Window + UI (plan F2 Task 6).
+add_subdirectory(platform)
+add_subdirectory(ui)

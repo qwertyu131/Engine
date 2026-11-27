@@ -51,6 +51,22 @@ struct Texture {
     TextureDesc desc;
     VkFormat format = VK_FORMAT_UNDEFINED;
     ResourceState state = ResourceState::Undefined; // last state recorded by barrier() (record order)
+    bool swapchainImage = false; // image owned by a VkSwapchainKHR: only the view is ours (plan F2 Task 6)
+};
+
+// A VkSwapchainKHR + its images registered as textures (plan F2 Task 6, VkSwapchain.cpp).
+struct Swapchain {
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+    SwapchainDesc desc;                         // width / height = the current extent (0 = no images)
+    VkFormat format = VK_FORMAT_UNDEFINED;
+    VkColorSpaceKHR colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+    std::vector<TextureHandle> images;
+    std::vector<VkSemaphore> renderFinished;    // per image (signalled by the frame's submit, waited by present)
+    VkSemaphore acquired[kFramesInFlight] = {}; // per frame slot (signalled by vkAcquireNextImageKHR)
+    int32_t acquiredIndex = -1;                 // image acquired and not yet presented
+    VkSemaphore pendingWait = VK_NULL_HANDLE;   // acquire semaphore the next submit must wait on
+    bool outOfDate = false;
 };
 
 struct Shader {
@@ -141,6 +157,9 @@ public:
     Result<BindGroupHandle> createBindGroup(const BindGroupDesc& desc) override;
     BufferBinding allocTransient(uint64_t size, uint64_t align) override;
     Result<SwapchainHandle> createSwapchain(const SwapchainDesc& desc) override;
+    Result<TextureHandle> acquireNextImage(SwapchainHandle swapchain) override;
+    Result<void> resizeSwapchain(SwapchainHandle swapchain, uint32_t width, uint32_t height) override;
+    Result<void> setSwapchainVsync(SwapchainHandle swapchain, bool vsync) override;
     void destroy(Handle handle) override;
     ICommandList& beginFrame() override;
     Result<void> submitAndWait() override;
@@ -178,6 +197,13 @@ private:
     Result<void> uploadBuffer(const Buffer& dst, std::span<const std::byte> data);
     Result<void> uploadTexture(Texture& dst, std::span<const SubresourceData> init);
     Result<void> createPipelineLayout(Pipeline& p); // set layouts per space + VkPipelineLayout into p
+    // VkSwapchain.cpp
+    Result<void> buildSwapchain(Swapchain& sc, uint32_t width, uint32_t height); // (re)creates images
+    void releaseSwapchainImages(Swapchain& sc);
+    void destroySwapchain(Swapchain& sc);
+    // Ends the open frame's command buffer and submits it, waiting on every pending acquire semaphore and
+    // signalling `signal` (VK_NULL_HANDLE = none). Advances the frame slot.
+    Result<void> submitFrame(VkSemaphore signal);
 
     static constexpr uint64_t kTransientRingBytes = 4ull << 20; // per frame in flight
 
@@ -203,6 +229,8 @@ private:
     uint32_t queueFamily_ = 0;
     uint32_t apiVersion_ = 0;
     bool khrDynamicRendering_ = false;
+    bool surfaceExtensions_ = false;   // VK_KHR_surface + VK_KHR_win32_surface enabled on the instance
+    bool swapchainExtension_ = false;  // VK_KHR_swapchain enabled on the device
     VmaAllocator allocator_ = nullptr;
 
     Frame frames_[kFramesInFlight];
@@ -222,6 +250,7 @@ private:
     HandlePool<Pipeline> pipelines_;
     HandlePool<Sampler> samplers_;
     HandlePool<BindGroup> bindGroups_;
+    HandlePool<Swapchain> swapchains_;
     uint64_t frameEpoch_ = 0; // incremented by every beginFrame (bind group descriptor-set cache key)
     VkDeviceSize minUniformOffsetAlignment_ = 256;
     std::vector<std::pair<uint64_t, std::function<void()>>> deferred_; // (serial, destroy)

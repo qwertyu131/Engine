@@ -23,7 +23,12 @@ void VulkanCommandList::barrier(std::span<const TextureBarrier> barriers) {
             continue;
         }
         const bool depth = isDepthFormat(t->desc.format);
-        const StateInfo a = stateInfo(tb.before, depth);
+        StateInfo a = stateInfo(tb.before, depth);
+        if (t->swapchainImage && (tb.before == ResourceState::Undefined || tb.before == ResourceState::Present)) {
+            // Chains with the acquire-semaphore wait (COLOR_ATTACHMENT_OUTPUT, VulkanDevice::submitFrame):
+            // a TOP_OF_PIPE source would let the layout transition run before the image is acquired.
+            a.stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        }
         const StateInfo b = stateInfo(tb.after, depth);
         VkImageMemoryBarrier m{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
         m.srcAccessMask = a.access;

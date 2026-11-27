@@ -58,6 +58,17 @@ struct Texture {
     ComPtr<ID3D11ShaderResourceView> srv;
     TextureDesc desc;
     DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
+    bool swapchainImage = false; // a swapchain back buffer (plan F2 Task 6)
+};
+
+// DXGI flip-model swapchain (plan F2 Task 6, D3D11Swapchain.cpp). The buffers are UNORM (flip model
+// rejects sRGB buffer formats); an sRGB SwapchainDesc::format gets an sRGB render-target view.
+struct Swapchain {
+    ComPtr<IDXGISwapChain1> swapchain;
+    SwapchainDesc desc;         // width / height = the current buffer size (0 = minimised at creation)
+    UINT flags = 0;             // DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING when supported (same on create / resize)
+    bool tearing = false;
+    TextureHandle backBuffer;   // null while the size is 0
 };
 
 struct Shader {
@@ -132,6 +143,9 @@ public:
     Result<BindGroupHandle> createBindGroup(const BindGroupDesc& desc) override;
     BufferBinding allocTransient(uint64_t size, uint64_t align) override;
     Result<SwapchainHandle> createSwapchain(const SwapchainDesc& desc) override;
+    Result<TextureHandle> acquireNextImage(SwapchainHandle swapchain) override;
+    Result<void> resizeSwapchain(SwapchainHandle swapchain, uint32_t width, uint32_t height) override;
+    Result<void> setSwapchainVsync(SwapchainHandle swapchain, bool vsync) override;
     void destroy(Handle handle) override;
     ICommandList& beginFrame() override;
     Result<void> submitAndWait() override;
@@ -159,6 +173,7 @@ public:
 private:
     D3D11Device() = default;
     Result<void> init(const DeviceDesc& desc);
+    Result<void> wrapBackBuffer(Swapchain& sc); // D3D11Swapchain.cpp: back buffer 0 -> RHI texture
 
     DeviceCaps caps_;
     bool validation_ = false;
@@ -176,6 +191,7 @@ private:
     HandlePool<Pipeline> pipelines_;
     HandlePool<Sampler> samplers_;
     HandlePool<BindGroup> bindGroups_;
+    HandlePool<Swapchain> swapchains_;
 
     // Transient uniforms (plan F2 Task 4): D3D11_USAGE_DYNAMIC constant buffer ring + CPU shadow. allocTransient
     // hands out shadow memory; flushTransient() copies it into the ring before a draw.

@@ -1,0 +1,13 @@
+{
+  "comment": "Dear ImGui drawn through the RHI (plan F2 Task 6). No permutation axes: key 'default'. Only the targets the F2 RHI backends load.",
+  "source": "shaders/ui/imgui.hlsl",
+  "entries": [
+    { "entry": "VSMain", "stage": "vs" },
+    { "entry": "PSMain", "stage": "fs" }
+  ],
+  "axes": {},
+  "targets": {
+    "spirv": { "backend": "Vulkan" },
+    "dxbc":  { "backend": "D3D11" }
+  }
+}

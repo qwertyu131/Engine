@@ -177,6 +177,8 @@ D3D11Device::~D3D11Device() {
         context_->Flush();
     }
     bindGroups_.clear([](BindGroup&) {});
+    textures_.clear([](Texture&) {}); // back buffers before their swapchains
+    swapchains_.clear([](Swapchain&) {});
     samplers_.clear([](Sampler&) {});
     pipelines_.clear([](Pipeline&) {});
     shaders_.clear([](Shader&) {});
@@ -235,7 +237,20 @@ void D3D11Device::destroy(Handle h) {
     // D3D11 keeps a released object alive until the GPU is done with it: release now.
     switch (h.type) {
     case HandleType::Buffer: buffers_.remove(h.id); break;
-    case HandleType::Texture: textures_.remove(h.id); break;
+    case HandleType::Texture:
+        ENG_ASSERT_MSG(!textures_.get(h.id) || !textures_.get(h.id)->swapchainImage,
+                       "destroy of a swapchain back buffer (destroy the swapchain instead)");
+        textures_.remove(h.id);
+        break;
+    case HandleType::Swapchain:
+        if (auto sc = swapchains_.remove(h.id)) {
+            context_->OMSetRenderTargets(0, nullptr, nullptr);
+            if (sc->backBuffer) {
+                textures_.remove(sc->backBuffer.id);
+            }
+            context_->Flush();
+        }
+        break;
     case HandleType::Shader: shaders_.remove(h.id); break;
     case HandleType::Pipeline: pipelines_.remove(h.id); break;
     case HandleType::Sampler: samplers_.remove(h.id); break;
@@ -244,12 +259,6 @@ void D3D11Device::destroy(Handle h) {
     }
 }
 
-Result<SwapchainHandle> D3D11Device::createSwapchain(const SwapchainDesc&) {
-    return std::unexpected(Error{kExitUsage, "d3d11: createSwapchain is implemented in plan F2 Task 6"});
-}
-Result<void> D3D11Device::present(SwapchainHandle) {
-    return std::unexpected(Error{kExitUsage, "d3d11: present is implemented in plan F2 Task 6"});
-}
 
 Result<Image> D3D11Device::readback(TextureHandle handle) {
     Texture* t = textures_.get(handle.id);

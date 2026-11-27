@@ -124,3 +124,26 @@ if(ENG_RHI_VULKAN)
         target_include_directories(eng_vma SYSTEM INTERFACE "${vma_SOURCE_DIR}/include")
     endif()
 endif()
+
+# --- UI (engine/ui, F2 Task 6) --------------------------------------------------------------
+# Dear ImGui v1.92.9b (tag commit f1cc2ae15e53a861a874c3034aae6798fde194ab, resolved with `git ls-remote`
+# 2026-11-28), MIT. Core files only (imgui*.cpp); no backend from imgui's backends/ directory: ImGui is
+# drawn through engine/rhi (engine/ui/ImGuiRenderer.cpp) and fed by engine/platform input events.
+FetchContent_Declare(imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG        f1cc2ae15e53a861a874c3034aae6798fde194ab # v1.92.9b
+    SOURCE_SUBDIR  _no_cmake_)
+FetchContent_MakeAvailable(imgui)
+if(NOT TARGET eng_imgui)
+    add_library(eng_imgui STATIC
+        "${imgui_SOURCE_DIR}/imgui.cpp"
+        "${imgui_SOURCE_DIR}/imgui_draw.cpp"
+        "${imgui_SOURCE_DIR}/imgui_tables.cpp"
+        "${imgui_SOURCE_DIR}/imgui_widgets.cpp")
+    target_include_directories(eng_imgui SYSTEM PUBLIC "${imgui_SOURCE_DIR}")
+    # No imgui_demo.cpp: the demo window is not part of the viewer.
+    target_compile_definitions(eng_imgui PUBLIC IMGUI_DISABLE_DEMO_WINDOWS IMGUI_DISABLE_OBSOLETE_FUNCTIONS)
+    if(MSVC)
+        target_compile_options(eng_imgui PRIVATE /W0 /utf-8)
+    endif()
+endif()

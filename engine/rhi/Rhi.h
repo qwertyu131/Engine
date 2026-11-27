@@ -111,10 +111,24 @@ public:
     // a draw). align is rounded up to 256 bytes. Returns a null binding (buffer 0) if the frame's ring
     // is full or no frame is open (logged).
     virtual BufferBinding allocTransient(uint64_t size, uint64_t align = 256) = 0;
+    // Swapchains (plan F2 Task 6). createSwapchain with width or height 0 gives a swapchain without
+    // images (minimised window); acquireNextImage then returns a null handle until a resize.
     virtual Result<SwapchainHandle> createSwapchain(const SwapchainDesc& desc) = 0; // plan F2 Task 6
+    // Inside a frame (after beginFrame): the back buffer to draw into this frame (state Undefined on the first
+    // acquire of an image; barrier it to RenderTarget, then to Present before present()). Returns the same
+    // image until present(). A null handle = nothing to draw (zero size): still call present() to end the
+    // frame. An out-of-date Vulkan swapchain is recreated here at its current size.
+    virtual Result<TextureHandle> acquireNextImage(SwapchainHandle swapchain) = 0;
+    // Between frames. width or height 0 does nothing (minimised window: rendering skips meanwhile).
+    virtual Result<void> resizeSwapchain(SwapchainHandle swapchain, uint32_t width, uint32_t height) = 0;
+    // Vulkan: FIFO when on; MAILBOX, else IMMEDIATE when off (recreates the swapchain). D3D11: present
+    // interval 1 / 0 (+ DXGI_PRESENT_ALLOW_TEARING when supported).
+    virtual Result<void> setSwapchainVsync(SwapchainHandle swapchain, bool vsync) = 0;
     virtual void destroy(Handle handle) = 0; // deferred until the GPU is done with it
     virtual ICommandList& beginFrame() = 0;  // frames in flight = 2
     virtual Result<void> submitAndWait() = 0; // headless; exit 4 on validation errors, 5 on device loss
+    // Ends the frame: submits it (without waiting for the GPU; frames in flight = 2) and presents the
+    // acquired image, if any. Exit 4 on validation errors, 5 on device loss.
     virtual Result<void> present(SwapchainHandle swapchain) = 0; // plan F2 Task 6
     virtual Result<Image> readback(TextureHandle texture) = 0; // RGBA8, rows top-down
     virtual uint32_t validationErrorCount() const = 0;

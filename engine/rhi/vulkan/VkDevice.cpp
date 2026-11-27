@@ -118,6 +118,21 @@ Result<void> VulkanDevice::createInstance(const DeviceDesc& desc) {
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         extensions.push_back(VK_EXT_LAYER_SETTINGS_EXTENSION_NAME);
     }
+    // Window surfaces (plan F2 Task 6): enabled when the loader has them; createSwapchain fails without.
+    {
+        uint32_t gn = 0;
+        vkEnumerateInstanceExtensionProperties(nullptr, &gn, nullptr);
+        std::vector<VkExtensionProperties> exts(gn);
+        vkEnumerateInstanceExtensionProperties(nullptr, &gn, exts.data());
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+        surfaceExtensions_ = hasExtension(exts, VK_KHR_SURFACE_EXTENSION_NAME) &&
+                             hasExtension(exts, VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+        if (surfaceExtensions_) {
+            extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+            extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+        }
+#endif
+    }
 
     VkApplicationInfo app{VK_STRUCTURE_TYPE_APPLICATION_INFO};
     app.pApplicationName = "eng";
@@ -278,6 +293,16 @@ Result<void> VulkanDevice::createLogicalDevice() {
     qci.pQueuePriorities = &priority;
 
     std::vector<const char*> exts;
+    {
+        uint32_t en = 0;
+        vkEnumerateDeviceExtensionProperties(physical_, nullptr, &en, nullptr);
+        std::vector<VkExtensionProperties> avail(en);
+        vkEnumerateDeviceExtensionProperties(physical_, nullptr, &en, avail.data());
+        swapchainExtension_ = surfaceExtensions_ && hasExtension(avail, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+        if (swapchainExtension_) {
+            exts.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+        }
+    }
     VkPhysicalDeviceVulkan13Features f13{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
     VkPhysicalDeviceDynamicRenderingFeaturesKHR fdr{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR};
     VkPhysicalDeviceFeatures2 f2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
@@ -379,6 +404,7 @@ Result<void> VulkanDevice::init(const DeviceDesc& desc) {
 VulkanDevice::~VulkanDevice() {
     if (device_) {
         vkDeviceWaitIdle(device_);
+        swapchains_.clear([&](Swapchain& sc) { destroySwapchain(sc); });
         runDeferred(true);
         bindGroups_.clear([](BindGroup&) {});
         samplers_.clear([&](Sampler& s) { vkDestroySampler(device_, s.sampler, nullptr); });
@@ -392,7 +418,9 @@ VulkanDevice::~VulkanDevice() {
         shaders_.clear([&](Shader& s) { vkDestroyShaderModule(device_, s.module, nullptr); });
         textures_.clear([&](Texture& t) {
             vkDestroyImageView(device_, t.view, nullptr);
-            vmaDestroyImage(allocator_, t.image, t.allocation);
+            if (!t.swapchainImage) {
+                vmaDestroyImage(allocator_, t.image, t.allocation);
+            }
         });
         buffers_.clear([&](Buffer& b) { vmaDestroyBuffer(allocator_, b.buffer, b.allocation); });
         for (Frame& f : frames_) {
@@ -472,27 +500,7 @@ Result<void> VulkanDevice::submitAndWait() {
         return std::unexpected(Error{kExitDeviceLost, "vulkan: device lost"});
     }
     if (recording_) {
-        Frame& f = frames_[frameIndex_];
-        recording_ = false;
-        ++frameEpoch_; // descriptor sets cached during this frame are not reused by a later one
-        if (f.ringUsed > 0) {
-            if (Buffer* ring = buffers_.tryGet(f.ring.id)) {
-                vmaFlushAllocation(allocator_, ring->allocation, 0, f.ringUsed);
-            }
-        }
-        if (const VkResult r = vkEndCommandBuffer(f.cmd); r != VK_SUCCESS) {
-            return std::unexpected(vkError("vkEndCommandBuffer", r));
-        }
-        VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
-        si.commandBufferCount = 1;
-        si.pCommandBuffers = &f.cmd;
-        if (const VkResult r = vkQueueSubmit(queue_, 1, &si, f.fence); r != VK_SUCCESS) {
-            return std::unexpected(vkError("vkQueueSubmit", r));
-        }
-        f.serial = nextSerial_++;
-        const uint32_t submitted = frameIndex_;
-        frameIndex_ = (frameIndex_ + 1) % kFramesInFlight;
-        if (auto r = waitFrame(submitted); !r) {
+        if (auto r = submitFrame(VK_NULL_HANDLE); !r) {
             return r;
         }
     }
@@ -505,6 +513,45 @@ Result<void> VulkanDevice::submitAndWait() {
     if (validationErrors_.load() > 0) {
         return std::unexpected(validationError());
     }
+    return {};
+}
+
+Result<void> VulkanDevice::submitFrame(VkSemaphore signal) {
+    Frame& f = frames_[frameIndex_];
+    recording_ = false;
+    ++frameEpoch_; // descriptor sets cached during this frame are not reused by a later one
+    if (f.ringUsed > 0) {
+        if (Buffer* ring = buffers_.tryGet(f.ring.id)) {
+            vmaFlushAllocation(allocator_, ring->allocation, 0, f.ringUsed);
+        }
+    }
+    if (const VkResult r = vkEndCommandBuffer(f.cmd); r != VK_SUCCESS) {
+        return std::unexpected(vkError("vkEndCommandBuffer", r));
+    }
+    // Acquired swapchain images: the first submit after the acquire waits on its semaphore before the
+    // colour-attachment stage (the image's layout transition is ordered after it, VulkanCommandList::barrier).
+    std::vector<VkSemaphore> waits;
+    std::vector<VkPipelineStageFlags> waitStages;
+    swapchains_.forEach([&](Swapchain& sc) {
+        if (sc.pendingWait) {
+            waits.push_back(sc.pendingWait);
+            waitStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+            sc.pendingWait = VK_NULL_HANDLE;
+        }
+    });
+    VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    si.waitSemaphoreCount = static_cast<uint32_t>(waits.size());
+    si.pWaitSemaphores = waits.data();
+    si.pWaitDstStageMask = waitStages.data();
+    si.commandBufferCount = 1;
+    si.pCommandBuffers = &f.cmd;
+    si.signalSemaphoreCount = signal ? 1u : 0u;
+    si.pSignalSemaphores = &signal;
+    if (const VkResult r = vkQueueSubmit(queue_, 1, &si, f.fence); r != VK_SUCCESS) {
+        return std::unexpected(vkError("vkQueueSubmit", r));
+    }
+    f.serial = nextSerial_++;
+    frameIndex_ = (frameIndex_ + 1) % kFramesInFlight;
     return {};
 }
 
@@ -521,9 +568,12 @@ void VulkanDevice::destroy(Handle h) {
         break;
     case HandleType::Texture:
         if (auto t = textures_.remove(h.id)) {
+            ENG_ASSERT_MSG(!t->swapchainImage, "destroy of a swapchain image (destroy the swapchain instead)");
             fn = [this, t = *t] {
                 vkDestroyImageView(device_, t.view, nullptr);
-                vmaDestroyImage(allocator_, t.image, t.allocation);
+                if (!t.swapchainImage) {
+                    vmaDestroyImage(allocator_, t.image, t.allocation);
+                }
             };
         }
         break;
@@ -552,6 +602,12 @@ void VulkanDevice::destroy(Handle h) {
         // No Vulkan object of its own: its descriptor sets live in the frame pools (reset per frame).
         bindGroups_.remove(h.id);
         break;
+    case HandleType::Swapchain:
+        if (auto sc = swapchains_.remove(h.id)) {
+            vkDeviceWaitIdle(device_); // rare (the window goes away): simplest correct teardown
+            destroySwapchain(*sc);
+        }
+        break;
     default: ENG_ASSERT_MSG(false, "destroy: handle type not supported by the Vulkan backend yet"); break;
     }
     if (fn) {
@@ -570,12 +626,6 @@ void VulkanDevice::runDeferred(bool all) {
 
 // --- not yet (later plan tasks) ---------------------------------------------------------------------
 
-Result<SwapchainHandle> VulkanDevice::createSwapchain(const SwapchainDesc&) {
-    return std::unexpected(Error{kExitUsage, "vulkan: createSwapchain is implemented in plan F2 Task 6"});
-}
-Result<void> VulkanDevice::present(SwapchainHandle) {
-    return std::unexpected(Error{kExitUsage, "vulkan: present is implemented in plan F2 Task 6"});
-}
 
 // --- one-shot submissions (staging uploads) ----------------------------------------------------------
 

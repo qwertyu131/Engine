@@ -1,0 +1,133 @@
+// Viewer panels (plan F2 Task 6): DeviceCaps table (every field + backend + adapter + tier), FPS and the
+// frame-time graph of the last 240 frames, and the CVar list with editing at CVarSource::Console.
+#include "Panels.h"
+
+#include "core/CVar.h"
+
+#include <imgui.h>
+
+#include <cstdio>
+#include <map>
+#include <string>
+#include <variant>
+
+namespace eng::viewer {
+
+float FrameStats::averageMs() const {
+    if (count == 0) {
+        return 0.0f;
+    }
+    float s = 0.0f;
+    for (size_t i = 0; i < count; ++i) {
+        s += ms[i];
+    }
+    return s / static_cast<float>(count);
+}
+
+namespace {
+
+void row(const char* name, const std::string& value) {
+    ImGui::TableNextRow();
+    ImGui::TableSetColumnIndex(0);
+    ImGui::TextUnformatted(name);
+    ImGui::TableSetColumnIndex(1);
+    ImGui::TextUnformatted(value.c_str());
+}
+
+void capsPanel(const rhi::DeviceCaps& caps) {
+    ImGui::SetNextWindowPos(ImVec2(10.0f, 10.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(330.0f, 0.0f), ImGuiCond_Always);
+    ImGui::Begin("Device", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+    if (ImGui::BeginTable("caps", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+        ImGui::TableSetupColumn("field");
+        ImGui::TableSetupColumn("value");
+        ImGui::TableHeadersRow();
+        // Every DeviceCaps field (plan F2 Task 7 adds the full capability table).
+        row("backend", rhi::toString(caps.backend));
+        row("adapter", caps.adapterName);
+        row("tier", "T" + std::to_string(caps.tier));
+        row("apiVersion", caps.apiVersion);
+        char vendor[16];
+        std::snprintf(vendor, sizeof(vendor), "0x%04x", caps.vendorId);
+        row("vendorId", vendor);
+        row("software", caps.software ? "yes" : "no");
+        ImGui::EndTable();
+    }
+    ImGui::End();
+}
+
+void statsPanel(const FrameStats& stats) {
+    ImGui::SetNextWindowPos(ImVec2(10.0f, 200.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(330.0f, 0.0f), ImGuiCond_Always);
+    ImGui::Begin("Frame time", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+    const float avg = stats.averageMs();
+    ImGui::Text("%.1f fps  %.3f ms (avg of %zu frames)", avg > 0.0f ? 1000.0f / avg : 0.0f, avg, stats.count);
+    // Oldest first: the ring starts at `next` once full.
+    const int offset = stats.count == kFrameHistory ? static_cast<int>(stats.next) : 0;
+    ImGui::PlotLines("##ms", stats.ms.data(), static_cast<int>(stats.count), offset, "frame ms", 0.0f, avg * 3.0f + 0.1f,
+                     ImVec2(310.0f, 60.0f));
+    ImGui::End();
+}
+
+void cvarPanel() {
+    ImGui::SetNextWindowPos(ImVec2(10.0f, 320.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(330.0f, 0.0f), ImGuiCond_Always);
+    ImGui::Begin("CVars", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+    static std::map<std::string, std::string> edits; // per-cvar text being typed
+    CVarRegistry& reg = CVarRegistry::get();
+    std::vector<std::string> names;
+    reg.forEach([&](const CVar& c) { names.emplace_back(c.name()); });
+    for (const std::string& name : names) {
+        CVar* c = reg.find(name);
+        if (!c) {
+            continue;
+        }
+        ImGui::PushID(name.c_str());
+        const CVarValue& v = c->value();
+        if (std::holds_alternative<bool>(v)) {
+            bool b = c->getBool();
+            if (ImGui::Checkbox(name.c_str(), &b)) {
+                c->set(b, CVarSource::Console);
+            }
+        } else if (std::holds_alternative<int32_t>(v)) {
+            int i = c->getInt();
+            if (ImGui::InputInt(name.c_str(), &i, 1, 10, ImGuiInputTextFlags_EnterReturnsTrue)) {
+                c->set(static_cast<int32_t>(i), CVarSource::Console);
+            }
+        } else if (std::holds_alternative<float>(v)) {
+            float f = c->getFloat();
+            if (ImGui::InputFloat(name.c_str(), &f, 0.0f, 0.0f, "%.3f", ImGuiInputTextFlags_EnterReturnsTrue)) {
+                c->set(f, CVarSource::Console);
+            }
+        } else {
+            std::string& text = edits[name];
+            if (text.empty()) {
+                text = c->getString();
+            }
+            char buf[256];
+            std::snprintf(buf, sizeof(buf), "%s", text.c_str());
+            if (ImGui::InputText(name.c_str(), buf, sizeof(buf), ImGuiInputTextFlags_EnterReturnsTrue)) {
+                c->set(std::string(buf), CVarSource::Console);
+                text.clear();
+            } else {
+                text = buf;
+            }
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("%s\nsource: %s", std::string(c->help()).c_str(),
+                              std::string(cvarSourceName(c->source())).c_str());
+        }
+        ImGui::PopID();
+    }
+    ImGui::End();
+}
+
+} // namespace
+
+void drawPanels(const rhi::DeviceCaps& caps, const FrameStats& stats) {
+    capsPanel(caps);
+    statsPanel(stats);
+    cvarPanel();
+}
+
+} // namespace eng::viewer
