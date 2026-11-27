@@ -1,0 +1,15 @@
+{
+  "name": "engine-refgen",
+  "private": true,
+  "type": "module",
+  "description": "Renders glTF-Sample-Viewer reference images headlessly (spec K-B).",
+  "scripts": {
+    "render": "node render.mjs",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "@khronosgroup/gltf-viewer": "1.1.0",
+    "draco3d": "1.5.7",
+    "puppeteer": "25.17.0"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "phase": "f00",
+  "cases": [
+    {
+      "name": "test_pattern_256",
+      "backend": "cpu",
+      "scene": "builtin:test-pattern",
+      "width": 256,
+      "height": 256,
+      "cvars": [],
+      "bench": 10,
+      "ref": "../ref/f00/test_pattern_256.png",
+      "thresholdFlip": 0.05
+    }
+  ]
+}

@@ -6,3 +6,9 @@ third_party/sdk/
 Saved/
 tests/golden/out/
 .claude/settings.local.json
+__pycache__/
+*.pyc
+tests/assets/glTF-Sample-Assets/
+tests/assets/tools/
+tools/refgen/node_modules/
+tools/refgen/.cache/
