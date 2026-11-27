@@ -1,0 +1,14 @@
+{
+  "dxc": {
+    "tag": "v1.9.2609",
+    "url": "https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.9.2609/dxc_2026_09_29.zip",
+    "sha256": "ad31b1fc8443175d204f77a611fdb3ef2ec42759bdc2f1167368de24a4a7e7f1"
+  },
+  "dawn": {
+    "repo": "https://dawn.googlesource.com/dawn",
+    "commit": "3981d398f827da44210ad8996dee9a0ab034b520"
+  },
+  "spirv-cross": {
+    "commit": "a0fba56c34a6700f1724bf9b751da5b488a3775c"
+  }
+}

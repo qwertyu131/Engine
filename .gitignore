@@ -12,3 +12,5 @@ tests/assets/glTF-Sample-Assets/
 tests/assets/tools/
 tools/refgen/node_modules/
 tools/refgen/.cache/
+third_party/tools/*
+!third_party/tools/tools.lock.json
