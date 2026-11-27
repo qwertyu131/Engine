@@ -71,13 +71,34 @@ const RENDER_SETTINGS = {
   framesBeforeCapture: 3,
 };
 
+// Browser: the user's installed Firefox (user decision 2026-11-27: no Chrome on this machine).
+// Puppeteer drives it over WebDriver BiDi with a throw-away profile; nothing is downloaded.
+// Override the path with --firefox <exe> or REFGEN_FIREFOX.
+function firefoxPath(cliPath) {
+  const candidates = [cliPath, process.env.REFGEN_FIREFOX,
+    'C:\\Program Files\\Mozilla Firefox\\firefox.exe',
+    'C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe',
+    '/usr/bin/firefox', '/Applications/Firefox.app/Contents/MacOS/firefox'].filter(Boolean);
+  const found = candidates.find((p) => fs.existsSync(p));
+  if (!found) throw new Error(`Firefox not found (tried: ${candidates.join(', ')}); pass --firefox <path>`);
+  return found;
+}
+
+const FIREFOX_PREFS = {
+  'webgl.force-enabled': true,        // ignore the GPU blocklist (like Chrome's --ignore-gpu-blocklist)
+  'webgl.disabled': false,
+  'webgl.enable-webgl2': true,
+  'layers.acceleration.force-enabled': true,
+  'gfx.webrender.all': true,
+};
+
 function launchConfigs(mode) {
   const all = {
-    'headless-new': { headless: true, args: ['--enable-gpu', '--ignore-gpu-blocklist', '--enable-webgl'] },
-    'angle-d3d11': { headless: true, args: ['--enable-gpu', '--ignore-gpu-blocklist', '--enable-webgl', '--use-angle=d3d11'] },
-    'headed-offscreen': { headless: false, args: ['--ignore-gpu-blocklist', '--window-position=-32000,-32000'] },
+    'firefox-headless': { headless: true, args: [] },
+    'firefox-headed-offscreen': { headless: false, args: ['-width', '800', '-height', '800'] },
   };
-  const order = mode === 'auto' ? ['headless-new', 'angle-d3d11', 'headed-offscreen'] : [mode];
+  const order = mode === 'auto' ? ['firefox-headless', 'firefox-headed-offscreen'] : [mode];
+  for (const name of order) if (!all[name]) throw new Error(`unknown --mode '${name}' (auto|${Object.keys(all).join('|')})`);
   return order.map((name) => ({ name, ...all[name] }));
 }
 
@@ -320,7 +341,10 @@ async function main() {
     for (const cfg of launchConfigs(args.mode)) {
       errors = [];
       try {
-        browser = await puppeteer.launch({ headless: cfg.headless, args: cfg.args, protocolTimeout: 300000 });
+        browser = await puppeteer.launch({
+          browser: 'firefox', executablePath: firefoxPath(args.firefox), headless: cfg.headless,
+          args: cfg.args, extraPrefsFirefox: FIREFOX_PREFS, protocolTimeout: 300000,
+        });
         page = await openPage(browser, baseUrl, args.width, args.height, errors);
         const probe = models.find((m) => m.name === 'DamagedHelmet') ?? models[0];
         const r = await renderOne(page, probe, args.width, args.height, errors);

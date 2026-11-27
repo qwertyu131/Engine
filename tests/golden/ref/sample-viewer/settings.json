@@ -8,18 +8,24 @@
   },
   "browser": {
     "puppeteer": "25.17.0",
-    "version": "Chrome/157.0.8103.50",
-    "launchMode": "headless-new",
+    "version": "firefox/160.0.1",
+    "launchMode": "firefox-headed-offscreen",
     "webgl": {
-      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Ti (0x00002482) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce GTX 980 Direct3D11 vs_5_0 ps_5_0), or similar",
       "vendor": "Google Inc. (NVIDIA)",
-      "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+      "version": "WebGL 2.0",
       "toneMapConst": "Khronos PBR Neutral"
     }
   },
   "launchAttempts": [
     {
-      "mode": "headless-new",
+      "mode": "firefox-headless",
+      "ok": false,
+      "error": "Failed to launch the browser process:  Code: 0\n\nstderr:\n*** You are running in headless mode.\n\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n",
+      "pageErrors": []
+    },
+    {
+      "mode": "firefox-headed-offscreen",
       "ok": true
     }
   ],
@@ -84,24 +90,6 @@
   },
   "models": [
     {
-      "name": "AlphaBlendModeTest",
-      "status": "OK",
-      "variant": "glTF-Binary",
-      "file": "AlphaBlendModeTest.glb",
-      "png": "AlphaBlendModeTest.png",
-      "pngSha256": "c0e5f8647a2f461ed158004b995fd08cb20d319214dba7b6181e72475192b87f",
-      "pixelStdDev": 33.956,
-      "modelCoverage": 0.243,
-      "animationIndices": [],
-      "deterministicRerender": true,
-      "sceneStats": {
-        "meshCount": 9,
-        "faceCount": 61,
-        "opaqueMaterialsCount": 5,
-        "transparentMaterialsCount": 1
-      }
-    },
-    {
       "name": "DamagedHelmet",
       "status": "OK",
       "variant": "glTF-Binary",
@@ -153,6 +141,24 @@
         "faceCount": 7774,
         "opaqueMaterialsCount": 1,
         "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "AlphaBlendModeTest",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "AlphaBlendModeTest.glb",
+      "png": "AlphaBlendModeTest.png",
+      "pngSha256": "c0e5f8647a2f461ed158004b995fd08cb20d319214dba7b6181e72475192b87f",
+      "pixelStdDev": 33.956,
+      "modelCoverage": 0.243,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 9,
+        "faceCount": 61,
+        "opaqueMaterialsCount": 5,
+        "transparentMaterialsCount": 1
       }
     },
     {

@@ -1,7 +1,5 @@
-// Keep the pinned browser inside the repo-local, git-ignored cache so the
-// reference generator never depends on whatever Chrome the machine has.
-const { join } = require('path');
-
+// No browser download: refgen drives the machine's installed Firefox
+// (user decision 2026-11-27, no Chrome). See render.mjs firefoxPath().
 module.exports = {
-  cacheDirectory: join(__dirname, '.cache', 'puppeteer'),
+  skipDownload: true,
 };

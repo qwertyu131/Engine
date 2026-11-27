@@ -2,14 +2,14 @@
 import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 
-export const MODES = ['auto', 'headless-new', 'angle-d3d11', 'headed-offscreen'];
+export const MODES = ['auto', 'firefox-headless', 'firefox-headed-offscreen'];
 
 const USAGE = `usage: node tools/refgen/render.mjs --models <A,B,...|all> --out <dir>
-       [--width 512] [--height 512] [--mode auto|headless-new|angle-d3d11|headed-offscreen]
-       [--settings <settings.json>]`;
+       [--width 512] [--height 512] [--mode auto|firefox-headless|firefox-headed-offscreen]
+       [--firefox <firefox.exe>] [--settings <settings.json>]`;
 
 export function parseArgs(argv) {
-  const a = { models: null, out: null, width: 512, height: 512, mode: 'auto', settings: null };
+  const a = { models: null, out: null, width: 512, height: 512, mode: 'auto', settings: null, firefox: null };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
     const v = () => {
@@ -23,6 +23,7 @@ export function parseArgs(argv) {
       case '--height': a.height = Number(v()); break;
       case '--mode': a.mode = v(); break;
       case '--settings': a.settings = v(); break;
+      case '--firefox': a.firefox = v(); break;
       case '-h': case '--help': throw new Error(USAGE);
       default: throw new Error(`unknown argument '${k}'\n${USAGE}`);
     }

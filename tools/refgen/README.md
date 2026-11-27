@@ -2,7 +2,8 @@
 
 Renders the "truth" images that F3 reference mode (`r.ReferenceMode=1`) is compared against.
 It drives the official Khronos sample renderer (`@khronosgroup/gltf-viewer`, WebGL2) in a
-pinned headless Chrome through Puppeteer. Output: `tests/golden/ref/sample-viewer/<Model>.png`
+the machine's installed **Firefox** through Puppeteer (WebDriver BiDi, throw-away profile;
+no browser is downloaded — user decision 2026-11-27: no Chrome on this machine). Output: `tests/golden/ref/sample-viewer/<Model>.png`
 (8-bit RGB, 512x512) plus `settings.json`, which records every fixed parameter.
 
 ## Setup (once)
@@ -10,12 +11,11 @@ pinned headless Chrome through Puppeteer. Output: `tests/golden/ref/sample-viewe
 ```powershell
 cd tools/refgen
 npm ci                                   # exact versions from package-lock.json
-npx puppeteer browsers install chrome    # pinned Chrome -> tools/refgen/.cache/puppeteer (.puppeteerrc.cjs)
 python ../../scripts/fetch_assets.py --only sample-assets   # models under tests/assets/
 ```
 
-`npm ci` may warn that the puppeteer postinstall script did not run; the explicit
-`browsers install` line above replaces it. `node_modules/` and `.cache/` are git-ignored.
+`.puppeteerrc.cjs` sets `skipDownload: true`, so `npm ci` downloads no browser. Firefox is found at
+`C:\Program Files\Mozilla Firefoxirefox.exe` (override: `--firefox <exe>` or `REFGEN_FIREFOX`). `node_modules/` and `.cache/` are git-ignored.
 
 ## Run
 
@@ -25,7 +25,7 @@ node tools/refgen/render.mjs --models all --out <dir>          # every model in 
 node --test tools/refgen/test/                                 # unit tests for the pure helpers
 ```
 
-Options: `--width/--height` (default 512), `--mode auto|headless-new|angle-d3d11|headed-offscreen`
+Options: `--width/--height` (default 512), `--mode auto|firefox-headless|firefox-headed-offscreen`
 (default `auto` tries them in that order and uses the first whose probe render passes all checks),
 `--settings <file>` (default `<out>/settings.json`, merged by model name across runs).
 
@@ -45,7 +45,7 @@ values are applied through the 1.1.0 API.
 | Setting | Value |
 |---|---|
 | Renderer | `@khronosgroup/gltf-viewer` 1.1.0 (= glTF-Sample-Renderer tag v1.1.0, `d59d1d6`), draco3d 1.5.7 |
-| Browser | Chrome 157.0.8103.50 via Puppeteer 25.17.0 |
+| Browser | Firefox 160.0.1 (installed) via Puppeteer 25.17.0; mode `firefox-headed-offscreen` (headless Firefox fails to start on this machine: exit code 0, `*** You are running in headless mode.`). Output is bit-identical to the earlier Chrome 157 render (same sha256 for all 5 PNGs, both via ANGLE D3D11 on the RTX 3070 Ti). Firefox reports a sanitised WebGL renderer string. |
 | Environment | `Cannon_Exterior.hdr` (Sample-Viewer default, index 0) from glTF-Sample-Environments `low_resolution_hdrs` @ `3a030b5`, sha256-checked |
 | Environment rotation | 90 deg ("+Z") |
 | Background | environment map rendered and blurred (Sample-Viewer default) |
