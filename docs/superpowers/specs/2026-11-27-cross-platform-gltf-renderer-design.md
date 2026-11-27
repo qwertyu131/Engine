@@ -229,7 +229,7 @@ Her faz: **hedef → çıktılar → kapı (gate)**. Kapı geçilmeden sonraki f
 |---|---|---|
 | **F0 — İskelet & doğrulama altyapısı** | git init, CMake preset'leri, core (log/assert/cvar çekirdeği), `headless` + `golden` araçları, glTF-Sample-Assets + Sample-Viewer referans görüntüleri, extension listesinin registry'den kesinleşmesi, worklist dosyası | build green; golden aracı bilinen iki PNG'yi doğru karşılaştırıyor; extension listesi registry linkiyle commit |
 | **F1 — Shader hattı spike** (§5.4) | HLSL → 6 hedef; tek PBR shader | 6 hedefe derleme başarılı; MSL `xcrun metal` CI'da (K2 notu ile) |
-| **F2 — RHI çekirdek: Vulkan + D3D11** | RHI arayüzü, iki backend, swapchain, buffer/texture/pipeline/bind group, üçgen → textured mesh; DeviceCaps; D3D11 FL10_0 ölçümü | headless üçgen + textured cube iki backend'de FLIP < eşik; validation temiz; T0 kapasite tablosu ölçülmüş |
+| **F2 — RHI çekirdek: Vulkan + D3D11 + pencereli viewer** | RHI arayüzü, iki backend, swapchain, `apps/viewer` penceresi (K-G), buffer/texture/pipeline/bind group, üçgen → textured mesh; DeviceCaps; D3D11 FL10_0 ölçümü | headless üçgen + textured cube iki backend'de FLIP < eşik; validation temiz; T0 kapasite tablosu ölçülmüş |
 | **F3 — glTF yükleyici + core PBR** | fastgltf, core glTF tam (§7.1), MikkTSpace, KTX2/Basis, Draco, meshopt, quantization; metal-roughness PBR + IBL + punctual lights + shadow | glTF-Sample-Assets core alt kümesi Vulkan+D3D11'de referansa karşı geçer |
 | **F4 — Animasyon** | skin, morph, animasyon (3 interpolasyon), KHR_animation_pointer, T0 fallback'leri | animasyonlu sample asset'ler belirli zaman damgalarında golden geçer |
 | **F5 — Capability resolver + permutation sistemi + settings** | §6 resolver, permutation key, `.shaderpack`, CVar/scalability/ini (§8), ImGui debug UI | resolver unit testleri; cvar değişimi → doğru permutation (test); tablo debug UI'da |
@@ -284,6 +284,13 @@ Fazlar arası bağımlılık: F0 → F1 → F2 → F3 → {F4, F5} → F6 → F7
   - Varsayılan limitler (değiştirilebilir cvar): T0 ≤ 64 joint/skin, ≤ 8 aktif morph target, ≤ 8 ışık/obje (forward); T1/T2 clustered ≤ 1024 ışık.
 - **K-F Işık kalite seviyeleri (kullanıcı: "kesinlikle olsun"):** Ayrı scalability grubu `sg.LightingQuality` (0..4) + mevcut `sg.ShadowQuality`. Kapsadığı cvar'lar: `r.Lighting.MaxLights`, `r.Lighting.Clustered`, `r.Lighting.Specular` (punctual specular aç/kapa), `r.IBL.Resolution`, `r.IBL.SpecularSamples`, `r.IBL.DiffuseMode` (SH / irradiance map), `r.Shadow.CascadeCount`, `r.Shadow.MapResolution`, `r.Shadow.Filter` (Hard/PCF/PCSS), `r.Shadow.PointLights`, `r.Shadow.Distance`, `r.Transmission.Quality`, `r.AO.Mode` (glTF occlusion only / +SSAO). Low→Cinematic tablosu F5'te yazılır, her seviyenin frame-time'ı referans sahnede ölçülür.
 - **Repo:** Private GitHub repo (kullanıcı onayı, 2026-11-27); CI GitHub Actions — macOS dakikaları private repoda ücretli/kotalı, sadece Metal derleme job'u macOS'ta koşar.
+
+- **K-G Görsel test (kullanıcı, 2026-11-27: "test için görüntüde alacağımız şekilde tasarlaman gerekiyor"):** Test sonuçları kullanıcının **gözüyle görebileceği** şekilde üretilir:
+  - **F2'den itibaren pencereli viewer** (`apps/viewer`): backend seçimi (`--backend=d3d11|d3d12|vulkan…`), `.glb` sürükle-bırak / dosya argümanı, orbit kamera, ImGui panelleri (capability tablosu, cvar/scalability, ışık seviyesi, upscaler seçimi, FPS/frame-time grafiği), backend'i runtime'da değiştirme (F7 sonrası).
+  - **İlk görünür kilometre taşı:** F2 sonunda pencerede dönen textured cube (D3D11 + Vulkan); F3 sonunda pencerede gerçek bir `.glb` (ör. `DamagedHelmet.glb`).
+  - **Her faz kapısı bir görsel rapor üretir:** `tests/golden/out/<faz>/report.html` — her test için yan yana *bizim render / referans / FLIP diff haritası* + PASS/FAIL + frame-time. Reviewer raporu üretir, kullanıcı tarayıcıda açıp kontrol eder.
+  - Viewer'da `F12` = ekran görüntüsü (`Saved/Screenshots/`), `--compare` modu = aynı sahneyi iki backend'de yan yana.
+  - Headless golden testleri otomatik kapı olarak kalır; görsel rapor ve viewer bunun üstüne kullanıcı kontrolü içindir.
 
 ## 15. Builder'a bırakılanlar
 - Math kütüphanesi (kendi vs. glm/DirectXMath), job system tasarımı, bellek allocator'ları (VMA / D3D12MA kullanımı önerilir).
