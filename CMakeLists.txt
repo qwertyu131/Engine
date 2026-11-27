@@ -24,6 +24,9 @@ endif()
 
 add_subdirectory(engine)
 add_subdirectory(tools/golden)
+if(ENG_BUILD_SHADERC)
+    add_subdirectory(tools/shaderc)
+endif()
 add_subdirectory(apps/headless)
 
 if(ENG_BUILD_TESTS)

@@ -13,14 +13,15 @@ set(ENG_WINDOWS_SDK_VERSION "10.0.26100.0")
 function(eng_find_shader_tool var name)
     cmake_parse_arguments(PARSE_ARGV 2 T "" "" "PATHS")
     # NO_DEFAULT_PATH: only the given locations; a same-named tool elsewhere on PATH is never used.
-    find_program(${var} NAMES ${name} PATHS ${T_PATHS} NO_DEFAULT_PATH NO_CACHE)
-    if(NOT ${var})
+    # Searched on every configure (a tool fetched after the first configure is picked up).
+    find_program(_eng_found NAMES ${name} PATHS ${T_PATHS} NO_DEFAULT_PATH NO_CACHE)
+    if(NOT _eng_found)
         message(WARNING "tool not found: ${name} (run scripts/fetch_shader_tools.py); "
                         "shaderc tests needing it will be skipped")
         set(${var} "" CACHE FILEPATH "${name} for shaderc" FORCE)
     else()
-        set(${var} "${${var}}" CACHE FILEPATH "${name} for shaderc" FORCE)
-        message(STATUS "shader tool ${name}: ${${var}}")
+        set(${var} "${_eng_found}" CACHE FILEPATH "${name} for shaderc" FORCE)
+        message(STATUS "shader tool ${name}: ${_eng_found}")
     endif()
 endfunction()
 
