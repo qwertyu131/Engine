@@ -21,6 +21,8 @@
 namespace eng {
 
 // Priority order: a higher value wins. Equal priority overrides too (last writer wins).
+// Console is highest, above Code, as in Unreal (ECVF_SetByConsole > ECVF_SetByCode):
+// a value the user types at runtime is never overwritten by code (user decision 2026-11-27).
 enum class CVarSource : uint8_t {
     Default = 0,
     Scalability = 1,
@@ -28,8 +30,8 @@ enum class CVarSource : uint8_t {
     ProjectIni = 3,
     UserIni = 4,
     CommandLine = 5,
-    Console = 6,
-    Code = 7,
+    Code = 6,
+    Console = 7,
 };
 
 enum class CVarFlags : uint32_t {

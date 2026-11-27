@@ -56,7 +56,7 @@
 **Interfaces:**
 - Consumes: `eng::log` (warnings on rejected sets).
 - Produces:
-  - `enum class eng::CVarSource : uint8_t { Default=0, Scalability=1, PlatformIni=2, ProjectIni=3, UserIni=4, CommandLine=5, Console=6, Code=7 };` (priority order = spec §8)
+  - `enum class eng::CVarSource : uint8_t { Default=0, Scalability=1, PlatformIni=2, ProjectIni=3, UserIni=4, CommandLine=5, Code=6, Console=7 };` (priority order = spec §8; Console highest as in Unreal — changed 2026-11-27)
   - `enum class eng::CVarFlags : uint32_t { None=0, ReadOnly=1, RequiresRestart=2, RequiresPipelineRebuild=4, Cheat=8 };` (bitmask operators)
   - `using CVarValue = std::variant<bool, int32_t, float, std::string>;`
   - `class eng::CVarRegistry { static CVarRegistry& get(); CVar* registerBool/Int/Float/String(std::string_view name, T def, std::string_view help, CVarFlags = None, optional min/max for Int/Float); CVar* find(std::string_view name) const; bool set(std::string_view name, std::string_view value, CVarSource); void forEach(fn) const; uint64_t onChanged(std::function<void(const CVar&)>); void removeListener(uint64_t); }`

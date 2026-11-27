@@ -75,12 +75,21 @@ TEST_SUITE("cvar") {
     TEST_CASE("equal or higher priority overrides") {
         CVarRegistry reg;
         CVar* a = reg.registerInt("r.Test.Higher", 3, "");
-        CHECK(reg.set("r.Test.Higher", "5", CVarSource::Console));
-        CHECK(reg.set("r.Test.Higher", "6", CVarSource::Console));
+        CHECK(reg.set("r.Test.Higher", "5", CVarSource::Code));
+        CHECK(reg.set("r.Test.Higher", "6", CVarSource::Code));
         CHECK(a->getInt() == 6);
-        CHECK(reg.set("r.Test.Higher", "9", CVarSource::Code));
+        CHECK(reg.set("r.Test.Higher", "9", CVarSource::Console));
         CHECK(a->getInt() == 9);
-        CHECK(a->source() == CVarSource::Code);
+        CHECK(a->source() == CVarSource::Console);
+    }
+
+    TEST_CASE("console beats code (Unreal order)") {
+        CVarRegistry reg;
+        CVar* a = reg.registerInt("r.Test.ConsoleWins", 3, "");
+        CHECK(reg.set("r.Test.ConsoleWins", "5", CVarSource::Console));
+        CHECK_FALSE(reg.set("r.Test.ConsoleWins", "9", CVarSource::Code));
+        CHECK(a->getInt() == 5);
+        CHECK(a->source() == CVarSource::Console);
     }
 
     TEST_CASE("int clamp to min/max") {
@@ -216,24 +225,24 @@ TEST_SUITE("cvar") {
             events.emplace_back(std::string(c.name()), c.getInt());
         });
 
-        CHECK(reg.set("r.Test.Changed", "4", CVarSource::Console));
+        CHECK(reg.set("r.Test.Changed", "4", CVarSource::Code));
         REQUIRE(events.size() == 1);
         CHECK(events[0].first == "r.Test.Changed");
         CHECK(events[0].second == 4);
 
         // Same value from an equal or higher source: accepted, source upgraded, no event.
-        CHECK(reg.set("r.Test.Changed", "4", CVarSource::Console));
         CHECK(reg.set("r.Test.Changed", "4", CVarSource::Code));
-        CHECK(a->source() == CVarSource::Code);
+        CHECK(reg.set("r.Test.Changed", "4", CVarSource::Console));
+        CHECK(a->source() == CVarSource::Console);
         CHECK(events.size() == 1);
 
         // Rejected sets produce no event.
-        CHECK_FALSE(reg.set("r.Test.Changed", "abc", CVarSource::Code));
-        CHECK_FALSE(reg.set("r.Test.Changed", "8", CVarSource::Console));
+        CHECK_FALSE(reg.set("r.Test.Changed", "abc", CVarSource::Console));
+        CHECK_FALSE(reg.set("r.Test.Changed", "8", CVarSource::Code));
         CHECK(events.size() == 1);
 
         reg.removeListener(id);
-        CHECK(reg.set("r.Test.Changed", "5", CVarSource::Code));
+        CHECK(reg.set("r.Test.Changed", "5", CVarSource::Console));
         CHECK(events.size() == 1);
     }
 

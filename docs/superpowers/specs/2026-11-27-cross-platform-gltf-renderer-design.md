@@ -171,12 +171,19 @@ Not: T0 tablosunun **gerçek** değerleri Faz 2'de D3D11 FL10_0 üzerinde ölç�
 ### 7.1 Core glTF 2.0 (hepsi zorunlu)
 `.glb` + `.gltf` (embedded/external/data-URI buffer), tüm accessor tipleri + normalized + sparse accessor, tüm primitive mode'ları (POINTS, LINES, LINE_LOOP, LINE_STRIP, TRIANGLES, TRIANGLE_STRIP, TRIANGLE_FAN — desteklemeyen API'de index'e dönüştürme), çoklu UV set, vertex color, tangent üretimi (MikkTSpace, yoksa), sampler (wrap/filter/mipmap), PNG/JPEG, node hiyerarşisi (TRS + matrix), çoklu scene, perspektif + ortografik kamera, skin (inverse bind matrices, çoklu skin), morph targets (POSITION/NORMAL/TANGENT + ek attribute'lar), animasyon (translation/rotation/scale/weights; LINEAR/STEP/CUBICSPLINE), material: metal-roughness, normal/occlusion/emissive, alphaMode (OPAQUE/MASK/BLEND) + alphaCutoff, doubleSided, default material, sınırsız-boyut uyarıları.
 
-### 7.2 Extension'lar (**ön liste — Faz 0'da KhronosGroup/glTF registry'den doğrulanıp kesinleşir**)
-KHR (ratified olanlar hedef): `KHR_draco_mesh_compression`, `KHR_lights_punctual`, `KHR_materials_anisotropy`, `KHR_materials_clearcoat`, `KHR_materials_diffuse_transmission`, `KHR_materials_dispersion`, `KHR_materials_emissive_strength`, `KHR_materials_ior`, `KHR_materials_iridescence`, `KHR_materials_sheen`, `KHR_materials_specular`, `KHR_materials_transmission`, `KHR_materials_unlit`, `KHR_materials_variants`, `KHR_materials_volume`, `KHR_mesh_quantization`, `KHR_meshopt_compression` (ratification durumu doğrulanacak), `KHR_texture_basisu`, `KHR_texture_transform`, `KHR_animation_pointer`, `KHR_xmp_json_ld` (metadata — okunur, render etkisi yok).
+### 7.2 Extension'lar (F0'da registry'den doğrulandı: `docs/gltf-extensions.md`, KhronosGroup/glTF @ `da88a3b`; kapsam kararı 2026-11-27)
+Kural: **registry'de Ratified olan her KHR extension kapsamdadır** ("glTF standartlarının hepsi"). Release Candidate olanlar da uygulanır, statüsü değişirse güncellenir.
 
-EXT (yaygın kullanılanlar): `EXT_meshopt_compression`, `EXT_mesh_gpu_instancing`, `EXT_texture_webp`, `EXT_texture_avif`, `EXT_lights_image_based`(opsiyonel, durum doğrulanacak).
+Render / yükleme (F3–F6):
+`KHR_draco_mesh_compression`, `KHR_lights_punctual`, `KHR_materials_anisotropy`, `KHR_materials_clearcoat`, `KHR_materials_diffuse_transmission` (RC), `KHR_materials_dispersion`, `KHR_materials_emissive_strength`, `KHR_materials_ior`, `KHR_materials_iridescence`, `KHR_materials_retroreflection`, `KHR_materials_sheen`, `KHR_materials_specular`, `KHR_materials_transmission`, `KHR_materials_unlit`, `KHR_materials_variants`, `KHR_materials_volume`, `KHR_mesh_quantization`, `KHR_texture_basisu`, `KHR_texture_transform`, `KHR_animation_pointer`, `KHR_node_visibility`, `KHR_xmp_json_ld` (metadata, render etkisi yok).
 
-Taslak/ratification bekleyenler (ör. `KHR_interactivity` — Temmuz 2026'da ratification'a sunuldu): **kapsam dışı**, yükleyici `extensionsRequired` içinde görürse anlamlı hata verir; `extensionsUsed` içindeyse yok sayıp uyarır.
+Ayrı render yolu (yeni faz **F6b**): `KHR_gaussian_splatting` — splat sıralama + blend pass; T0'da FALLBACK (CPU sıralama, azaltılmış splat sayısı), T1/T2'de compute sıralama.
+
+Etkileşim / runtime (yeni faz **F16**, render çekirdeğinden sonra): `KHR_interactivity` (behavior graph yürütücüsü), `KHR_node_hoverability`, `KHR_node_selectability`. Renderer bunları facade üzerinden host uygulamaya açar (picking/hover olayları, graph tick); F16'ya kadar yükleyici bunları parse edip saklar, `extensionsRequired` içindeyse "F16'da desteklenecek" hatası verir.
+
+EXT / multi-vendor: `EXT_meshopt_compression` (+ registry'ye girdiğinde `KHR_meshopt_compression`, aynı decoder), `EXT_mesh_gpu_instancing`, `EXT_texture_webp`, `EXT_lights_image_based` (opsiyonel). `EXT_texture_avif` registry'de yok → kapsamdan çıkarıldı.
+
+Registry'de olmayan / taslak extension: `extensionsRequired` içindeyse anlamlı hata, `extensionsUsed` içindeyse uyarı + yok sayma.
 
 ### 7.3 Kabul kriteri ("tam kapsam" tanımı)
 1. **Khronos glTF-Validator**: her test asset'i sıfır error ile valid → yükleyici bunları hatasız yükler; validator'ın reddettiği asset'leri yükleyici de anlamlı hatayla reddeder.
@@ -187,7 +194,7 @@ Taslak/ratification bekleyenler (ör. `KHR_interactivity` — Temmuz 2026'da rat
 ## 8. Settings sistemi (Unreal benzeri)
 
 - **CVar** kayıt sistemi: `r.Shadow.Quality`, `r.Transmission.Enable`, `r.Upscaler.Mode`, `r.Upscaler.Quality`, `r.TAA.Enable`, `r.IBL.Resolution`, `r.Material.Clearcoat` … (her opsiyonel glTF extension + her render özelliği bir cvar).
-- CVar özellikleri: tip (bool/int/float/string/enum), varsayılan, min/max, açıklama, flag'ler (`ReadOnly`, `RequiresRestart`, `RequiresPipelineRebuild`, `Cheat`), değiştirilme kaynağı (öncelik sırası: Default < Scalability < Platform ini < Project ini < User ini < CommandLine < Console/Code).
+- CVar özellikleri: tip (bool/int/float/string/enum), varsayılan, min/max, açıklama, flag'ler (`ReadOnly`, `RequiresRestart`, `RequiresPipelineRebuild`, `Cheat`), değiştirilme kaynağı (öncelik sırası: Default < Scalability < Platform ini < Project ini < User ini < CommandLine < Code < Console). Console en yüksek, Unreal'daki gibi (kullanıcının runtime'da yazdığı değeri kod ezemez; karar 2026-11-27).
 - **Scalability grupları** (`sg.ShadowQuality`, `sg.PostProcessQuality`, `sg.TextureQuality`, `sg.EffectsQuality`, `sg.AntiAliasingQuality`, `sg.ResolutionQuality`) — her grup 0..4 (Low/Medium/High/Epic/Cinematic); her seviye bir cvar seti.
 - **ini katmanları**: `Config/Default*.ini`, `Config/<Platform>/<Platform>*.ini`, kullanıcı `Saved/Config/*.ini`.
 - **Runtime değişim**: cvar değişince capability resolver tekrar çalışır; gereken permutation'lar yüklenir/derlenir (Web/GLES) veya pack'ten alınır; `RequiresRestart` olanlar bir sonraki açılışta.
@@ -242,6 +249,8 @@ Her faz: **hedef → çıktılar → kapı (gate)**. Kapı geçilmeden sonraki f
 | **F12 — Linux** | X11/Wayland surface | Vulkan golden (lavapipe CI + yerel WSL opsiyonel) |
 | **F13 — Metal (macOS + iOS)** | Metal backend, MetalFX | **sadece** derleme + MSL doğrulama (K2); runtime = DOĞRULANMADI |
 | **F14 — Frame generation + RT extras (opsiyonel)** | DLSS-FG / FSR-FG / XeSS-FG, DXR/VK RT yansıma-gölge | bu makinede çalışan alt küme |
+| **F6b — Gaussian splatting** | `KHR_gaussian_splatting` (§7.2) | splat sample asset golden (Vulkan + D3D11) |
+| **F16 — Etkileşim** | `KHR_interactivity`, `KHR_node_hoverability`, `KHR_node_selectability` + facade olay API'si | Khronos interactivity test asset'leri; picking/hover unit testleri |
 | **F15 — Gerçek Mac doğrulaması (ertelenmiş)** | kiralık Mac / kullanıcı Mac edinirse | Metal golden seti |
 
 Fazlar arası bağımlılık: F0 → F1 → F2 → F3 → {F4, F5} → F6 → F7 → F8 → F9; F10/F11/F12 F6 sonrasında paralel yürüyebilir; F13 F7 sonrası herhangi bir zaman.
