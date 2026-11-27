@@ -1,5 +1,7 @@
 add_library(engine STATIC
     core/Assert.h
+    core/CVar.h
+    core/CVar.cpp
     core/Log.h
     core/Log.cpp)
 add_library(engine::engine ALIAS engine)

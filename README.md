@@ -27,7 +27,7 @@ ctest --preset linux-clang -C Debug --output-on-failure
 
 | Path | Content |
 |---|---|
-| `engine/core/` | log, assert |
+| `engine/core/` | log, assert, cvar registry |
 | `tests/unit/` | doctest unit tests (one CTest entry per suite: `unit.<suite>`, plus `unit.all`) |
 | `cmake/Dependencies.cmake` | pinned FetchContent dependencies |
 
