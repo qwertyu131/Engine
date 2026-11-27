@@ -30,7 +30,8 @@ if(ENG_BUILD_SHADERC)
         shaderc/test_main.cpp
         shaderc/ShaderTestTools.h
         shaderc/test_targets.cpp
-        shaderc/test_reflection.cpp)
+        shaderc/test_reflection.cpp
+        shaderc/test_pbr.cpp)
     target_link_libraries(shaderc_unit_tests PRIVATE shaderc_core nlohmann_json::nlohmann_json doctest::doctest)
     target_compile_definitions(shaderc_unit_tests PRIVATE
         ENG_TEST_DXC="${ENG_DXC}"

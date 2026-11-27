@@ -1,0 +1,37 @@
+{
+  "comment": "glTF core PBR permutation matrix (plan F1 Task 4, spec K-A / 6.1). Axes: TIER x FG_SKIN x FG_MORPH x FG_UNLIT = 24 define sets per stage. Each target compiles the define sets of its backend tier (spec 6.1), so 8 per target per stage, 56 per stage, 112 compiles in all. scripts/compile_shaders.py checks that 'excluded' is exactly the complement of 'tiers'.",
+  "source": "shaders/pbr/pbr.hlsl",
+  "entries": [
+    { "entry": "VSMain", "stage": "vs" },
+    { "entry": "PSMain", "stage": "fs" }
+  ],
+  "axes": {
+    "TIER": [0, 1, 2],
+    "FG_SKIN": [0, 1],
+    "FG_MORPH": [0, 1],
+    "FG_UNLIT": [0, 1]
+  },
+  "fixed": {
+    "FG_CLEARCOAT_SHEEN_SPEC": 0,
+    "FG_TRANSMISSION_VOLUME": 0
+  },
+  "targets": {
+    "dxil":       { "tiers": [2], "backend": "D3D12" },
+    "spirv":      { "tiers": [2], "backend": "Vulkan 1.2+" },
+    "msl":        { "tiers": [2], "backend": "Metal 3" },
+    "dxbc":       { "tiers": [1], "backend": "D3D11 FL11_x (SM 5.0)" },
+    "glsl-es320": { "tiers": [1], "backend": "OpenGL ES 3.2" },
+    "wgsl":       { "tiers": [1], "backend": "WebGPU" },
+    "glsl-es300": { "tiers": [0], "backend": "OpenGL ES 3.0 / WebGL2" }
+  },
+  "excluded": [
+    { "target": "dxil",       "TIER": [0, 1], "reason": "D3D12 is T2 (spec 6.1)" },
+    { "target": "spirv",      "TIER": [0, 1], "reason": "Vulkan 1.2+ is T2 (spec 6.1)" },
+    { "target": "msl",        "TIER": [0, 1], "reason": "Metal 3 is T2 (spec 6.1)" },
+    { "target": "dxbc",       "TIER": [0],    "reason": "shaderc emits SM 5.0 (vs_5_0/ps_5_0) = D3D11 FL11_x = T1; the T0 D3D11 FL10_x backend needs SM 4.0 profiles, not part of F1" },
+    { "target": "dxbc",       "TIER": [2],    "reason": "D3D11 is not T2 (spec 6.1)" },
+    { "target": "glsl-es320", "TIER": [0, 2], "reason": "OpenGL ES 3.2 is T1 (spec 6.1)" },
+    { "target": "wgsl",       "TIER": [0, 2], "reason": "WebGPU is T1 (spec 6.1)" },
+    { "target": "glsl-es300", "TIER": [1, 2], "reason": "GLSL ES 3.00 has no storage buffers (T0, spec 6.1); shaderc rejects them by name" }
+  ]
+}
