@@ -146,7 +146,7 @@ TEST_CASE("bind group entries: missing / unknown name / wrong kind messages (no 
 
 } // TEST_SUITE
 
-TEST_SUITE("rhi.vulkan") {
+TEST_SUITE("rhi.device") {
 
 TEST_CASE("createBindGroup: missing / unknown entry -> Error{2, exact message}") {
     auto dev = makeDevice();

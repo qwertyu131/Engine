@@ -76,6 +76,7 @@ Result<ShaderBlob> ShaderLibrary::load(const fs::path& dir, std::string_view sha
         r.entry = j.at("entry").get<std::string>();
         r.target = j.at("target").get<std::string>();
         r.dxbcPath = j.value("dxbcPath", std::string());
+        r.renderTargets = j.value("renderTargets", 0u);
         for (const auto& jr : j.at("resources")) {
             ReflectedResource x;
             x.name = jr.at("name").get<std::string>();

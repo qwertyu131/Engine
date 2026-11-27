@@ -15,6 +15,7 @@
 
 #include <array>
 #include <memory>
+#include <variant>
 #include <utility>
 #include <string>
 #include <vector>
@@ -25,8 +26,29 @@ using Microsoft::WRL::ComPtr;
 
 struct Buffer {
     ComPtr<ID3D11Buffer> buffer;
+    ComPtr<ID3D11ShaderResourceView> srv;  // Storage: raw (ByteAddressBuffer, the SPIRV-Cross form)
+    ComPtr<ID3D11UnorderedAccessView> uav; // Storage on FL11+: raw
     uint64_t size = 0;
     BufferUsage usage = BufferUsage::None;
+};
+
+struct Sampler {
+    ComPtr<ID3D11SamplerState> sampler;
+};
+
+// A bind group resolved to D3D11 slots: one entry per (stage, register class, slot) from each stage's own
+// reflection (D3D11 slots are per stage and per permutation, F1).
+struct BindGroup {
+    struct Slot {
+        uint32_t stage = kStageVertex;
+        char registerClass = 'b';
+        uint32_t slot = 0;
+        uint32_t sizeBytes = 0; // cbuffer: reflected size
+        std::variant<BufferBinding, TextureHandle, SamplerHandle> resource;
+    };
+    uint32_t space = 0;
+    BindGroupLayout layout;
+    std::vector<Slot> slots;
 };
 
 struct Texture {
@@ -56,6 +78,8 @@ struct Pipeline {
     ComPtr<ID3D11BlendState> blend;
     D3D11_PRIMITIVE_TOPOLOGY topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
     std::vector<uint32_t> strides; // per vertex buffer slot, from the pipeline's vertex layout
+    std::vector<BindGroupLayout> bindGroupLayouts; // reflection-derived, per-stage registers
+    uint32_t uavStartSlot = 0; // the PS reflection's renderTargets (F1: u slots start after the render targets)
     bool vsHasMorphStorage = false;
 };
 
@@ -125,6 +149,12 @@ public:
     HandlePool<Buffer>& buffers() { return buffers_; }
     HandlePool<Texture>& textures() { return textures_; }
     HandlePool<Pipeline>& pipelines() { return pipelines_; }
+    HandlePool<BindGroup>& bindGroups() { return bindGroups_; }
+    HandlePool<Sampler>& samplers() { return samplers_; }
+    // Copies the transient allocations written since the last flush into the dynamic ring (Map
+    // DISCARD on the first flush of a frame, NO_OVERWRITE after it) and unmaps it. Before every draw.
+    void flushTransient();
+    void resetTransient(); // beginFrame
 
 private:
     D3D11Device() = default;
@@ -144,6 +174,19 @@ private:
     HandlePool<Texture> textures_;
     HandlePool<Shader> shaders_;
     HandlePool<Pipeline> pipelines_;
+    HandlePool<Sampler> samplers_;
+    HandlePool<BindGroup> bindGroups_;
+
+    // Transient uniforms (plan F2 Task 4): D3D11_USAGE_DYNAMIC constant buffer ring + CPU shadow. allocTransient
+    // hands out shadow memory; flushTransient() copies it into the ring before a draw.
+    static constexpr uint64_t kTransientRingBytes = 4ull << 20;
+    BufferHandle ring_;
+    std::vector<std::byte> ringShadow_;
+    uint64_t ringUsed_ = 0;     // bytes allocated this frame
+    uint64_t ringFlushed_ = 0;  // bytes already copied into the ring this frame
+    bool ringDiscarded_ = false; // the first Map of the frame (DISCARD) happened
+    bool constantBufferOffsetting_ = false;    // D3D11_FEATURE_D3D11_OPTIONS
+    bool mapNoOverwriteOnDynamicCb_ = false;   // D3D11_FEATURE_D3D11_OPTIONS
 
     uint32_t validationErrors_ = 0;
     std::string firstMessage_;

@@ -200,7 +200,8 @@ struct ShaderReflection {
     ShaderStage stage = ShaderStage::Vertex;
     std::string entry;
     std::string target; // spirv | dxbc
-    std::string dxbcPath; // "cross" | "direct" when the JSON records it (plan F2 Task 4), else empty
+    std::string dxbcPath; // dxbc: "cross" | "direct" (shaderc records it since plan F2 Task 4), else empty
+    uint32_t renderTargets = 0; // pixel shader: highest SV_Target + 1 (D3D11 UAVStartSlot), else 0
     std::vector<ReflectedResource> resources;
     std::vector<ReflectedVertexInput> vertexInputs;
 };

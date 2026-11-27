@@ -159,9 +159,9 @@ class LibraryTest(unittest.TestCase):
             rc, text = self.run_main(fake, out, ["--library", str(LIBRARY), "--targets", "spirv,dxbc"])
             self.assertEqual(rc, 0, text)
             s = json.loads((out / "summary.json").read_text(encoding="utf-8"))
-            # pbr: spirv T2 x 8 + dxbc T1 x 8 define sets, 2 entries; triangle, color_triangle, textured:
-            # 2 targets x 2 entries each.
-            self.assertEqual(s["total"], 32 + 4 + 4 + 4)
+            # pbr: spirv T2 x 8 + dxbc T1 x 8 define sets, 2 entries; triangle, color_triangle: 2 targets x
+            # 2 entries each; textured: the same + its dxbc direct-path variant (2 entries).
+            self.assertEqual(s["total"], 32 + 4 + 4 + 6)
             self.assertEqual(s["failed"], [])
             self.assertEqual({i["target"] for i in s["items"]}, {"spirv", "dxbc"})
             dirs = {Path(c[c.index("--out") + 1]).relative_to(out).as_posix() for c in fake.calls}
@@ -179,6 +179,34 @@ class LibraryTest(unittest.TestCase):
         self.assertEqual({j.key for j in jobs}, {"default"})
         self.assertEqual({j.target for j in jobs}, {"spirv", "dxbc"})
         self.assertEqual({j.shader for j in jobs}, {"triangle"})
+
+    def test_dxbc_paths_build_a_direct_variant_with_its_own_key(self) -> None:
+        # Plan F2 Task 4: textured.hlsl is also built on the direct DXBC path (key "default-direct"), so
+        # the D3D11 RHI test can pair a cross VS with a direct PS and see the rejection.
+        perms = cs.load_permutations(REPO / "shaders" / "test" / "textured.permutations.json")
+        jobs = cs.expand_jobs(perms, library=True)
+        dxbc = sorted((j.key, j.entry, j.dxbc_path) for j in jobs if j.target == "dxbc")
+        self.assertEqual(dxbc, [("default", "PSMain", "cross"), ("default", "VSMain", "cross"),
+                                ("default-direct", "PSMain", "direct"), ("default-direct", "VSMain", "direct")])
+        self.assertEqual({j.key for j in jobs if j.target == "spirv"}, {"default"})
+        direct = next(j for j in jobs if j.key == "default-direct")
+        cmd = cs.command(Path("shaderc"), direct.source, direct, Path("out"), None)
+        self.assertEqual(cmd[cmd.index("--dxbc-path") + 1], "direct")
+        cross = next(j for j in jobs if j.target == "dxbc" and j.key == "default")
+        # A per-target path wins over the run's --dxbc-path.
+        cmd = cs.command(Path("shaderc"), cross.source, cross, Path("out"), "direct")
+        self.assertEqual(cmd[cmd.index("--dxbc-path") + 1], "cross")
+
+    def test_dxbc_paths_are_checked(self) -> None:
+        base = json.loads((REPO / "shaders" / "test" / "textured.permutations.json").read_text(encoding="utf-8"))
+        bad = json.loads(json.dumps(base))
+        bad["targets"]["dxbc"]["dxbcPaths"] = ["cross", "sideways"]
+        with self.assertRaisesRegex(ValueError, "dxbcPaths"):
+            cs.check_permutations(bad)
+        bad = json.loads(json.dumps(base))
+        bad["targets"]["spirv"]["dxbcPaths"] = ["cross"]
+        with self.assertRaisesRegex(ValueError, "dxbcPaths"):
+            cs.check_permutations(bad)
 
     def test_unknown_target_filter_is_usage_error(self) -> None:
         with tempfile.TemporaryDirectory() as d:

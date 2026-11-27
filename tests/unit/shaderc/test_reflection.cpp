@@ -253,4 +253,32 @@ TEST_CASE("no_register: a resource without an explicit register() is rejected on
     }
 }
 
+// Plan F2 Task 4: the D3D11 RHI rejects a VS/PS pair from different DXBC paths (F1 Risk 1), so the
+// reflection records the path; it binds pixel-shader UAVs from UAVStartSlot = renderTargets.
+TEST_CASE("reflection: dxbcPath on dxbc targets only, renderTargets on pixel shaders only") {
+    const fs::path src = test::triangleSrc();
+    for (const auto& [entry, stage] : kEntries) {
+        CAPTURE(entry);
+        for (DxbcPath path : {DxbcPath::Cross, DxbcPath::Direct}) {
+            CompileRequest req = request(src, entry, stage, Target::DXBC);
+            req.dxbcPath = path;
+            auto r = compile(req, test::tools());
+            REQUIRE_MESSAGE(r.has_value(), (r.has_value() ? std::string() : r.error()));
+            CHECK(r->reflection.at("dxbcPath") == (path == DxbcPath::Cross ? "cross" : "direct"));
+            if (stage == Stage::Fragment) {
+                CHECK(r->reflection.at("renderTargets") == 1); // one SV_Target0
+            } else {
+                CHECK_FALSE(r->reflection.contains("renderTargets"));
+            }
+        }
+        for (Target t : {Target::SPIRV, Target::DXIL, Target::WGSL}) {
+            CAPTURE(toString(t));
+            auto r = compile(request(src, entry, stage, t), test::tools());
+            REQUIRE_MESSAGE(r.has_value(), (r.has_value() ? std::string() : r.error()));
+            CHECK_FALSE(r->reflection.contains("dxbcPath"));
+            CHECK(r->reflection.contains("renderTargets") == (stage == Stage::Fragment));
+        }
+    }
+}
+
 } // TEST_SUITE

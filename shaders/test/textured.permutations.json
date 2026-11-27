@@ -1,13 +1,27 @@
 {
-  "comment": "builtin:textured-cube shader for the RHI (plan F2 Task 3). No permutation axes: key 'default'. Only the targets the F2 RHI backends load.",
+  "comment": "builtin:textured-cube shader for the RHI (plan F2 Task 3). No permutation axes: key 'default'. Only the targets the F2 RHI backends load. dxbc is also built on the direct path (key 'default-direct') for the D3D11 mixed-path rejection test (plan F2 Task 4).",
   "source": "shaders/test/textured.hlsl",
   "entries": [
-    { "entry": "VSMain", "stage": "vs" },
-    { "entry": "PSMain", "stage": "fs" }
+    {
+      "entry": "VSMain",
+      "stage": "vs"
+    },
+    {
+      "entry": "PSMain",
+      "stage": "fs"
+    }
   ],
   "axes": {},
   "targets": {
-    "spirv": { "backend": "Vulkan" },
-    "dxbc":  { "backend": "D3D11" }
+    "spirv": {
+      "backend": "Vulkan"
+    },
+    "dxbc": {
+      "backend": "D3D11",
+      "dxbcPaths": [
+        "cross",
+        "direct"
+      ]
+    }
   }
 }

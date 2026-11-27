@@ -261,6 +261,10 @@ nlohmann::json toJson(const Reflection& r, Stage stage, const std::string& entry
         j["vertexInputs"].push_back({{"location", v.location}, {"semantic", v.semantic}, {"format", v.format}});
     }
     j["pushConstants"] = nullptr;
+    if (stage == Stage::Fragment) {
+        // Highest SV_Target + 1: D3D11 pixel-shader UAV slots start here (UAVStartSlot, plan F2 Task 4).
+        j["renderTargets"] = r.renderTargets;
+    }
     return j;
 }
 

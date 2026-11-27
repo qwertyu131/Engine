@@ -1,4 +1,4 @@
-// builtin:textured-cube (plan F2 Task 3): device-local buffers + texture with CPU mips uploaded through
+// builtin:textured-cube (plan F2 Task 3, on every backend since Task 4): device-local buffers + texture with CPU mips uploaded through
 // staging, sampler, two bind groups (space2 material, space3 draw constants from allocTransient), depth
 // D32_FLOAT, sRGB texture.
 //
@@ -77,7 +77,8 @@ Image renderCube(IDevice& dev, Format target) {
 
 } // namespace
 
-TEST_SUITE("rhi.vulkan") {
+// Every backend configuration (plan F2 Task 4: parametrised over the backends present).
+TEST_SUITE("rhi.device") {
 
 TEST_CASE("builtin:textured-cube 128x128 sRGB target: face centres, depth probe, background, validation clean") {
     auto dev = makeDevice();

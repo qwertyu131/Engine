@@ -1,4 +1,5 @@
-// D3D11 resources: buffers, textures, shaders, graphics pipelines (plan F2 Task 2).
+// D3D11 resources: buffers, textures, shaders, graphics pipelines (plan F2 Task 2); texture initial data,
+// storage-buffer views, bind group layouts per stage, DXBC path check (plan F2 Task 4).
 #include "D3D11Common.h"
 
 #include <algorithm>
@@ -27,9 +28,15 @@ Result<BufferHandle> D3D11Device::createBuffer(const BufferDesc& desc, std::span
         bd.BindFlags |= D3D11_BIND_CONSTANT_BUFFER;
         bd.ByteWidth = (bd.ByteWidth + 15u) & ~15u;
     }
-    if (any(desc.usage, BufferUsage::Storage)) {
+    const bool storage = any(desc.usage, BufferUsage::Storage);
+    if (storage) {
+        // Raw views: the cross DXBC path (SPIRV-Cross) declares storage buffers as (RW)ByteAddressBuffer.
         bd.BindFlags |= D3D11_BIND_SHADER_RESOURCE;
         bd.MiscFlags |= D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS;
+        bd.ByteWidth = (bd.ByteWidth + 3u) & ~3u;
+        if (caps_.tier >= 1) {
+            bd.BindFlags |= D3D11_BIND_UNORDERED_ACCESS; // pixel-shader UAVs need FL11
+        }
     }
     std::vector<std::byte> padded;
     D3D11_SUBRESOURCE_DATA sd{};
@@ -44,6 +51,26 @@ Result<BufferHandle> D3D11Device::createBuffer(const BufferDesc& desc, std::span
     if (HRESULT hr = device_->CreateBuffer(&bd, init.empty() ? nullptr : &sd, &b.buffer); FAILED(hr)) {
         return std::unexpected(hrError("CreateBuffer", hr));
     }
+    if (storage) {
+        D3D11_SHADER_RESOURCE_VIEW_DESC sv{};
+        sv.Format = DXGI_FORMAT_R32_TYPELESS;
+        sv.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
+        sv.BufferEx.NumElements = bd.ByteWidth / 4u;
+        sv.BufferEx.Flags = D3D11_BUFFEREX_SRV_FLAG_RAW;
+        if (HRESULT hr = device_->CreateShaderResourceView(b.buffer.Get(), &sv, &b.srv); FAILED(hr)) {
+            return std::unexpected(hrError("CreateShaderResourceView (storage buffer)", hr));
+        }
+        if (bd.BindFlags & D3D11_BIND_UNORDERED_ACCESS) {
+            D3D11_UNORDERED_ACCESS_VIEW_DESC uv{};
+            uv.Format = DXGI_FORMAT_R32_TYPELESS;
+            uv.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+            uv.Buffer.NumElements = bd.ByteWidth / 4u;
+            uv.Buffer.Flags = D3D11_BUFFER_UAV_FLAG_RAW;
+            if (HRESULT hr = device_->CreateUnorderedAccessView(b.buffer.Get(), &uv, &b.uav); FAILED(hr)) {
+                return std::unexpected(hrError("CreateUnorderedAccessView (storage buffer)", hr));
+            }
+        }
+    }
     if (!desc.debugName.empty()) {
         b.buffer->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(desc.debugName.size()), desc.debugName.data());
     }
@@ -52,9 +79,6 @@ Result<BufferHandle> D3D11Device::createBuffer(const BufferDesc& desc, std::span
 }
 
 Result<TextureHandle> D3D11Device::createTexture(const TextureDesc& desc, std::span<const SubresourceData> init) {
-    if (!init.empty()) {
-        return std::unexpected(Error{kExitUsage, "d3d11: texture initial data is implemented in plan F2 Task 4"});
-    }
     if (desc.width == 0 || desc.height == 0 || desc.mipLevels == 0 || desc.arrayLayers == 0) {
         return std::unexpected(Error{kExitUsage, "d3d11: createTexture with a zero dimension"});
     }
@@ -85,7 +109,28 @@ Result<TextureHandle> D3D11Device::createTexture(const TextureDesc& desc, std::s
     if (any(desc.usage, TextureUsage::Storage)) {
         td.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
     }
-    if (HRESULT hr = device_->CreateTexture2D(&td, nullptr, &t.texture); FAILED(hr)) {
+    // Initial data: every subresource, in D3D subresource order (layer * mipLevels + mip) = SubresourceData order.
+    std::vector<D3D11_SUBRESOURCE_DATA> sub;
+    if (!init.empty()) {
+        if (init.size() != size_t(desc.mipLevels) * desc.arrayLayers) {
+            return std::unexpected(Error{kExitUsage, std::format("d3d11: createTexture: {} initial subresources, the "
+                                                                 "texture has {} (mips x layers)",
+                                                                 init.size(), desc.mipLevels * desc.arrayLayers)});
+        }
+        const uint32_t bpp = formatBytes(desc.format);
+        for (size_t i = 0; i < init.size(); ++i) {
+            const uint32_t mip = static_cast<uint32_t>(i % desc.mipLevels);
+            const uint32_t w = std::max(1u, desc.width >> mip), h = std::max(1u, desc.height >> mip);
+            const uint32_t pitch = init[i].rowPitch ? init[i].rowPitch : w * bpp;
+            if (pitch < w * bpp || init[i].data.size() < size_t(pitch) * (h - 1) + size_t(w) * bpp) {
+                return std::unexpected(Error{kExitUsage, std::format("d3d11: createTexture: initial data of "
+                                                                     "subresource {} is too small ({} bytes for {}x{})",
+                                                                     i, init[i].data.size(), w, h)});
+            }
+            sub.push_back({init[i].data.data(), pitch, 0});
+        }
+    }
+    if (HRESULT hr = device_->CreateTexture2D(&td, sub.empty() ? nullptr : sub.data(), &t.texture); FAILED(hr)) {
         return std::unexpected(hrError("CreateTexture2D", hr));
     }
     if (td.BindFlags & D3D11_BIND_RENDER_TARGET) {
@@ -184,21 +229,28 @@ Result<PipelineHandle> D3D11Device::createGraphicsPipeline(const GraphicsPipelin
         return std::unexpected(Error{kExitUsage, "d3d11: createGraphicsPipeline needs a vertex and a pixel shader"});
     }
     // F1 Risk 1: VS and PS of one pipeline must come from the same DXBC path (their signatures are packed
-    // differently). Checked when the reflection records the path (plan F2 Task 4 adds it to shaderc).
-    if (!vs->reflection.dxbcPath.empty() && !ps->reflection.dxbcPath.empty() &&
-        vs->reflection.dxbcPath != ps->reflection.dxbcPath) {
+    // differently). shaderc records the path in the reflection (plan F2 Task 4); a blob without it is
+    // rejected, so the check can never be skipped silently.
+    for (const Shader* s : {vs, ps}) {
+        if (s->reflection.dxbcPath.empty()) {
+            return std::unexpected(Error{kExitUsage, "d3d11: " + s->entry +
+                                                         ": reflection has no dxbcPath (rebuild the shaders with this shaderc)"});
+        }
+    }
+    if (vs->reflection.dxbcPath != ps->reflection.dxbcPath) {
         return std::unexpected(Error{kExitUsage, "VS and PS from different dxbc paths"});
     }
-    for (const Shader* s : {vs, ps}) {
-        if (!s->reflection.resources.empty()) {
-            return std::unexpected(Error{kExitUsage, "d3d11: pipeline resources need bind groups (plan F2 Task 4): " +
-                                                         s->entry + " uses '" + s->reflection.resources[0].name + "'"});
-        }
+    // Bind group layouts with each stage's own registers (plan F2 Task 4).
+    auto bgl = deriveBindGroupLayouts(vs->reflection, ps->reflection);
+    if (!bgl) {
+        return std::unexpected(Error{bgl.error().exitCode, "d3d11: " + bgl.error().message});
     }
 
     Pipeline p;
     p.vs = vs->vs;
     p.ps = ps->ps;
+    p.bindGroupLayouts = std::move(*bgl);
+    p.uavStartSlot = ps->reflection.renderTargets;
     p.topology = toD3D(desc.topology);
     for (const VertexBufferLayout& b : desc.vertexLayout.buffers) {
         p.strides.push_back(b.stride);

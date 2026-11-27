@@ -140,7 +140,9 @@ if(TARGET shaders)
         rhi/test_shader_library.cpp
         rhi/test_triangle.cpp
         rhi/test_bind_group.cpp
-        rhi/test_cube.cpp)
+        rhi/test_cube.cpp
+        rhi/test_d3d11.cpp
+        rhi/test_cross_backend.cpp)
     target_link_libraries(rhi_unit_tests PRIVATE engine::rhi headless_core nlohmann_json::nlohmann_json doctest::doctest)
     target_compile_definitions(rhi_unit_tests PRIVATE ENG_TEST_SHADER_LIB_DIR="${ENG_SHADER_LIB_DIR}"
         ENG_TEST_ASSET_DIR="${PROJECT_SOURCE_DIR}/tests/assets")
@@ -163,4 +165,11 @@ if(TARGET shaders)
             FAIL_REGULAR_EXPRESSION "test cases: +0 \\|")
     endforeach()
     set_tests_properties(unit.rhi.shaderlib PROPERTIES FAIL_REGULAR_EXPRESSION "test cases: +0 \\|")
+    # Plan F2 Task 4: D3D11 (hardware + WARP) vs Vulkan image equality; needs every backend (Skipped otherwise).
+    if(ENG_RHI_VULKAN AND ENG_RHI_D3D11)
+        add_test(NAME unit.rhi.cross COMMAND rhi_unit_tests --rhi-backend=cross --no-version=true)
+        set_tests_properties(unit.rhi.cross PROPERTIES
+            SKIP_RETURN_CODE 77
+            FAIL_REGULAR_EXPRESSION "test cases: +0 \\|")
+    endif()
 endif()

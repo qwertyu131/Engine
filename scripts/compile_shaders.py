@@ -17,6 +17,9 @@ Library mode (plan F2 Task 2; the CMake target `shaders`): --library lists permu
 shader); every shader is compiled into <out>/<shader>/<target>/<key>/ (shader = source file stem), the
 layout engine/rhi ShaderLibrary reads. --targets keeps only the given targets (the RHI backends'). A
 permutation file without a TIER axis has no tiers and the single key "default".
+A dxbc target may list "dxbcPaths": ["cross", "direct"] (plan F2 Task 4): each path is compiled; the cross
+output keeps the permutation key, the direct output gets the key "<key>-direct". A per-target path wins
+over --dxbc-path.
 
 Writes <out>/summary.json:
     {"total", "ok", "failed": [{"id", "target", "stage", "key", "error"}], "pendingCi": [id...], "msTotal",
@@ -56,6 +59,7 @@ Runner = Callable[[list[str]], "tuple[int, str, str]"]
 
 
 DEFAULT_KEY = "default"  # key of a shader without permutation axes
+DXBC_PATHS = {"cross", "direct"}
 
 
 @dataclass
@@ -68,6 +72,7 @@ class Job:
     shader: str = ""  # source file stem
     source: Path | None = None
     library: bool = False  # library mode: id and output directory are prefixed with the shader name
+    dxbc_path: str | None = None  # from the target's "dxbcPaths"; None = the run's --dxbc-path / shaderc default
 
     @property
     def id(self) -> str:
@@ -90,6 +95,14 @@ def check_permutations(perms: dict) -> None:
     unknown = set(perms["targets"]) - set(TARGETS)
     if unknown:
         raise ValueError(f"unknown targets in permutations file: {sorted(unknown)}")
+    for target, spec in perms["targets"].items():
+        paths = spec.get("dxbcPaths")
+        if paths is None:
+            continue
+        if target != "dxbc":
+            raise ValueError(f"{target}: 'dxbcPaths' is only valid for the dxbc target")
+        if not paths or len(set(paths)) != len(paths) or not set(paths) <= DXBC_PATHS:
+            raise ValueError(f"dxbc: 'dxbcPaths' must be distinct values of {sorted(DXBC_PATHS)}, got {paths}")
     if "TIER" not in perms["axes"]:
         if any(spec.get("tiers") for spec in perms["targets"].values()) or perms.get("excluded"):
             raise ValueError("'tiers' / 'excluded' need a TIER axis")
@@ -133,8 +146,10 @@ def expand_jobs(perms: dict, targets: list[str] | None = None, library: bool = F
                 continue
             defines.update({k: str(v) for k, v in perms.get("fixed", {}).items()})
             key = permutation_key(defines)
-            for e in perms["entries"]:
-                jobs.append(Job(target, e["entry"], e["stage"], key, dict(defines), stem, src, library))
+            for path in perms["targets"][target].get("dxbcPaths", [None]):
+                path_key = f"{key}-direct" if path == "direct" else key
+                for e in perms["entries"]:
+                    jobs.append(Job(target, e["entry"], e["stage"], path_key, dict(defines), stem, src, library, path))
     # Stable order: target (shaderc order), permutation key, entry.
     jobs.sort(key=lambda j: (TARGETS.index(j.target), j.key, j.entry))
     return jobs
@@ -164,8 +179,9 @@ def command(shaderc: Path, src: Path, job: Job, out: Path, dxbc_path: str | None
     for k, v in job.defines.items():
         cmd += ["--define", f"{k}={v}"]
     cmd += ["--out", str(out), "--validate"]
-    if dxbc_path and job.target == "dxbc":
-        cmd += ["--dxbc-path", dxbc_path]
+    path = job.dxbc_path or dxbc_path
+    if path and job.target == "dxbc":
+        cmd += ["--dxbc-path", path]
     return cmd
 
 
@@ -178,6 +194,8 @@ def run_job(runner: Runner, shaderc: Path, src: Path, job: Job, out_root: Path, 
             "defines": job.defines, "ms": round(ms, 1)}
     if job.library:
         item["shader"] = job.shader
+    if job.target == "dxbc":
+        item["dxbcPath"] = job.dxbc_path or dxbc_path or "shaderc default"
     m = None
     for line in stdout.splitlines():
         m = RESULT_LINE.search(line) or m

@@ -1,5 +1,6 @@
 // D3D11 command recording (plan F2 Task 2): straight into the immediate context. Barriers are no-ops
-// (the runtime tracks hazards); the debug-layer queue is drained after every draw.
+// (the runtime tracks hazards); the debug-layer queue is drained after every draw. setBindGroup is in
+// D3D11BindGroups.cpp (plan F2 Task 4).
 #include "D3D11Common.h"
 
 #include "core/Assert.h"
@@ -74,10 +75,6 @@ void D3D11CommandList::setPipeline(PipelineHandle pipeline) {
     vertexBuffersDirty_ = true; // strides come from the pipeline
 }
 
-void D3D11CommandList::setBindGroup(uint32_t, BindGroupHandle) {
-    ENG_ASSERT_MSG(false, "setBindGroup is implemented in plan F2 Task 4");
-}
-
 void D3D11CommandList::setVertexBuffer(uint32_t slot, BufferHandle buffer, uint64_t offset) {
     // D3D11 takes the stride at bind time; the RHI keeps it in the pipeline's vertex layout, so vertex
     // buffers are applied at draw time with the strides of the pipeline bound then.
@@ -130,6 +127,7 @@ void D3D11CommandList::setScissor(const Rect& r) {
 }
 
 void D3D11CommandList::draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) {
+    dev_.flushTransient(); // transient uniforms written since the last draw -> the (unmapped) ring
     flushVertexBuffers();
     if (instanceCount == 1 && firstInstance == 0) {
         dev_.context()->Draw(vertexCount, firstVertex);
@@ -147,6 +145,7 @@ void D3D11CommandList::drawIndexed(uint32_t indexCount, uint32_t instanceCount, 
                            "morph meshes draw with base vertex 0 (SV_VertexID includes it on Vulkan)");
         }
     }
+    dev_.flushTransient();
     flushVertexBuffers();
     dev_.context()->DrawIndexedInstanced(indexCount, instanceCount, firstIndex, baseVertex, firstInstance);
     dev_.drainMessages();

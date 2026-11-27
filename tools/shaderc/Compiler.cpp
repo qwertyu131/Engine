@@ -508,6 +508,10 @@ std::expected<CompileResult, std::string> Job::run() {
         return std::unexpected(r.error());
     }
     out.reflection = toJson(refl_, req_.stage, req_.entry, req_.target);
+    if (req_.target == Target::DXBC) {
+        // The D3D11 RHI rejects a VS / PS pair from different paths (F1 Risk 1; plan F2 Task 4).
+        out.reflection["dxbcPath"] = toString(req_.dxbcPath);
+    }
     out.diagnostics = std::move(diagnostics_);
     return out;
 }

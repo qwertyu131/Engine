@@ -96,6 +96,25 @@ TEST_CASE("triangle.VSMain loads for both backends; reflection fields equal the 
     }
 }
 
+TEST_CASE("reflection carries dxbcPath (D3D11) and renderTargets (pixel shader); direct-path variant key") {
+    const fs::path dir = eng::rhi::test::shaderLibDir();
+    for (const char* entry : {"VSMain", "PSMain"}) {
+        CAPTURE(entry);
+        const bool ps = std::string(entry) == "PSMain";
+        auto cross = ShaderLibrary::load(dir, "textured", entry, Backend::D3D11, "default");
+        auto direct = ShaderLibrary::load(dir, "textured", entry, Backend::D3D11, "default-direct");
+        auto spirv = ShaderLibrary::load(dir, "textured", entry, Backend::Vulkan, "default");
+        REQUIRE_MESSAGE(cross.has_value(), (cross ? std::string() : cross.error().message));
+        REQUIRE_MESSAGE(direct.has_value(), (direct ? std::string() : direct.error().message));
+        REQUIRE_MESSAGE(spirv.has_value(), (spirv ? std::string() : spirv.error().message));
+        CHECK(cross->reflection.dxbcPath == "cross");
+        CHECK(direct->reflection.dxbcPath == "direct");
+        CHECK(spirv->reflection.dxbcPath.empty());
+        CHECK(cross->reflection.renderTargets == (ps ? 1u : 0u));
+        CHECK(spirv->reflection.renderTargets == (ps ? 1u : 0u));
+    }
+}
+
 TEST_CASE("a missing shader is Error{2, shader not found: <path>}") {
     const fs::path dir = eng::rhi::test::shaderLibDir();
     auto r = ShaderLibrary::load(dir, "no_such_shader", "VSMain", Backend::Vulkan, "default");

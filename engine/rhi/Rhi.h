@@ -78,7 +78,8 @@ public:
     virtual void beginRenderPass(const RenderPassDesc& desc) = 0;       // color/depth attachments, load/store, clear
     virtual void endRenderPass() = 0;
     virtual void setPipeline(PipelineHandle pipeline) = 0;
-    virtual void setBindGroup(uint32_t space, BindGroupHandle group) = 0; // plan F2 Task 3
+    // After setPipeline: the group is bound for the bound pipeline's layout of `space` (must equal the group's).
+    virtual void setBindGroup(uint32_t space, BindGroupHandle group) = 0; // plan F2 Task 3 (Vulkan), Task 4 (D3D11)
     virtual void setVertexBuffer(uint32_t slot, BufferHandle buffer, uint64_t offset) = 0;
     virtual void setIndexBuffer(BufferHandle buffer, IndexType type, uint64_t offset) = 0;
     virtual void setViewport(const Viewport& viewport) = 0;

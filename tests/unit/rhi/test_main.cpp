@@ -1,5 +1,6 @@
 // RHI tests (plan F2 Task 2). One ctest entry per backend configuration:
-//   rhi_unit_tests --rhi-backend=vulkan|d3d11|d3d11-warp [doctest options]
+//   rhi_unit_tests --rhi-backend=vulkan|d3d11|d3d11-warp|cross [doctest options]
+// `cross` (plan F2 Task 4) runs the backend-vs-backend suite rhi.cross and needs Vulkan, D3D11 and WARP.
 // The backend is created once up front:
 //   - created          -> "RHI backend: <name> (<adapter>, <api>)" is printed and the cases run;
 //   - exit 3 (absent)  -> "SKIP: backend <name> not available: <reason>", exit 77 = ctest Skipped
@@ -38,7 +39,27 @@ int main(int argc, char** argv) {
         }
     }
     doctest::Context ctx(static_cast<int>(args.size()), args.data());
-    if (!backend.empty()) {
+    if (backend == "cross") {
+        for (const char* name : {"vulkan", "d3d11", "d3d11-warp"}) {
+            DeviceDesc d;
+            d.backend = std::string(name) == "vulkan" ? Backend::Vulkan : Backend::D3D11;
+            d.warp = std::string(name) == "d3d11-warp";
+            auto dev = createDevice(d);
+            if (!dev) {
+                if (dev.error().exitCode == kExitNoBackend) {
+                    std::printf("SKIP: backend %s not available: %s\n", name, dev.error().message.c_str());
+                    return 77;
+                }
+                std::printf("FAIL: backend %s: createDevice exit %d: %s\n", name, dev.error().exitCode,
+                            dev.error().message.c_str());
+                return 1;
+            }
+            std::printf("RHI backend: %s (adapter '%s', API %s)\n", name, (*dev)->caps().adapterName.c_str(),
+                        (*dev)->caps().apiVersion.c_str());
+        }
+        std::fflush(stdout);
+        ctx.setOption("test-suite", "rhi.cross");
+    } else if (!backend.empty()) {
         test::BackendConfig& cfg = const_cast<test::BackendConfig&>(test::currentBackend());
         cfg.name = backend;
         if (backend == "vulkan") {

@@ -153,12 +153,21 @@ Result<void> D3D11Device::init(const DeviceDesc& desc) {
         caps_.vendorId = ad.VendorId;
     }
     caps_.software = desc.warp;
+    // Transient uniforms bind ranges of one dynamic constant buffer (VS/PSSetConstantBuffers1) and append
+    // to it with MAP_WRITE_NO_OVERWRITE (plan F2 Task 4); both are optional D3D11.1 features.
+    D3D11_FEATURE_DATA_D3D11_OPTIONS opts{};
+    if (SUCCEEDED(device_->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS, &opts, sizeof(opts)))) {
+        constantBufferOffsetting_ = opts.ConstantBufferOffsetting != FALSE;
+        mapNoOverwriteOnDynamicCb_ = opts.MapNoOverwriteOnDynamicConstantBuffer != FALSE;
+    }
     cmdList_ = std::make_unique<D3D11CommandList>(*this);
     drainMessages();
     if (validationErrors_ > 0) {
         return std::unexpected(validationError());
     }
-    ENG_LOG_INFO("d3d11: {} (FL {}){}", caps_.adapterName, caps_.apiVersion, validation_ ? ", debug layer" : "");
+    ENG_LOG_INFO("d3d11: {} (FL {}){}; ConstantBufferOffsetting={} MapNoOverwriteOnDynamicConstantBuffer={}",
+                 caps_.adapterName, caps_.apiVersion, validation_ ? ", debug layer" : "", constantBufferOffsetting_,
+                 mapNoOverwriteOnDynamicCb_);
     return {};
 }
 
@@ -167,6 +176,8 @@ D3D11Device::~D3D11Device() {
         context_->ClearState();
         context_->Flush();
     }
+    bindGroups_.clear([](BindGroup&) {});
+    samplers_.clear([](Sampler&) {});
     pipelines_.clear([](Pipeline&) {});
     shaders_.clear([](Shader&) {});
     textures_.clear([](Texture&) {});
@@ -184,6 +195,7 @@ NativeHandles D3D11Device::nativeHandles() const {
 ICommandList& D3D11Device::beginFrame() {
     ENG_ASSERT_MSG(!recording_, "beginFrame while a frame is open");
     recording_ = true;
+    resetTransient();
     cmdList_->begin();
     return *cmdList_;
 }
@@ -193,6 +205,7 @@ Result<void> D3D11Device::submitAndWait() {
         return std::unexpected(Error{kExitDeviceLost, "d3d11: device removed"});
     }
     recording_ = false;
+    flushTransient();
     context_->End(eventQuery_.Get());
     context_->Flush();
     BOOL done = FALSE;
@@ -225,20 +238,12 @@ void D3D11Device::destroy(Handle h) {
     case HandleType::Texture: textures_.remove(h.id); break;
     case HandleType::Shader: shaders_.remove(h.id); break;
     case HandleType::Pipeline: pipelines_.remove(h.id); break;
+    case HandleType::Sampler: samplers_.remove(h.id); break;
+    case HandleType::BindGroup: bindGroups_.remove(h.id); break;
     default: ENG_ASSERT_MSG(false, "destroy: handle type not supported by the D3D11 backend yet"); break;
     }
 }
 
-Result<SamplerHandle> D3D11Device::createSampler(const SamplerDesc&) {
-    return std::unexpected(Error{kExitUsage, "d3d11: createSampler is implemented in plan F2 Task 4"});
-}
-Result<BindGroupHandle> D3D11Device::createBindGroup(const BindGroupDesc&) {
-    return std::unexpected(Error{kExitUsage, "d3d11: createBindGroup is implemented in plan F2 Task 4"});
-}
-BufferBinding D3D11Device::allocTransient(uint64_t, uint64_t) {
-    ENG_LOG_ERROR("d3d11: allocTransient is implemented in plan F2 Task 4");
-    return {};
-}
 Result<SwapchainHandle> D3D11Device::createSwapchain(const SwapchainDesc&) {
     return std::unexpected(Error{kExitUsage, "d3d11: createSwapchain is implemented in plan F2 Task 6"});
 }
