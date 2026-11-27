@@ -1,0 +1,21 @@
+{
+  "glTF-Sample-Assets": {
+    "repo": "https://github.com/KhronosGroup/glTF-Sample-Assets",
+    "commit": "e124e8d8d7330a5372bc2b4d00d39a4a9d7997ea",
+    "sparse": ["/Models/", "!/Models/*/screenshot/"]
+  },
+  "gltf-validator": {
+    "version": "2.0.0-dev.3.10",
+    "url": "https://github.com/KhronosGroup/glTF-Validator/releases/download/2.0.0-dev.3.10/gltf_validator-2.0.0-dev.3.10-win64.zip",
+    "sha256": "c5068f51205deedc28acc3529ee7e11ee60e853454f673093398eba80142202c",
+    "linux64": {
+      "url": "https://github.com/KhronosGroup/glTF-Validator/releases/download/2.0.0-dev.3.10/gltf_validator-2.0.0-dev.3.10-linux64.tar.xz",
+      "sha256": "168eba887964125abe17ae97899b38d0b3cfd73c266c78424c194929ddcbc522"
+    }
+  },
+  "glTF-registry": {
+    "repo": "https://github.com/KhronosGroup/glTF",
+    "commit": "da88a3bbbe168cc728eddf71fa5e1915cc2c0629",
+    "file": "extensions/README.md"
+  }
+}
