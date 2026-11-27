@@ -79,6 +79,20 @@ class ReportTest(unittest.TestCase):
         self.assertIn("—", html)
         self.assertIn("∞", html)
 
+    def test_non_ascii_names_and_image_paths(self) -> None:
+        (self.tmp / "görüntü ş").mkdir()
+        shutil.copy(FIXTURES / "solid_red_64.png", self.tmp / "görüntü ş" / "kırmızı.png")
+        case = self.pass_case(name="kırmızı_çift")
+        case["test"] = "görüntü ş/kırmızı.png"
+        self.write_results([case])
+        proc = run_report(self.results, self.out)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        html = self.out.read_text(encoding="utf-8")
+        self.assertIn("kırmızı_çift", html)
+        self.assertIn("görüntü ş/kırmızı.png", html)
+        self.assertEqual(html.count('src="data:image/png;base64,'), 3)
+        self.assertNotIn('class="placeholder"', html)
+
     def test_strings_are_html_escaped(self) -> None:
         case = self.pass_case(name="a&b <i>x</i>")
         self.write_results([case], phase="f00 <script>")

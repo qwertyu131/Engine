@@ -205,6 +205,32 @@ TEST_CASE("batch: PASS, over-threshold, missing-reference, missing-test, size-mi
     CHECK(c[4]["reason"] == "size-mismatch");
 }
 
+TEST_CASE("batch: non-ASCII case names and paths inside the manifest (UTF-8 JSON)") {
+    TempDir dir("batchutf8");
+    fs::create_directories(dir.path / fromUtf8("referans ğ"));
+    fs::copy_file(fixture("solid_red_64.png"), dir.path / fromUtf8("görüntü ş.png"));
+    fs::copy_file(fixture("solid_red_64_copy.png"), dir.path / fromUtf8("referans ğ") / fromUtf8("kırmızı.png"));
+    // Source is compiled with /utf-8 (MSVC) or UTF-8 by default: these literals are UTF-8 bytes.
+    writeText(dir.path / "manifest.json", R"({"phase":"f00","cases":[
+        {"name":"kırmızı_çift","test":"görüntü ş.png","ref":"referans ğ/kırmızı.png"}]})");
+
+    fs::path out = dir.path / fromUtf8("çıktı");
+    auto summary = runBatch(dir.path / "manifest.json", out);
+    REQUIRE_MESSAGE(summary.has_value(), (summary ? std::string() : summary.error()));
+    CHECK(summary->passed == 1);
+
+    nlohmann::json j = readJson(out / "results.json");
+    REQUIRE(j["cases"].size() == 1);
+    const auto& c = j["cases"][0];
+    CHECK(c["name"] == "kırmızı_çift");
+    CHECK(c["status"] == "PASS");
+    CHECK(c["diff"] == "kırmızı_çift.diff.png");
+    CHECK(c["test"] == "../görüntü ş.png");
+    CHECK(c["ref"] == "../referans ğ/kırmızı.png");
+    CHECK(fs::exists(out / fromUtf8("kırmızı_çift.diff.png")));
+    CHECK(fs::exists(out / fromUtf8(c["ref"].get<std::string>())));
+}
+
 TEST_CASE("batch: invalid manifest is an error") {
     TempDir dir("badmanifest");
     writeText(dir.path / "manifest.json", "{ not json");
