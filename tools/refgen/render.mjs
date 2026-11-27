@@ -4,7 +4,7 @@
 //   node tools/refgen/render.mjs --models all --out <dir> --width 512 --height 512
 //
 // Drives the official Khronos glTF sample renderer (npm @khronosgroup/gltf-viewer, pinned in
-// package-lock.json) inside a pinned Chrome (Puppeteer, browser cached under tools/refgen/.cache).
+// package-lock.json) inside the installed Firefox (Puppeteer, WebDriver BiDi; no browser download).
 // Every fixed rendering parameter is written to <out>/settings.json; F3 reference mode must
 // reproduce exactly those. A model whose render is blank, throws, or logs a console error is a
 // hard failure: nothing is written for it and the process exits non-zero. Nothing is faked.
