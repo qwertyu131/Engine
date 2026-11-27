@@ -7,10 +7,12 @@
 //     VK_KHR_maintenance1 / core 1.1);
 //   - texture UV (0, 0) = first row in memory;
 //   - readback images are RGBA8, rows top-down.
+#include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <span>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace eng::rhi {
@@ -119,7 +121,7 @@ constexpr bool any(BufferUsage a, BufferUsage b) {
 struct BufferDesc {
     uint64_t size = 0;
     BufferUsage usage = BufferUsage::None;
-    bool hostVisible = false; // CPU-writable (mapped); otherwise device-local
+    bool hostVisible = false; // CPU-writable (mapped); otherwise device-local, initial data via staging
     std::string debugName;
 };
 
@@ -150,9 +152,11 @@ struct TextureDesc {
     std::string debugName;
 };
 
+// Initial data of one subresource. createTexture takes them in D3D order: index = layer * mipLevels + mip
+// (all mips of layer 0, then layer 1, ...); every subresource must be given.
 struct SubresourceData {
     std::span<const std::byte> data;
-    uint32_t rowPitch = 0; // bytes per row
+    uint32_t rowPitch = 0; // bytes per row; 0 = tightly packed
 };
 
 enum class Filter : uint8_t { Nearest, Linear };
@@ -263,10 +267,31 @@ struct GraphicsPipelineDesc {
     std::string debugName;
 };
 
-// Bind groups (plan F2 Task 3).
+// --- bind groups (plan F2 Task 3) -----------------------------------------------------------------
+
+// A buffer range for a bind group entry (cbuffer or storage buffer). size 0 = from offset to the end.
+// `cpu` is set only by IDevice::allocTransient: the write pointer of the transient range.
+struct BufferBinding {
+    BufferHandle buffer;
+    uint64_t offset = 0;
+    uint64_t size = 0;
+    std::byte* cpu = nullptr;
+};
+
+// One resource of a bind group, matched by the reflection NAME of the resource (cbuffer block name,
+// texture / sampler / storage buffer variable name), never by index or backend slot.
+struct BindGroupEntry {
+    std::string name;
+    std::variant<BufferBinding, TextureHandle, SamplerHandle> resource;
+};
+
+// All resources of one binding-convention space (0 frame, 1 view, 2 material, 3 draw) of `pipeline`'s
+// shaders. The layout comes from the pipeline (its shaders' reflection); the group can be bound with
+// any pipeline whose layout for this space is the same.
 struct BindGroupDesc {
     PipelineHandle pipeline;
     uint32_t space = 0;
+    std::vector<BindGroupEntry> entries;
 };
 
 // Swapchains (plan F2 Task 6).

@@ -1,0 +1,13 @@
+{
+  "comment": "builtin:textured-cube shader for the RHI (plan F2 Task 3). No permutation axes: key 'default'. Only the targets the F2 RHI backends load.",
+  "source": "shaders/test/textured.hlsl",
+  "entries": [
+    { "entry": "VSMain", "stage": "vs" },
+    { "entry": "PSMain", "stage": "fs" }
+  ],
+  "axes": {},
+  "targets": {
+    "spirv": { "backend": "Vulkan" },
+    "dxbc":  { "backend": "D3D11" }
+  }
+}

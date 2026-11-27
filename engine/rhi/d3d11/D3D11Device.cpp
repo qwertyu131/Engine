@@ -235,6 +235,10 @@ Result<SamplerHandle> D3D11Device::createSampler(const SamplerDesc&) {
 Result<BindGroupHandle> D3D11Device::createBindGroup(const BindGroupDesc&) {
     return std::unexpected(Error{kExitUsage, "d3d11: createBindGroup is implemented in plan F2 Task 4"});
 }
+BufferBinding D3D11Device::allocTransient(uint64_t, uint64_t) {
+    ENG_LOG_ERROR("d3d11: allocTransient is implemented in plan F2 Task 4");
+    return {};
+}
 Result<SwapchainHandle> D3D11Device::createSwapchain(const SwapchainDesc&) {
     return std::unexpected(Error{kExitUsage, "d3d11: createSwapchain is implemented in plan F2 Task 6"});
 }

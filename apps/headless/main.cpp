@@ -2,15 +2,16 @@
 //
 //   headless --backend <name> --scene <path|builtin:...> --out <png>
 //            [--width N=256] [--height N=256] [--cvar name=value]... [--bench <frames>]
-//            [--warp] [--adapter <index>] [--shader-dir <dir>]
+//            [--warp] [--adapter <index>] [--shader-dir <dir>] [--asset-dir <dir>]
 //
 // Backends:
 //   cpu     F0: `--scene builtin:test-pattern` (deterministic CPU pattern, see TestPattern.h).
 //   vulkan  F2: through engine/rhi, with validation (VK_LAYER_KHRONOS_validation + sync validation).
 //   d3d11   F2: through engine/rhi, with the debug layer; --warp = WARP software rasterizer.
-// GPU scenes (Scenes.h): builtin:triangle. --adapter selects the adapter by index (default: the
-// backend's default). --shader-dir is the shader library of the `shaders` build step (default: the
-// build tree's, compiled in).
+// GPU scenes (Scenes.h): builtin:triangle, builtin:textured-cube. --adapter selects the adapter by index
+// (default: the backend's default). --shader-dir is the shader library of the `shaders` build step
+// (default: the build tree's, compiled in). --asset-dir is the test asset root (default: the source
+// tree's tests/assets, compiled in).
 //
 // --cvar   applied with CVarSource::CommandLine, in order. An unknown cvar or a rejected value is
 //          a usage error (a test gate must not silently run with a typo'd setting).
@@ -62,12 +63,12 @@ void printUsage(std::ostream& os) {
     os << "usage:\n"
           "  headless --backend <name> --scene <path|builtin:...> --out <png>\n"
           "           [--width N=256] [--height N=256] [--cvar name=value]... [--bench <frames>]\n"
-          "           [--warp] [--adapter <index>] [--shader-dir <dir>]\n"
+          "           [--warp] [--adapter <index>] [--shader-dir <dir>] [--asset-dir <dir>]\n"
           "backends in this build: cpu";
     for (const eng::rhi::Backend b : eng::rhi::compiledBackends()) {
         os << ", " << eng::rhi::toString(b);
     }
-    os << "\nscenes: builtin:test-pattern (cpu), builtin:triangle (gpu)\n"
+    os << "\nscenes: builtin:test-pattern (cpu), builtin:triangle, builtin:textured-cube (gpu)\n"
           "exit codes: 0 = ok, 2 = usage / IO error, 3 = backend not available, 4 = validation error,\n"
           "            5 = device lost / GPU error\n";
 }
@@ -83,6 +84,7 @@ struct Options {
     bool warp = false;
     int adapter = -1;
     std::string shaderDir;
+    std::string assetDir;
 };
 
 std::optional<int> parseInt(const std::string& s, int min, int max) {
@@ -138,6 +140,8 @@ std::optional<Options> parseArgs(const std::vector<std::string>& args) {
             o.adapter = *v;
         } else if (key == "--shader-dir") {
             o.shaderDir = val;
+        } else if (key == "--asset-dir") {
+            o.assetDir = val;
         } else if (key == "--cvar") {
             o.cvars.push_back(val);
         } else if (key == "--bench") {
@@ -219,10 +223,11 @@ int run(const std::vector<std::string>& args) {
     // GPU backends: device + scene through engine/rhi (plan F2 Task 2).
     std::unique_ptr<eng::rhi::IDevice> device;
     fs::path shaderDir;
+    fs::path assetDir;
     if (gpu) {
-        if (opts->scene != eng::scenes::kTriangle) {
+        if (opts->scene != eng::scenes::kTriangle && opts->scene != eng::scenes::kTexturedCube) {
             std::cerr << "headless: scene '" << opts->scene << "' not supported on backend " << opts->backend
-                      << " in this build (only " << eng::scenes::kTriangle << ")\n";
+                      << " in this build (" << eng::scenes::kTriangle << ", " << eng::scenes::kTexturedCube << ")\n";
             return kExitError;
         }
 #if defined(ENG_DEFAULT_SHADER_DIR)
@@ -233,6 +238,11 @@ int run(const std::vector<std::string>& args) {
             return kExitError;
         }
         shaderDir = eng::rhi::pathFromUtf8(opts->shaderDir);
+#endif
+#if defined(ENG_DEFAULT_ASSET_DIR)
+        assetDir = eng::rhi::pathFromUtf8(opts->assetDir.empty() ? ENG_DEFAULT_ASSET_DIR : opts->assetDir);
+#else
+        assetDir = eng::rhi::pathFromUtf8(opts->assetDir);
 #endif
         eng::rhi::DeviceDesc dd;
         dd.backend = *gpu;
@@ -257,8 +267,16 @@ int run(const std::vector<std::string>& args) {
         if (!device) {
             return eng::makeTestPattern(opts->width, opts->height);
         }
-        auto img = eng::scenes::renderTriangle(*device, shaderDir, static_cast<uint32_t>(opts->width),
-                                               static_cast<uint32_t>(opts->height));
+        eng::rhi::Result<eng::rhi::Image> img;
+        if (opts->scene == eng::scenes::kTexturedCube) {
+            eng::scenes::CubeOptions co;
+            co.width = static_cast<uint32_t>(opts->width);
+            co.height = static_cast<uint32_t>(opts->height);
+            img = eng::scenes::renderTexturedCube(*device, shaderDir, assetDir, co);
+        } else {
+            img = eng::scenes::renderTriangle(*device, shaderDir, static_cast<uint32_t>(opts->width),
+                                              static_cast<uint32_t>(opts->height));
+        }
         eng::Image8 out;
         if (!img) {
             gpuError = img.error().exitCode;

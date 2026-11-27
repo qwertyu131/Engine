@@ -266,6 +266,7 @@ Result<void> VulkanDevice::pickPhysicalDevice(const DeviceDesc& desc) {
     caps_.adapterName = chosen->props.deviceName;
     caps_.vendorId = chosen->props.vendorID;
     caps_.software = chosen->props.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU;
+    minUniformOffsetAlignment_ = std::max<VkDeviceSize>(chosen->props.limits.minUniformBufferOffsetAlignment, 1);
     return {};
 }
 
@@ -379,9 +380,14 @@ VulkanDevice::~VulkanDevice() {
     if (device_) {
         vkDeviceWaitIdle(device_);
         runDeferred(true);
+        bindGroups_.clear([](BindGroup&) {});
+        samplers_.clear([&](Sampler& s) { vkDestroySampler(device_, s.sampler, nullptr); });
         pipelines_.clear([&](Pipeline& p) {
             vkDestroyPipeline(device_, p.pipeline, nullptr);
             vkDestroyPipelineLayout(device_, p.layout, nullptr);
+            for (VkDescriptorSetLayout l : p.setLayouts) {
+                vkDestroyDescriptorSetLayout(device_, l, nullptr);
+            }
         });
         shaders_.clear([&](Shader& s) { vkDestroyShaderModule(device_, s.module, nullptr); });
         textures_.clear([&](Texture& t) {
@@ -392,6 +398,9 @@ VulkanDevice::~VulkanDevice() {
         for (Frame& f : frames_) {
             vkDestroyFence(device_, f.fence, nullptr);
             vkDestroyCommandPool(device_, f.pool, nullptr);
+            for (VkDescriptorPool dp : f.descriptorPools) {
+                vkDestroyDescriptorPool(device_, dp, nullptr);
+            }
         }
         vkDestroyFence(device_, transferFence_, nullptr);
         vkDestroyCommandPool(device_, transferPool_, nullptr);
@@ -443,6 +452,13 @@ ICommandList& VulkanDevice::beginFrame() {
     }
     runDeferred(false);
     vkResetCommandPool(device_, f.pool, 0);
+    // The GPU is done with this frame slot: its descriptor sets and transient ring are free again.
+    for (VkDescriptorPool dp : f.descriptorPools) {
+        vkResetDescriptorPool(device_, dp, 0);
+    }
+    f.descriptorPoolInUse = 0;
+    f.ringUsed = 0;
+    ++frameEpoch_;
     VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     vkBeginCommandBuffer(f.cmd, &bi);
@@ -458,6 +474,12 @@ Result<void> VulkanDevice::submitAndWait() {
     if (recording_) {
         Frame& f = frames_[frameIndex_];
         recording_ = false;
+        ++frameEpoch_; // descriptor sets cached during this frame are not reused by a later one
+        if (f.ringUsed > 0) {
+            if (Buffer* ring = buffers_.tryGet(f.ring.id)) {
+                vmaFlushAllocation(allocator_, ring->allocation, 0, f.ringUsed);
+            }
+        }
         if (const VkResult r = vkEndCommandBuffer(f.cmd); r != VK_SUCCESS) {
             return std::unexpected(vkError("vkEndCommandBuffer", r));
         }
@@ -512,11 +534,23 @@ void VulkanDevice::destroy(Handle h) {
         break;
     case HandleType::Pipeline:
         if (auto p = pipelines_.remove(h.id)) {
-            fn = [this, p = *p] {
+            fn = [this, p = std::move(*p)] {
                 vkDestroyPipeline(device_, p.pipeline, nullptr);
                 vkDestroyPipelineLayout(device_, p.layout, nullptr);
+                for (VkDescriptorSetLayout l : p.setLayouts) {
+                    vkDestroyDescriptorSetLayout(device_, l, nullptr);
+                }
             };
         }
+        break;
+    case HandleType::Sampler:
+        if (auto s = samplers_.remove(h.id)) {
+            fn = [this, sm = s->sampler] { vkDestroySampler(device_, sm, nullptr); };
+        }
+        break;
+    case HandleType::BindGroup:
+        // No Vulkan object of its own: its descriptor sets live in the frame pools (reset per frame).
+        bindGroups_.remove(h.id);
         break;
     default: ENG_ASSERT_MSG(false, "destroy: handle type not supported by the Vulkan backend yet"); break;
     }
@@ -536,17 +570,42 @@ void VulkanDevice::runDeferred(bool all) {
 
 // --- not yet (later plan tasks) ---------------------------------------------------------------------
 
-Result<SamplerHandle> VulkanDevice::createSampler(const SamplerDesc&) {
-    return std::unexpected(Error{kExitUsage, "vulkan: createSampler is implemented in plan F2 Task 3"});
-}
-Result<BindGroupHandle> VulkanDevice::createBindGroup(const BindGroupDesc&) {
-    return std::unexpected(Error{kExitUsage, "vulkan: createBindGroup is implemented in plan F2 Task 3"});
-}
 Result<SwapchainHandle> VulkanDevice::createSwapchain(const SwapchainDesc&) {
     return std::unexpected(Error{kExitUsage, "vulkan: createSwapchain is implemented in plan F2 Task 6"});
 }
 Result<void> VulkanDevice::present(SwapchainHandle) {
     return std::unexpected(Error{kExitUsage, "vulkan: present is implemented in plan F2 Task 6"});
+}
+
+// --- one-shot submissions (staging uploads) ----------------------------------------------------------
+
+Result<void> VulkanDevice::immediateSubmit(const std::function<void(VkCommandBuffer)>& record) {
+    VkCommandBufferAllocateInfo ai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    ai.commandPool = transferPool_;
+    ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    ai.commandBufferCount = 1;
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    if (const VkResult r = vkAllocateCommandBuffers(device_, &ai, &cmd); r != VK_SUCCESS) {
+        return std::unexpected(vkError("vkAllocateCommandBuffers (upload)", r));
+    }
+    VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(cmd, &bi);
+    record(cmd);
+    vkEndCommandBuffer(cmd);
+    VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    si.commandBufferCount = 1;
+    si.pCommandBuffers = &cmd;
+    VkResult r = vkQueueSubmit(queue_, 1, &si, transferFence_);
+    if (r == VK_SUCCESS) {
+        r = vkWaitForFences(device_, 1, &transferFence_, VK_TRUE, UINT64_MAX);
+    }
+    vkResetFences(device_, 1, &transferFence_);
+    vkFreeCommandBuffers(device_, transferPool_, 1, &cmd);
+    if (r != VK_SUCCESS) {
+        return std::unexpected(vkError("upload submit", r));
+    }
+    return {};
 }
 
 // --- readback ---------------------------------------------------------------------------------------

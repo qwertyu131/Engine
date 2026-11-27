@@ -138,9 +138,12 @@ if(TARGET shaders)
         rhi/test_main.cpp
         rhi/RhiTestEnv.h
         rhi/test_shader_library.cpp
-        rhi/test_triangle.cpp)
+        rhi/test_triangle.cpp
+        rhi/test_bind_group.cpp
+        rhi/test_cube.cpp)
     target_link_libraries(rhi_unit_tests PRIVATE engine::rhi headless_core nlohmann_json::nlohmann_json doctest::doctest)
-    target_compile_definitions(rhi_unit_tests PRIVATE ENG_TEST_SHADER_LIB_DIR="${ENG_SHADER_LIB_DIR}")
+    target_compile_definitions(rhi_unit_tests PRIVATE ENG_TEST_SHADER_LIB_DIR="${ENG_SHADER_LIB_DIR}"
+        ENG_TEST_ASSET_DIR="${PROJECT_SOURCE_DIR}/tests/assets")
     add_dependencies(rhi_unit_tests shaders)
     if(MSVC)
         target_compile_options(rhi_unit_tests PRIVATE /W4 /WX /permissive- /utf-8 /external:W0)

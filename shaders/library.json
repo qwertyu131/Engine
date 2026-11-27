@@ -3,6 +3,7 @@
   "shaders": [
     "shaders/pbr/permutations.json",
     "shaders/test/triangle.permutations.json",
-    "shaders/test/color_triangle.permutations.json"
+    "shaders/test/color_triangle.permutations.json",
+    "shaders/test/textured.permutations.json"
   ]
 }

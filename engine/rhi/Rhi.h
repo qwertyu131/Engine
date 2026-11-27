@@ -16,8 +16,52 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
+#include <vector>
 
 namespace eng::rhi {
+
+// --- bind group layouts (plan F2 Task 3) ----------------------------------------------------------
+// Derived from the reflection of a pipeline's shaders: one layout per binding-convention space that a
+// stage uses, resources merged across the stages by name. Each stage keeps its own target binding,
+// because D3D11 slots are per stage and per permutation (F1); Vulkan uses set / binding.
+
+enum class BindingKind : uint8_t { UniformBuffer, Texture, Sampler, StorageBuffer, StorageBufferRW };
+const char* bindingKindName(BindingKind k); // "uniform buffer" | "texture" | "sampler" | "storage buffer" | ...
+
+inline constexpr uint32_t kStageVertex = 0;
+inline constexpr uint32_t kStageFragment = 1;
+inline constexpr uint32_t kGraphicsStages = 2;
+
+struct StageBinding {
+    bool used = false;
+    uint32_t set = 0, binding = 0;   // spirv targetBinding
+    char registerClass = 0;          // dxbc targetBinding: 'b' | 't' | 's' | 'u'
+    uint32_t registerSlot = 0;
+};
+
+struct BindGroupLayoutEntry {
+    std::string name;
+    BindingKind kind = BindingKind::UniformBuffer;
+    uint32_t index = 0;     // register index within the space (binding convention)
+    uint32_t arraySize = 1;
+    uint32_t sizeBytes = 0; // cbuffer size (reflection), else 0
+    StageBinding stages[kGraphicsStages]; // [kStageVertex], [kStageFragment]
+};
+
+struct BindGroupLayout {
+    uint32_t space = 0;
+    std::vector<BindGroupLayoutEntry> entries; // sorted by index
+};
+
+// Layouts of every space used by vs or ps, sorted by space. Error{2} if the stages disagree about a
+// resource (same name, different kind / space / index), or a resource is an unbounded array.
+Result<std::vector<BindGroupLayout>> deriveBindGroupLayouts(const ShaderReflection& vs, const ShaderReflection& ps);
+
+// Matches desc.entries to layout.entries by name. Returns, per layout entry, the index of its entry in
+// desc.entries. Errors (exit 2): "bind group space <S> missing <name>", "bind group space <S> has no
+// resource <name>", "bind group space <S> entry <name> must be a <kind>".
+Result<std::vector<size_t>> matchBindGroupEntries(const BindGroupLayout& layout, const BindGroupDesc& desc);
 
 struct DeviceDesc {
     Backend backend = Backend::Vulkan;
@@ -51,11 +95,21 @@ public:
     virtual ~IDevice() = default;
     virtual const DeviceCaps& caps() const = 0;
     virtual Result<BufferHandle> createBuffer(const BufferDesc& desc, std::span<const std::byte> init = {}) = 0;
+    // With init (every subresource, SubresourceData order) the texture is uploaded through a staging
+    // buffer and is in ResourceState::ShaderRead afterwards; without it, in Undefined.
     virtual Result<TextureHandle> createTexture(const TextureDesc& desc, std::span<const SubresourceData> init = {}) = 0;
     virtual Result<SamplerHandle> createSampler(const SamplerDesc& desc) = 0;
     virtual Result<ShaderHandle> createShader(const ShaderBlob& blob) = 0; // blob + parsed reflection
     virtual Result<PipelineHandle> createGraphicsPipeline(const GraphicsPipelineDesc& desc) = 0;
+    // Resolves desc.entries against the pipeline's layout for desc.space (matchBindGroupEntries). The group
+    // is persistent; the backend writes its descriptors when it is bound (Vulkan: per-frame pools).
     virtual Result<BindGroupHandle> createBindGroup(const BindGroupDesc& desc) = 0; // plan F2 Task 3
+    // Per-frame ring of host-visible uniform memory (plan F2 Task 3). Only between beginFrame() and
+    // submitAndWait() / present(): the range is valid for the frame that allocated it. The caller writes
+    // `size` bytes to BufferBinding::cpu before its next command-list call (D3D11 unmaps the ring before
+    // a draw). align is rounded up to 256 bytes. Returns a null binding (buffer 0) if the frame's ring
+    // is full or no frame is open (logged).
+    virtual BufferBinding allocTransient(uint64_t size, uint64_t align = 256) = 0;
     virtual Result<SwapchainHandle> createSwapchain(const SwapchainDesc& desc) = 0; // plan F2 Task 6
     virtual void destroy(Handle handle) = 0; // deferred until the GPU is done with it
     virtual ICommandList& beginFrame() = 0;  // frames in flight = 2

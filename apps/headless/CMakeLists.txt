@@ -7,7 +7,8 @@ add_library(headless_core STATIC
     TestPattern.h
     TestPattern.cpp
     Scenes.h
-    Scenes.cpp)
+    Scenes.cpp
+    CubeScene.cpp)
 target_include_directories(headless_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(headless_core PUBLIC golden_core engine::rhi)
 
@@ -18,6 +19,8 @@ if(TARGET shaders)
     target_compile_definitions(headless PRIVATE ENG_DEFAULT_SHADER_DIR="${ENG_SHADER_LIB_DIR}")
     add_dependencies(headless shaders)
 endif()
+# Default --asset-dir: the source tree's tests/assets (UTF-8 path; plan F2 Task 3).
+target_compile_definitions(headless PRIVATE ENG_DEFAULT_ASSET_DIR="${PROJECT_SOURCE_DIR}/tests/assets")
 
 foreach(t headless_core headless)
     if(MSVC)

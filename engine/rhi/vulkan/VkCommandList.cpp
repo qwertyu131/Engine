@@ -118,8 +118,20 @@ void VulkanCommandList::setPipeline(PipelineHandle pipeline) {
     pipeline_ = pipeline;
 }
 
-void VulkanCommandList::setBindGroup(uint32_t, BindGroupHandle) {
-    ENG_ASSERT_MSG(false, "setBindGroup is implemented in plan F2 Task 3");
+void VulkanCommandList::setBindGroup(uint32_t space, BindGroupHandle group) {
+    // The descriptor set is written for the bound pipeline's layout: setPipeline comes first.
+    BindGroup* g = dev_.bindGroups().get(group.id);
+    const Pipeline* p = pipeline_ ? dev_.pipelines().tryGet(pipeline_.id) : nullptr;
+    ENG_ASSERT_MSG(p != nullptr, "setBindGroup before setPipeline");
+    if (!g || !p) {
+        return;
+    }
+    ENG_ASSERT_MSG(g->space == space, "setBindGroup: the group was created for another space");
+    const VkDescriptorSet set = dev_.descriptorSetFor(*g, *p);
+    if (!set) {
+        return; // logged; the draw then reaches the validation layer with the set missing (exit 4)
+    }
+    vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, p->layout, space, 1, &set, 0, nullptr);
 }
 
 void VulkanCommandList::setVertexBuffer(uint32_t slot, BufferHandle buffer, uint64_t offset) {

@@ -106,6 +106,7 @@ public:
     Result<ShaderHandle> createShader(const ShaderBlob& blob) override;
     Result<PipelineHandle> createGraphicsPipeline(const GraphicsPipelineDesc& desc) override;
     Result<BindGroupHandle> createBindGroup(const BindGroupDesc& desc) override;
+    BufferBinding allocTransient(uint64_t size, uint64_t align) override;
     Result<SwapchainHandle> createSwapchain(const SwapchainDesc& desc) override;
     void destroy(Handle handle) override;
     ICommandList& beginFrame() override;

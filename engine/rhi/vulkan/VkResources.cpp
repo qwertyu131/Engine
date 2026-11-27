@@ -1,5 +1,8 @@
-// Vulkan resources: buffers, textures, shaders, graphics pipelines (plan F2 Task 2).
+// Vulkan resources: buffers, textures, samplers, shaders, graphics pipelines (plan F2 Task 2), bind groups,
+// staging uploads, transient uniforms (plan F2 Task 3).
 #include "VkCommon.h"
+
+#include "core/Log.h"
 
 #include <algorithm>
 #include <cstring>
@@ -35,6 +38,17 @@ VkFormat toVkFormat(Format f) {
 
 bool isDepthFormat(Format f) {
     return f == Format::D32_FLOAT || f == Format::D24_UNORM_S8_UINT;
+}
+
+VkDescriptorType toVkDescriptorType(BindingKind k) {
+    switch (k) {
+    case BindingKind::UniformBuffer: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    case BindingKind::Texture: return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    case BindingKind::Sampler: return VK_DESCRIPTOR_TYPE_SAMPLER;
+    case BindingKind::StorageBuffer:
+    case BindingKind::StorageBufferRW: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    }
+    return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 }
 
 StateInfo stateInfo(ResourceState s, bool depth) {
@@ -86,11 +100,18 @@ Result<BufferHandle> VulkanDevice::createBuffer(const BufferDesc& desc, std::spa
     if (any(desc.usage, BufferUsage::CopyDst)) {
         bci.usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     }
-    // Task 2: every buffer is host-writable and mapped (initial data = memcpy). Device-local buffers
-    // with staging uploads come with plan F2 Task 3.
+    // hostVisible: mapped, initial data = memcpy. Otherwise device-local; initial data goes through a
+    // staging buffer (plan F2 Task 3).
     VmaAllocationCreateInfo aci{};
-    aci.usage = VMA_MEMORY_USAGE_AUTO;
-    aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    if (desc.hostVisible) {
+        aci.usage = VMA_MEMORY_USAGE_AUTO;
+        aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    } else {
+        aci.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+        if (!init.empty()) {
+            bci.usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        }
+    }
     Buffer b;
     b.size = desc.size;
     b.usage = desc.usage;
@@ -98,10 +119,15 @@ Result<BufferHandle> VulkanDevice::createBuffer(const BufferDesc& desc, std::spa
     if (const VkResult r = vmaCreateBuffer(allocator_, &bci, &aci, &b.buffer, &b.allocation, &info); r != VK_SUCCESS) {
         return std::unexpected(vkError("vmaCreateBuffer", r));
     }
-    b.mapped = info.pMappedData;
+    b.mapped = desc.hostVisible ? info.pMappedData : nullptr;
     if (!init.empty()) {
-        std::memcpy(b.mapped, init.data(), init.size());
-        vmaFlushAllocation(allocator_, b.allocation, 0, init.size());
+        if (b.mapped) {
+            std::memcpy(b.mapped, init.data(), init.size());
+            vmaFlushAllocation(allocator_, b.allocation, 0, init.size());
+        } else if (auto r = uploadBuffer(b, init); !r) {
+            vmaDestroyBuffer(allocator_, b.buffer, b.allocation);
+            return std::unexpected(r.error());
+        }
     }
     if (!desc.debugName.empty() && vkSetDebugUtilsObjectNameEXT) {
         VkDebugUtilsObjectNameInfoEXT ni{VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
@@ -114,9 +140,6 @@ Result<BufferHandle> VulkanDevice::createBuffer(const BufferDesc& desc, std::spa
 }
 
 Result<TextureHandle> VulkanDevice::createTexture(const TextureDesc& desc, std::span<const SubresourceData> init) {
-    if (!init.empty()) {
-        return std::unexpected(Error{kExitUsage, "vulkan: texture initial data is implemented in plan F2 Task 3"});
-    }
     if (desc.width == 0 || desc.height == 0 || desc.mipLevels == 0 || desc.arrayLayers == 0) {
         return std::unexpected(Error{kExitUsage, "vulkan: createTexture with a zero dimension"});
     }
@@ -152,8 +175,18 @@ Result<TextureHandle> VulkanDevice::createTexture(const TextureDesc& desc, std::
     if (any(desc.usage, TextureUsage::CopySrc)) {
         ici.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     }
-    if (any(desc.usage, TextureUsage::CopyDst)) {
+    if (any(desc.usage, TextureUsage::CopyDst) || !init.empty()) {
         ici.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    }
+    if (!init.empty()) {
+        if (init.size() != size_t(desc.mipLevels) * desc.arrayLayers) {
+            return std::unexpected(Error{kExitUsage, std::format("vulkan: createTexture: {} initial subresources, the "
+                                                                 "texture has {} (mips x layers)",
+                                                                 init.size(), desc.mipLevels * desc.arrayLayers)});
+        }
+        if (depth) {
+            return std::unexpected(Error{kExitUsage, "vulkan: createTexture: initial data for a depth format"});
+        }
     }
     VmaAllocationCreateInfo aci{};
     aci.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
@@ -177,6 +210,13 @@ Result<TextureHandle> VulkanDevice::createTexture(const TextureDesc& desc, std::
         ni.objectHandle = reinterpret_cast<uint64_t>(t.image);
         ni.pObjectName = desc.debugName.c_str();
         vkSetDebugUtilsObjectNameEXT(device_, &ni);
+    }
+    if (!init.empty()) {
+        if (auto r = uploadTexture(t, init); !r) { // VkUpload.cpp; leaves the texture in ShaderRead
+            vkDestroyImageView(device_, t.view, nullptr);
+            vmaDestroyImage(allocator_, t.image, t.allocation);
+            return std::unexpected(r.error());
+        }
     }
     return TextureHandle{textures_.add(t)};
 }
@@ -241,11 +281,10 @@ Result<PipelineHandle> VulkanDevice::createGraphicsPipeline(const GraphicsPipeli
     if (!vs || !ps || vs->stage != ShaderStage::Vertex || ps->stage != ShaderStage::Fragment) {
         return std::unexpected(Error{kExitUsage, "vulkan: createGraphicsPipeline needs a vertex and a fragment shader"});
     }
-    for (const Shader* s : {vs, ps}) {
-        if (!s->reflection.resources.empty()) {
-            return std::unexpected(Error{kExitUsage, "vulkan: pipeline resources need bind groups (plan F2 Task 3): " +
-                                                         s->entry + " uses '" + s->reflection.resources[0].name + "'"});
-        }
+    // Bind group layouts from the reflection of both stages (plan F2 Task 3).
+    auto bgl = deriveBindGroupLayouts(vs->reflection, ps->reflection);
+    if (!bgl) {
+        return std::unexpected(Error{bgl.error().exitCode, "vulkan: " + bgl.error().message});
     }
 
     // Vertex input: every VS input (reflection, by HLSL semantic) must be fed by an attribute.
@@ -338,9 +377,9 @@ Result<PipelineHandle> VulkanDevice::createGraphicsPipeline(const GraphicsPipeli
     ri.depthAttachmentFormat = toVkFormat(desc.depthFormat);
 
     Pipeline p;
-    VkPipelineLayoutCreateInfo lci{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-    if (const VkResult r = vkCreatePipelineLayout(device_, &lci, nullptr, &p.layout); r != VK_SUCCESS) {
-        return std::unexpected(vkError("vkCreatePipelineLayout", r));
+    p.bindGroupLayouts = std::move(*bgl);
+    if (auto l = createPipelineLayout(p); !l) { // VkBindGroups.cpp
+        return std::unexpected(l.error());
     }
     VkGraphicsPipelineCreateInfo gci{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
     gci.pNext = &ri;
@@ -358,6 +397,9 @@ Result<PipelineHandle> VulkanDevice::createGraphicsPipeline(const GraphicsPipeli
     if (const VkResult r = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &gci, nullptr, &p.pipeline);
         r != VK_SUCCESS) {
         vkDestroyPipelineLayout(device_, p.layout, nullptr);
+        for (VkDescriptorSetLayout l : p.setLayouts) {
+            vkDestroyDescriptorSetLayout(device_, l, nullptr);
+        }
         return std::unexpected(vkError("vkCreateGraphicsPipelines", r));
     }
     p.vsHasMorphStorage = std::any_of(vs->reflection.resources.begin(), vs->reflection.resources.end(), isMorphStorage);

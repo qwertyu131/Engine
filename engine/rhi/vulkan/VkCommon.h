@@ -29,6 +29,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace eng::rhi::vk {
@@ -62,7 +63,25 @@ struct Shader {
 struct Pipeline {
     VkPipeline pipeline = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE;
+    // One VkDescriptorSetLayout per space 0..max used space (empty layouts for the gaps); index = space.
+    std::vector<VkDescriptorSetLayout> setLayouts;
+    std::vector<BindGroupLayout> bindGroupLayouts; // reflection-derived, sorted by space
     bool vsHasMorphStorage = false; // drawIndexed asserts baseVertex == 0 (F1 Limitations)
+};
+
+struct Sampler {
+    VkSampler sampler = VK_NULL_HANDLE;
+};
+
+// A persistent bind group: the resolved resources. Its VkDescriptorSet is allocated and written from
+// the current frame's descriptor pool when it is bound (cached for the rest of that frame).
+struct BindGroup {
+    uint32_t space = 0;
+    BindGroupLayout layout;
+    std::vector<std::variant<BufferBinding, TextureHandle, SamplerHandle>> resources; // per layout entry
+    uint64_t cachedEpoch = 0;
+    VkDescriptorSetLayout cachedSetLayout = VK_NULL_HANDLE;
+    VkDescriptorSet cachedSet = VK_NULL_HANDLE;
 };
 
 // Layout / stage / access of a ResourceState (explicit barriers, sync validation clean).
@@ -78,6 +97,7 @@ VkDebugUtilsMessengerCreateInfoEXT messengerCreateInfo(void* device);
 
 VkFormat toVkFormat(Format f);
 bool isDepthFormat(Format f);
+VkDescriptorType toVkDescriptorType(BindingKind k);
 std::string vkResultString(VkResult r);
 
 class VulkanDevice;
@@ -119,6 +139,7 @@ public:
     Result<ShaderHandle> createShader(const ShaderBlob& blob) override;
     Result<PipelineHandle> createGraphicsPipeline(const GraphicsPipelineDesc& desc) override;
     Result<BindGroupHandle> createBindGroup(const BindGroupDesc& desc) override;
+    BufferBinding allocTransient(uint64_t size, uint64_t align) override;
     Result<SwapchainHandle> createSwapchain(const SwapchainDesc& desc) override;
     void destroy(Handle handle) override;
     ICommandList& beginFrame() override;
@@ -137,6 +158,10 @@ public:
     HandlePool<Buffer>& buffers() { return buffers_; }
     HandlePool<Texture>& textures() { return textures_; }
     HandlePool<Pipeline>& pipelines() { return pipelines_; }
+    HandlePool<BindGroup>& bindGroups() { return bindGroups_; }
+    // The group's descriptor set for `pipeline`'s layout in the open frame (VkResources.cpp);
+    // VK_NULL_HANDLE (logged) if the layouts differ or a resource is gone.
+    VkDescriptorSet descriptorSetFor(BindGroup& group, const Pipeline& pipeline);
     PFN_vkCmdBeginRendering cmdBeginRendering = nullptr;
     PFN_vkCmdEndRendering cmdEndRendering = nullptr;
 
@@ -148,13 +173,25 @@ private:
     Result<void> createLogicalDevice();
     void runDeferred(bool all);
     Result<void> waitFrame(uint32_t index);
+    // Records `record` into a one-shot command buffer, submits it and waits (staging uploads).
+    Result<void> immediateSubmit(const std::function<void(VkCommandBuffer)>& record);
+    Result<void> uploadBuffer(const Buffer& dst, std::span<const std::byte> data);
+    Result<void> uploadTexture(Texture& dst, std::span<const SubresourceData> init);
+    Result<void> createPipelineLayout(Pipeline& p); // set layouts per space + VkPipelineLayout into p
+
+    static constexpr uint64_t kTransientRingBytes = 4ull << 20; // per frame in flight
 
     struct Frame {
         VkCommandPool pool = VK_NULL_HANDLE;
         VkCommandBuffer cmd = VK_NULL_HANDLE;
         VkFence fence = VK_NULL_HANDLE;
         uint64_t serial = 0; // submission serial of the last submit from this frame; 0 = none pending
+        std::vector<VkDescriptorPool> descriptorPools; // reset at beginFrame; [0] is filled first
+        size_t descriptorPoolInUse = 0;
+        BufferHandle ring;      // transient uniform ring (allocTransient), host-visible + mapped
+        uint64_t ringUsed = 0;
     };
+    VkDescriptorPool newDescriptorPool();
 
     DeviceCaps caps_;
     bool validation_ = false;
@@ -183,6 +220,10 @@ private:
     HandlePool<Texture> textures_;
     HandlePool<Shader> shaders_;
     HandlePool<Pipeline> pipelines_;
+    HandlePool<Sampler> samplers_;
+    HandlePool<BindGroup> bindGroups_;
+    uint64_t frameEpoch_ = 0; // incremented by every beginFrame (bind group descriptor-set cache key)
+    VkDeviceSize minUniformOffsetAlignment_ = 256;
     std::vector<std::pair<uint64_t, std::function<void()>>> deferred_; // (serial, destroy)
 
     std::atomic<uint32_t> validationErrors_{0};

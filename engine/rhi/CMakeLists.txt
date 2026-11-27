@@ -8,6 +8,7 @@ add_library(engine_rhi STATIC
     Types.cpp
     DeviceCaps.h
     HandlePool.h
+    BindGroupLayout.cpp
     Registry.cpp
     ShaderLibrary.h
     ShaderLibrary.cpp)
@@ -22,6 +23,8 @@ if(ENG_RHI_VULKAN)
         vulkan/VkDevice.cpp
         vulkan/VkCommandList.cpp
         vulkan/VkResources.cpp
+        vulkan/VkUpload.cpp
+        vulkan/VkBindGroups.cpp
         vulkan/VkValidation.cpp)
     target_link_libraries(engine_rhi PRIVATE eng_volk eng_vma)
     target_compile_definitions(engine_rhi PUBLIC ENG_RHI_HAS_VULKAN=1)

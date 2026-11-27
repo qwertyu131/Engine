@@ -14,6 +14,11 @@ inline std::filesystem::path shaderLibDir() {
     return pathFromUtf8(ENG_TEST_SHADER_LIB_DIR);
 }
 
+// tests/assets of the source tree (cube_faces.png: plan F2 Task 3).
+inline std::filesystem::path assetDir() {
+    return pathFromUtf8(ENG_TEST_ASSET_DIR);
+}
+
 struct BackendConfig {
     std::string name; // vulkan | d3d11 | d3d11-warp
     DeviceDesc desc;

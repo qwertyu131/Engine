@@ -6,7 +6,7 @@
 //                         (visible in the ctest summary, never a silent pass);
 //   - any other error  -> printed, exit 1 (a missing validation layer is exit 4 from createDevice and a
 //                         failure here, plan F2 Global Constraints).
-// Without --rhi-backend only the backend-independent suites run (rhi.shaderlib).
+// Without --rhi-backend only the backend-independent suites run (rhi.shaderlib, rhi.layout).
 #define DOCTEST_CONFIG_IMPLEMENT
 #include <doctest/doctest.h>
 
@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
         // Only the suite of this backend + the backend-independent rhi suites.
         ctx.setOption("test-suite", ("rhi.device," + std::string(backend == "vulkan" ? "rhi.vulkan" : "rhi.d3d11")).c_str());
     } else {
-        ctx.setOption("test-suite", "rhi.shaderlib");
+        ctx.setOption("test-suite", "rhi.shaderlib,rhi.layout");
     }
     return ctx.run();
 }
