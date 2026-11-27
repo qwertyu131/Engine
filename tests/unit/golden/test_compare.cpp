@@ -245,4 +245,57 @@ TEST_CASE("batch: invalid manifest is an error") {
     CHECK_FALSE(r3.has_value());
 }
 
+TEST_CASE("alpha: compared by default when an image has non-opaque alpha, ignored on request") {
+    const Image opaque = load("alpha_opaque_64.png");
+    const Image half = load("alpha_half_64.png");
+    REQUIRE(opaque.channels == 4);
+    REQUIRE(half.channels == 4);
+    auto byDefault = compare(half, opaque);
+    REQUIRE_MESSAGE(byDefault.has_value(), (byDefault ? std::string() : byDefault.error()));
+    CHECK(byDefault->flipMean > kDefaultThresholdFlip); // FAIL at the default threshold
+
+    CompareOptions ignore;
+    ignore.alpha = CompareOptions::Alpha::Ignore;
+    auto ignored = compare(half, opaque, ignore);
+    REQUIRE(ignored.has_value());
+    CHECK(ignored->flipMean < 1e-6); // PASS: RGB is identical
+
+    CompareOptions explicitCompare;
+    explicitCompare.alpha = CompareOptions::Alpha::Compare;
+    auto compared = compare(half, opaque, explicitCompare);
+    REQUIRE(compared.has_value());
+    CHECK(compared->flipMean == doctest::Approx(byDefault->flipMean));
+}
+
+TEST_CASE("FLIP mean matches NVIDIA's reference implementation within 1e-3") {
+    auto a = loadPng(fixture("flip_upstream/a.png"));
+    auto b = loadPng(fixture("flip_upstream/b.png"));
+    REQUIRE(a.has_value());
+    REQUIRE(b.has_value());
+    const nlohmann::json expected = readJson(fixture("flip_upstream/expected.json"));
+    const double upstream = expected.at("flipMean").get<double>();
+    auto r = compare(*b, *a); // test = b, reference = a, as upstream was run
+    REQUIRE(r.has_value());
+    MESSAGE("ours " << r->flipMean << " upstream " << upstream);
+    CHECK(std::abs(r->flipMean - upstream) <= 1e-3);
+}
+
+TEST_CASE("batch: detail messages use repo-relative paths") {
+    TempDir dir("detail");
+    const fs::path repo = dir.path / "repo";
+    fs::create_directories(repo / ".git");
+    fs::create_directories(repo / "cases");
+    fs::copy_file(fixture("solid_red_64.png"), repo / "cases" / "red.png");
+    writeText(repo / "cases" / "manifest.json",
+              R"({"phase":"f00","cases":[{"name":"no_ref","test":"red.png","ref":"ref/does_not_exist.png"}]})");
+    auto summary = runBatch(repo / "cases" / "manifest.json", repo / "out");
+    REQUIRE_MESSAGE(summary.has_value(), (summary ? std::string() : summary.error()));
+    const nlohmann::json j = readJson(repo / "out" / "results.json");
+    const std::string detail = j["cases"][0]["detail"].get<std::string>();
+    CAPTURE(detail);
+    CHECK(detail.find("'cases/ref/does_not_exist.png'") != std::string::npos);
+    CHECK(detail.find(toUtf8Generic(dir.path)) == std::string::npos);
+    CHECK(detail.find(toUtf8(dir.path)) == std::string::npos);
+}
+
 } // TEST_SUITE

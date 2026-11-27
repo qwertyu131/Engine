@@ -1,5 +1,6 @@
 #include "Compare.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <vector>
@@ -40,17 +41,53 @@ std::vector<float> toRgbFloat(const Image& img) {
     return out;
 }
 
-double psnrRgb(const Image& a, const Image& b) {
+std::vector<float> alphaAsGray(const Image& img) {
+    const size_t pixels = static_cast<size_t>(img.width) * static_cast<size_t>(img.height);
+    std::vector<float> out(pixels * 3u);
+    for (size_t i = 0; i < pixels; ++i) {
+        const float a = static_cast<float>(img.rgba8[i * 4u + 3u]) / 255.0f;
+        out[i * 3u] = out[i * 3u + 1u] = out[i * 3u + 2u] = a;
+    }
+    return out;
+}
+
+bool hasNonOpaqueAlpha(const Image& img) {
+    for (size_t i = 3; i < img.rgba8.size(); i += 4) {
+        if (img.rgba8[i] != 255) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// LDR-FLIP error map of two RGB float images (order: reference, test) into `errorMap` (w x h).
+// (FLIP::image is not copyable from a const or temporary image, hence the out parameter.)
+void flipMap(const std::vector<float>& refRgb, const std::vector<float>& testRgb, int w, int h, bool srgb,
+             FLIP::image<float>& errorMap) {
+    FLIP::image<FLIP::color3> refImage;
+    FLIP::image<FLIP::color3> testImage;
+    refImage.setPixels(refRgb.data(), w, h);
+    testImage.setPixels(testRgb.data(), w, h);
+    if (srgb) {
+        // PNG content is sRGB-encoded; FLIP expects linear RGB input.
+        refImage.sRGBToLinearRGB();
+        testImage.sRGBToLinearRGB();
+    }
+    FLIP::Parameters params; // default PPD
+    FLIP::evaluate(refImage, testImage, /*useHDR=*/false, params, errorMap);
+}
+
+double psnr(const Image& a, const Image& b, size_t channels) {
     const size_t pixels = static_cast<size_t>(a.width) * static_cast<size_t>(a.height);
     double sumSq = 0.0;
     for (size_t i = 0; i < pixels; ++i) {
-        for (size_t c = 0; c < 3; ++c) {
+        for (size_t c = 0; c < channels; ++c) {
             const double d =
                 static_cast<double>(a.rgba8[i * 4u + c]) - static_cast<double>(b.rgba8[i * 4u + c]);
             sumSq += d * d;
         }
     }
-    const double mse = sumSq / static_cast<double>(pixels * 3u);
+    const double mse = sumSq / static_cast<double>(pixels * channels);
     if (mse == 0.0) {
         return std::numeric_limits<double>::infinity();
     }
@@ -69,7 +106,7 @@ bool wellFormed(const Image& img) {
 
 } // namespace
 
-std::expected<CompareResult, std::string> compare(const Image& test, const Image& ref) {
+std::expected<CompareResult, std::string> compare(const Image& test, const Image& ref, const CompareOptions& options) {
     if (!wellFormed(test) || !wellFormed(ref)) {
         return std::unexpected(std::string("invalid image (empty or inconsistent buffer)"));
     }
@@ -82,23 +119,24 @@ std::expected<CompareResult, std::string> compare(const Image& test, const Image
         return std::unexpected("channel mismatch: " + std::to_string(test.channels) + " vs " +
                                std::to_string(ref.channels) + " channels");
     }
+    const CompareOptions::Alpha alpha =
+        options.alpha.value_or(hasNonOpaqueAlpha(test) || hasNonOpaqueAlpha(ref) ? CompareOptions::Alpha::Compare
+                                                                                 : CompareOptions::Alpha::Ignore);
 
     const int w = test.width;
     const int h = test.height;
-    const std::vector<float> testRgb = toRgbFloat(test);
-    const std::vector<float> refRgb = toRgbFloat(ref);
-
-    FLIP::image<FLIP::color3> refImage;
-    FLIP::image<FLIP::color3> testImage;
-    refImage.setPixels(refRgb.data(), w, h);
-    testImage.setPixels(testRgb.data(), w, h);
-    // PNG content is sRGB-encoded; FLIP expects linear RGB input.
-    refImage.sRGBToLinearRGB();
-    testImage.sRGBToLinearRGB();
-
-    FLIP::Parameters params; // default PPD
     FLIP::image<float> errorMap(w, h, 0.0f);
-    FLIP::evaluate(refImage, testImage, /*useHDR=*/false, params, errorMap); // order: (reference, test)
+    flipMap(toRgbFloat(ref), toRgbFloat(test), w, h, /*srgb=*/true, errorMap);
+    if (alpha == CompareOptions::Alpha::Compare) {
+        // Alpha is linear coverage, not sRGB: compared as a gray image, no transfer function.
+        FLIP::image<float> alphaMap(w, h, 0.0f);
+        flipMap(alphaAsGray(ref), alphaAsGray(test), w, h, /*srgb=*/false, alphaMap);
+        for (int y = 0; y < h; ++y) {
+            for (int x = 0; x < w; ++x) {
+                errorMap.set(x, y, std::max(errorMap.get(x, y), alphaMap.get(x, y)));
+            }
+        }
+    }
 
     double sum = 0.0;
     for (int y = 0; y < h; ++y) {
@@ -112,7 +150,7 @@ std::expected<CompareResult, std::string> compare(const Image& test, const Image
 
     CompareResult result;
     result.flipMean = sum / (static_cast<double>(w) * static_cast<double>(h));
-    result.psnr = psnrRgb(test, ref);
+    result.psnr = psnr(test, ref, alpha == CompareOptions::Alpha::Compare ? 4u : 3u);
     result.diffHeatmap.width = w;
     result.diffHeatmap.height = h;
     result.diffHeatmap.channels = 3;

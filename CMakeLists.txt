@@ -29,6 +29,14 @@ if(ENG_BUILD_SHADERC)
 endif()
 add_subdirectory(apps/headless)
 
+# D3D11 VS -> PS linkage checker (plan F2 Task 1; spike tool, not run by ctest). Windows-only, optional.
+if(WIN32)
+    option(ENG_BUILD_D3D11_LINKCHECK "Build tests/tools/d3d11_linkcheck" ON)
+    if(ENG_BUILD_D3D11_LINKCHECK)
+        add_subdirectory(tests/tools/d3d11_linkcheck)
+    endif()
+endif()
+
 if(ENG_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests/unit)

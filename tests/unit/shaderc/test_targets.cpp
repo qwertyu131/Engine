@@ -5,6 +5,8 @@
 
 #include <doctest/doctest.h>
 
+#include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -116,6 +118,59 @@ TEST_CASE("a compile error is reported, not an empty output") {
     REQUIRE_FALSE(r.has_value());
     CHECK(r.error().find("undefined_symbol") != std::string::npos);
     fs::remove_all(dir);
+}
+
+TEST_CASE("each validator rejects a broken output") {
+    const fs::path src = test::triangleSrc();
+    auto check = [](Target t, const CompileResult& broken) {
+        CAPTURE(toString(t));
+        auto v = validate(t, broken, test::tools());
+        CHECK_FALSE(v.has_value());
+    };
+    auto spirv = compile(request(src, "VSMain", Stage::Vertex, Target::SPIRV), test::tools());
+    REQUIRE(spirv.has_value());
+    CompileResult truncated = *spirv;
+    truncated.bytecode.resize(truncated.bytecode.size() / 2);
+    check(Target::SPIRV, truncated);
+
+    for (Target t : {Target::GLSL_ES300, Target::GLSL_ES320}) {
+        auto glsl = compile(request(src, "PSMain", Stage::Fragment, t), test::tools());
+        REQUIRE(glsl.has_value());
+        CompileResult broken = *glsl;
+        broken.text += "\nthis is not glsl;\n";
+        check(t, broken);
+    }
+
+    auto wgsl = compile(request(src, "PSMain", Stage::Fragment, Target::WGSL), test::tools());
+    REQUIRE(wgsl.has_value());
+    CompileResult brokenWgsl = *wgsl;
+    brokenWgsl.text += "\nfn broken( {\n";
+    check(Target::WGSL, brokenWgsl);
+
+    auto dxbc = compile(request(src, "PSMain", Stage::Fragment, Target::DXBC), test::tools());
+    REQUIRE(dxbc.has_value());
+    CompileResult zeroDigest = *dxbc;
+    REQUIRE(zeroDigest.bytecode.size() > 20);
+    std::fill(zeroDigest.bytecode.begin() + 4, zeroDigest.bytecode.begin() + 20, uint8_t(0));
+    check(Target::DXBC, zeroDigest);
+}
+
+TEST_CASE("DXIL validation needs dxil.dll next to dxc.exe") {
+    // dxc.exe + dxcompiler.dll without dxil.dll, as `shaderc --tool dxc=<copy>` would see it.
+    const fs::path dir = fs::temp_directory_path() / u8"eng-shaderc-nodxil" / u8"ç dxc";
+    fs::remove_all(dir.parent_path());
+    fs::create_directories(dir);
+    const fs::path real = test::tools().dxc;
+    fs::copy_file(real, dir / "dxc.exe");
+    fs::copy_file(real.parent_path() / "dxcompiler.dll", dir / "dxcompiler.dll");
+    ToolPaths tools = test::tools();
+    tools.dxc = dir / "dxc.exe";
+    auto ok = compile(request(test::triangleSrc(), "PSMain", Stage::Fragment, Target::DXIL), test::tools());
+    REQUIRE(ok.has_value());
+    auto v = validate(Target::DXIL, *ok, tools);
+    REQUIRE_FALSE(v.has_value());
+    CHECK(v.error().rfind("tool not found: dxil.dll (", 0) == 0);
+    fs::remove_all(dir.parent_path());
 }
 
 } // TEST_SUITE

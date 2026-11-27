@@ -263,13 +263,8 @@ std::expected<void, std::string> Job::toGlsl(CompileResult& out, uint32_t versio
     }
 
     const bool explicitBindings = version >= 310;
+    // Ranges were checked against kGlslBindingsPerSpace in checkTargetFeatures().
     auto flatBinding = [](const Resource& r) { return r.space * kGlslBindingsPerSpace + r.index; };
-    for (const Resource& r : refl_.resources) {
-        if (r.index >= kGlslBindingsPerSpace) {
-            return std::unexpected("target " + toString(req_.target) + ": register index " + std::to_string(r.index) +
-                                   " of '" + r.name + "' does not fit the flattened GLSL binding (index < 16)");
-        }
-    }
 
     glsl.build_combined_image_samplers();
     std::map<uint32_t, std::string> combinedName; // texture/sampler variable id -> first combined name
@@ -385,6 +380,7 @@ std::expected<void, std::string> Job::toDxbcDirect(CompileResult& out) {
 // Features a target cannot express are rejected here, by name, instead of emitting a shader that a
 // validator or the driver rejects later (Review Focus 2):
 //   GLSL ES 3.00 (T0: GLES 3.0 / WebGL2): no storage buffers, no storage images, no compute.
+//   GLSL ES (both): every binding range inside [0, 16) of its space (flattened space * 16 + index).
 //   WGSL (WebGPU): no read-write storage in the vertex stage; no resource arrays (binding_array is
 //   not core WGSL).
 std::expected<void, std::string> Job::checkTargetFeatures() const {
@@ -407,6 +403,24 @@ std::expected<void, std::string> Job::checkTargetFeatures() const {
             }
             if (r.kind == "storage_ro" || r.kind == "storage_rw") {
                 return unsupported("storage buffers");
+            }
+        }
+    }
+    if (req_.target == Target::GLSL_ES300 || req_.target == Target::GLSL_ES320) {
+        // GLSL ES flattens (space, index) to space * 16 + index: the whole range [index, index + n) of a
+        // resource array must stay below 16, and an unbounded array has no range to flatten.
+        for (const Resource& r : refl_.resources) {
+            const std::string cls(1, registerClass(r.kind));
+            if (r.arraySize == 0) {
+                return std::unexpected("binding range " + cls + std::to_string(r.index) + "..(unbounded) exceeds " +
+                                       std::to_string(kGlslBindingsPerSpace) + " per space for " +
+                                       toString(req_.target));
+            }
+            if (r.index + r.arraySize > kGlslBindingsPerSpace) {
+                return std::unexpected("binding range " + cls + std::to_string(r.index) + ".." + cls +
+                                       std::to_string(r.index + r.arraySize - 1) + " exceeds " +
+                                       std::to_string(kGlslBindingsPerSpace) + " per space for " +
+                                       toString(req_.target));
             }
         }
     }
@@ -465,6 +479,9 @@ std::expected<CompileResult, std::string> Job::run() {
         return std::unexpected(refl.error());
     }
     refl_ = std::move(*refl);
+    if (auto e = checkExplicitRegisters(refl_, preprocessed_); !e) {
+        return std::unexpected(e.error());
+    }
     if (auto c = checkBindingConvention(refl_, declaredRegisters(preprocessed_)); !c) {
         return std::unexpected(c.error());
     }

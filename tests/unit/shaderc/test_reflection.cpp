@@ -217,4 +217,40 @@ TEST_CASE("needs_storage: a vertex-stage storage write is rejected on WGSL and G
     CHECK(bindingSet(spirv->reflection) == std::set<Binding>{{"vertexOut", "storage_rw", 3, 1}});
 }
 
+TEST_CASE("glsl_array_overflow: a range past index 15 and unbounded arrays are rejected on GLSL targets only") {
+    const fs::path src = test::shaderSrc("test/glsl_array_overflow.hlsl");
+    for (Target t : {Target::GLSL_ES320, Target::GLSL_ES300}) {
+        CAPTURE(toString(t));
+        auto r = compile(request(src, "PSMain", Stage::Fragment, t, 0), test::tools());
+        REQUIRE_FALSE(r.has_value());
+        CHECK(r.error() == "binding range t14..t17 exceeds 16 per space for " + toString(t));
+        auto u = compile(request(src, "PSUnbounded", Stage::Fragment, t, 0), test::tools());
+        REQUIRE_FALSE(u.has_value());
+        CHECK(u.error() == "binding range t0..(unbounded) exceeds 16 per space for " + toString(t));
+    }
+    // The same ranges are fine where (space, index) is not flattened.
+    for (Target t : {Target::SPIRV, Target::DXIL}) {
+        CAPTURE(toString(t));
+        auto r = compile(request(src, "PSMain", Stage::Fragment, t, 0), test::tools());
+        REQUIRE_MESSAGE(r.has_value(), (r.has_value() ? std::string() : r.error()));
+        auto v = validate(t, *r, test::tools());
+        REQUIRE_MESSAGE(v.has_value(), (v.has_value() ? std::string() : v.error()));
+        CHECK(bindingSet(r->reflection) ==
+              std::set<Binding>{{"layers", "texture", 2, 14}, {"layerSampler", "sampler", 2, 0}});
+    }
+}
+
+TEST_CASE("no_register: a resource without an explicit register() is rejected on every target") {
+    const fs::path src = test::shaderSrc("test/no_register.hlsl");
+    for (Target t : kAllTargets) {
+        CAPTURE(toString(t));
+        auto r = compile(request(src, "PSMain", Stage::Fragment, t, 0), test::tools());
+        REQUIRE_FALSE(r.has_value());
+        CHECK(r.error() == "resource Material has no explicit register() (binding convention)");
+        // VSMain only uses the declared `Frame`: accepted.
+        auto vs = compile(request(src, "VSMain", Stage::Vertex, t, 0), test::tools());
+        REQUIRE_MESSAGE(vs.has_value(), (vs.has_value() ? std::string() : vs.error()));
+    }
+}
+
 } // TEST_SUITE

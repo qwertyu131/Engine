@@ -280,10 +280,76 @@ class FetchShaderToolsTest(unittest.TestCase):
 
     def test_verify_with_missing_tool_exits_2_with_message(self) -> None:
         err = io.StringIO()
-        code = fst.main(["--verify"], fetcher_factory=lambda: self.fetcher(env={}), stderr=err)
+        code = fst.main(["--verify"], fetcher_factory=lambda build_dir=None: self.fetcher(env={}), stderr=err)
         self.assertEqual(code, 2)
         self.assertIn("tool not found: ", err.getvalue())
         self.assertIn("(run scripts/fetch_shader_tools.py)", err.getvalue())
+
+    # --- MAX_PATH: short Dawn work dir (plan F2 Task 1) -------------------------------------------
+
+    def test_short_build_dir_chosen_for_long_repo_path(self) -> None:
+        local = self.root.parent / "LocalAppData"
+        long_repo = Path("C:/" + "d" * 60 + "/Engine")
+        short = fst.default_build_dir(long_repo, DAWN_COMMIT, {"LOCALAPPDATA": str(local)})
+        self.assertIsNotNone(short)
+        self.assertEqual(short.parent, local)
+        self.assertRegex(short.name, r"^eng-tint-[0-9a-f]{8}$")
+        # Deterministic, and different for another clone (another CMake source dir) or another commit.
+        self.assertEqual(short, fst.default_build_dir(long_repo, DAWN_COMMIT, {"LOCALAPPDATA": str(local)}))
+        self.assertNotEqual(short, fst.default_build_dir(Path(str(long_repo) + "2"), DAWN_COMMIT,
+                                                         {"LOCALAPPDATA": str(local)}))
+        self.assertNotEqual(short, fst.default_build_dir(long_repo, "5" * 40, {"LOCALAPPDATA": str(local)}))
+        # A short repo path keeps the in-repo layout.
+        self.assertIsNone(fst.default_build_dir(Path("C:/e"), DAWN_COMMIT, {"LOCALAPPDATA": str(local)}))
+
+    def test_tint_builds_in_build_dir_and_still_installs_into_repo(self) -> None:
+        work = self.root.parent / "short"
+        git, run = FakeGit(), FakeRunner()
+        f = fst.ShaderToolsFetcher(root=self.root, lock_path=self.lock_path, git=git, run=run,
+                                   download=self.fake_download(self.zip_bytes), log=self.log.append, env={},
+                                   build_dir=work)
+        f.tint()
+        configure = run.calls[0]
+        self.assertEqual(Path(configure[configure.index("-S") + 1]), work / "dawn")
+        self.assertEqual(Path(configure[configure.index("-B") + 1]), work / "b")
+        self.assertIn(work / "dawn", git.fetched)
+        self.assertFalse((self.root / "src" / "dawn").exists())
+        self.assertTrue((self.root / "tint" / "tint.exe").is_file())
+        self.assertTrue(any(str(work) in line for line in self.log), self.log)
+
+    def test_main_build_dir_option_and_default(self) -> None:
+        made: list[Path | None] = []
+
+        def factory(build_dir=None):
+            made.append(build_dir)
+            raise fst.FetchError("stop")
+
+        err = io.StringIO()
+        self.assertEqual(fst.main(["--build-dir", str(self.root / "bd")], fetcher_factory=factory, stderr=err), 1)
+        self.assertEqual(made[-1], self.root / "bd")
+
+    def test_run_cmd_failure_prints_error_lines_tail_and_log_path(self) -> None:
+        lines = [f"line {i}" for i in range(100)]
+        lines[5] = "foo.cpp(12): error C2065: 'x': undeclared identifier"
+        lines[40] = "MSBUILD : Error MSB6003: The specified task executable could not run."
+        output = "\n".join(lines) + "\n"
+
+        class Proc:
+            returncode = 1
+            stdout = output
+            stderr = ""
+
+        log = self.root / "logs" / "build.log"
+        with self.assertRaises(fst.FetchError) as cm:
+            fst.run_cmd(["cmake", "--build", "x"], self.root, log_path=log, proc_run=lambda *a, **k: Proc())
+        msg = str(cm.exception)
+        self.assertIn("error C2065", msg)
+        self.assertIn("Error MSB6003", msg)
+        self.assertIn("line 99", msg)
+        self.assertIn("line 70", msg)
+        self.assertNotIn("line 69", msg)
+        self.assertIn(str(log), msg)
+        self.assertEqual(log.read_text(encoding="utf-8"), output)
 
     # --- helpers --------------------------------------------------------------------------------
 

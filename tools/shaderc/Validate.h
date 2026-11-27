@@ -1,7 +1,8 @@
 #pragma once
-// Per-target validation of a CompileResult (plan F1 Task 2):
+// Per-target validation of a CompileResult (plan F1 Task 2; dxil.dll check plan F2 Task 1):
 //   SPIR-V      spirv-val --target-env vulkan1.1
-//   DXIL        signed container (dxil.dll: non-zero DXBC digest) + `dxc -dumpbin` succeeds
+//   DXIL        dxil.dll next to dxc.exe ("tool not found: dxil.dll (...)"), signed container (non-zero
+//               DXBC digest) + `dxc -dumpbin` succeeds
 //   DXBC        FXC succeeded (compile step) + DXBC container with a non-zero digest
 //   GLSL ES     glslangValidator -S <stage> (the source carries #version 300 es / 320 es)
 //   WGSL        tint --validate (WGSL -> WGSL round trip: Tint's resolver = WGSL validation)

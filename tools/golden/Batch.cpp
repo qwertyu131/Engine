@@ -6,6 +6,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <exception>
 #include <fstream>
@@ -32,6 +33,49 @@ std::string relativeUtf8(const fs::path& p, const fs::path& baseDir) {
     }
     const fs::path rel = absP.lexically_normal().lexically_relative(absBase.lexically_normal());
     return rel.empty() ? toUtf8Generic(absP.lexically_normal()) : toUtf8Generic(rel);
+}
+
+// Path of `p` relative to the root of the git checkout that contains it ('/' separated), so a
+// detail message reads the same in every clone. Outside a checkout: `p` unchanged.
+std::string repoRelative(const fs::path& p) {
+    std::error_code ec;
+    const fs::path abs = fs::absolute(p, ec).lexically_normal();
+    if (ec) {
+        return toUtf8Generic(p);
+    }
+    for (fs::path dir = abs.parent_path(); !dir.empty(); dir = dir.parent_path()) {
+        if (fs::exists(dir / ".git", ec)) {
+            return toUtf8Generic(abs.lexically_relative(dir));
+        }
+        if (dir == dir.root_path()) {
+            break;
+        }
+    }
+    return toUtf8Generic(p);
+}
+
+// Replaces every spelling of `p` that loadPng / compare put into a message with its repo-relative form.
+std::string withRepoRelativePath(std::string msg, const fs::path& p) {
+    const std::string rel = repoRelative(p);
+    std::error_code ec;
+    const fs::path abs = fs::absolute(p, ec);
+    // Longest spelling first, and only the first one found: a relative spelling is a suffix of the
+    // absolute one and of `rel`, so replacing twice would duplicate path components.
+    std::vector<std::string> spellings{toUtf8(abs), toUtf8Generic(abs), toUtf8(p), toUtf8Generic(p)};
+    std::stable_sort(spellings.begin(), spellings.end(),
+                     [](const std::string& a, const std::string& b) { return a.size() > b.size(); });
+    for (const std::string& from : spellings) {
+        if (from.empty() || msg.find(from) == std::string::npos) {
+            continue;
+        }
+        if (from != rel) {
+            for (size_t pos = msg.find(from); pos != std::string::npos; pos = msg.find(from, pos + rel.size())) {
+                msg.replace(pos, from.size(), rel);
+            }
+        }
+        break;
+    }
+    return msg;
 }
 
 json caseJsonObject(const CaseResult& c, const fs::path& baseDir) {
@@ -157,13 +201,13 @@ std::expected<CaseResult, std::string> evaluateCase(std::string name, const fs::
     auto testImg = loadPng(test);
     if (!testImg) {
         r.reason = "missing-test";
-        r.detail = testImg.error();
+        r.detail = withRepoRelativePath(testImg.error(), test);
         return r;
     }
     auto refImg = loadPng(ref);
     if (!refImg) {
         r.reason = "missing-reference";
-        r.detail = refImg.error();
+        r.detail = withRepoRelativePath(refImg.error(), ref);
         return r;
     }
     auto cmp = compare(*testImg, *refImg);

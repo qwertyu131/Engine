@@ -72,6 +72,12 @@ std::expected<ValidateStatus, std::string> validate(Target target, const Compile
         if (!exe) {
             return std::unexpected(exe.error());
         }
+        // DXC signs DXIL with dxil.dll, loaded from next to dxc.exe / dxcompiler.dll. Without it the
+        // container is unsigned and the D3D12 runtime rejects it, while `dxc -dumpbin` still succeeds.
+        if (std::error_code ec; !fs::is_regular_file(exe->parent_path() / "dxil.dll", ec)) {
+            return std::unexpected("tool not found: dxil.dll (expected next to " + toUtf8(*exe) +
+                                   "; run scripts/fetch_shader_tools.py)");
+        }
         if (auto c = checkContainer(result.bytecode, "DXIL"); !c) {
             return std::unexpected(c.error());
         }

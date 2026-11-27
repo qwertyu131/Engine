@@ -66,6 +66,12 @@ std::vector<RegisterKey> declaredRegisters(const std::string& preprocessedHlsl);
 // reflected resource arrays. Error: "binding collision in space<S>: <c><i> and <c><j>".
 std::expected<void, std::string> checkBindingConvention(const Reflection& r, const std::vector<RegisterKey>& declared);
 
+// Binding convention: every resource the entry uses is declared with an explicit register(). DXC would
+// otherwise assign one silently (and a plain cbuffer / loose global gets b0 in space0). Checked on the
+// DXC-preprocessed source: the reflected name must be declared as `<name>[...] : register(`. Error:
+// "resource <name> has no explicit register() (binding convention)".
+std::expected<void, std::string> checkExplicitRegisters(const Reflection& r, const std::string& preprocessedHlsl);
+
 nlohmann::json toJson(const Reflection& r, Stage stage, const std::string& entry, Target target);
 
 } // namespace eng::sc

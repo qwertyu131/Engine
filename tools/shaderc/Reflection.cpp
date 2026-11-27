@@ -224,6 +224,24 @@ std::expected<void, std::string> checkBindingConvention(const Reflection& r, con
     return {};
 }
 
+std::expected<void, std::string> checkExplicitRegisters(const Reflection& r, const std::string& text) {
+    for (const Resource& x : r.resources) {
+        std::string escaped;
+        for (const char c : x.name) {
+            if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_') {
+                escaped += '\\';
+            }
+            escaped += c;
+        }
+        // `cbuffer Name : register(`, `Texture2D Name[4] : register(`, `ConstantBuffer<T> Name : register(`.
+        const std::regex decl("(^|[^A-Za-z0-9_])" + escaped + R"(\s*(\[[^\]]*\]\s*)*:\s*register\s*\()");
+        if (!std::regex_search(text, decl)) {
+            return std::unexpected("resource " + x.name + " has no explicit register() (binding convention)");
+        }
+    }
+    return {};
+}
+
 nlohmann::json toJson(const Reflection& r, Stage stage, const std::string& entry, Target target) {
     nlohmann::json j;
     j["stage"] = toString(stage);

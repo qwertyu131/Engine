@@ -1,7 +1,7 @@
 """Fetch / build the pinned offline shader toolchain (plan F1 Task 1).
 
 Usage:
-    python scripts/fetch_shader_tools.py [--only dxc|tint|all] [--verify]
+    python scripts/fetch_shader_tools.py [--only dxc|tint|all] [--verify] [--build-dir <dir>]
 
 Everything is pinned in third_party/tools/tools.lock.json (committed; the rest of third_party/tools/
 is git-ignored):
@@ -17,6 +17,14 @@ is git-ignored):
 Not downloaded (found on the machine): spirv-val + glslangValidator from $VULKAN_SDK/Bin, fxc.exe from
 Windows SDK 10.0.26100 (bin/x64).
 
+MAX_PATH (plan F2 Task 1): Dawn's source tree and MSBuild intermediates exceed 260 characters under a
+deep checkout (MSB6003 DirectoryNotFoundException). The Dawn checkout + build therefore go to
+--build-dir <dir> when given, or, when the repo path is longer than 40 characters, to the short
+%LOCALAPPDATA%\\eng-tint-<sha8> (sha8 = sha256 of "<repo path>|<Dawn commit>", so every clone and pin has
+its own CMake cache); the directory is printed. The built tint.exe is still copied to
+third_party/tools/tint/. A failing step prints every output line matching "error" (case-insensitive),
+then the last 30 lines, plus the path of the full log.
+
 Idempotent:
   * dxc zip present with the pinned sha256 and extracted -> "up to date", no download;
   * a leftover .part download is deleted; a freshly downloaded zip with the wrong sha256 is deleted and
@@ -30,6 +38,8 @@ Exit codes: 0 ok, 1 fetch / verify failure, 2 usage error or a tool not found
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
 import re
 import shutil
@@ -105,12 +115,43 @@ class ToolNotFound(FetchError):
         self.name = name
 
 
-def run_cmd(args: list[str], cwd: Path) -> str:
-    proc = subprocess.run(args, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+SHORT_PATH_LIMIT = 40  # repo paths longer than this build Dawn outside the repo (MAX_PATH)
+_ERROR_LINE = re.compile("error", re.IGNORECASE)
+
+
+def default_build_dir(repo: Path, dawn_commit: str, env: Mapping[str, str]) -> Path | None:
+    """Short Dawn work dir for a long repo path, else None (in-repo layout). One dir per (repo, commit)."""
+    if len(str(repo)) <= SHORT_PATH_LIMIT:
+        return None
+    base = env.get("LOCALAPPDATA") or env.get("TEMP") or env.get("TMP")
+    if not base:
+        raise FetchError("repo path is long (MAX_PATH) and LOCALAPPDATA is not set: pass --build-dir <short dir>")
+    sha8 = hashlib.sha256(f"{Path(repo).resolve()}|{dawn_commit}".encode("utf-8")).hexdigest()[:8]
+    return Path(base) / f"eng-tint-{sha8}"
+
+
+def _log_name(args: list[str]) -> str:
+    step = "build" if "--build" in args else "configure" if "-S" in args else "run"
+    return f"{Path(args[0]).stem}-{step}.log"
+
+
+def run_cmd(args: list[str], cwd: Path, log_path: Path | None = None, proc_run=subprocess.run) -> str:
+    """Runs a build step; the full output always goes to `log_path` (default <cwd>/logs/<exe>-<step>.log).
+    On failure the error lists every line matching 'error', then the last 30 lines and the log path."""
+    log_path = Path(log_path) if log_path else Path(cwd) / "logs" / _log_name(args)
+    proc = proc_run(args, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    output = (proc.stdout or "") + (proc.stderr or "")
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.write_text(output, encoding="utf-8")
     if proc.returncode != 0:
-        tail = "\n".join((proc.stdout + proc.stderr).strip().splitlines()[-30:])
-        raise FetchError(f"{Path(args[0]).name} {' '.join(args[1:3])} ... failed ({proc.returncode}):\n{tail}")
-    return proc.stdout
+        lines = output.strip().splitlines()
+        errors = [line for line in lines if _ERROR_LINE.search(line)]
+        msg = f"{Path(args[0]).name} {' '.join(args[1:3])} ... failed ({proc.returncode})"
+        if errors:
+            msg += f"\nlines matching 'error' ({len(errors)}):\n" + "\n".join(errors)
+        msg += "\nlast 30 lines:\n" + "\n".join(lines[-30:]) + f"\nfull log: {log_path}"
+        raise FetchError(msg)
+    return proc.stdout or ""
 
 
 def find_cmake() -> str:
@@ -161,11 +202,13 @@ def parse_deps(deps_text: str, names: list[str]) -> dict[str, tuple[str, str]]:
 class ShaderToolsFetcher:
     def __init__(self, root: Path = DEFAULT_ROOT, lock_path: Path | None = None, git=run_git,
                  download=http_download, run: Runner = run_cmd, log: Callable[[str], None] = print,
-                 env: Mapping[str, str] | None = None, cmake: str | None = None):
+                 env: Mapping[str, str] | None = None, cmake: str | None = None,
+                 build_dir: Path | None = None):
         self.root = Path(root)
+        # Dawn checkout + build location (None: <root>/src/dawn and <root>/build/dawn).
+        self.build_dir = Path(build_dir) if build_dir else None
         self.lock_path = Path(lock_path) if lock_path else self.root / "tools.lock.json"
         try:
-            import json
             self.lock = json.loads(self.lock_path.read_text(encoding="utf-8"))
         except (OSError, ValueError) as e:
             raise FetchError(f"cannot read lock file '{self.lock_path}': {e}") from e
@@ -261,11 +304,11 @@ class ShaderToolsFetcher:
 
     @property
     def dawn_src(self) -> Path:
-        return self.root / "src" / "dawn"
+        return self.build_dir / "dawn" if self.build_dir else self.root / "src" / "dawn"
 
     @property
     def dawn_build(self) -> Path:
-        return self.root / "build" / "dawn"
+        return self.build_dir / "b" if self.build_dir else self.root / "build" / "dawn"
 
     def _tint_marker(self) -> Path:
         return self.tint_dir / ".dawn-commit"
@@ -312,6 +355,8 @@ class ShaderToolsFetcher:
         if verify:
             raise FetchError(f"tint: '{self.tint_dir / 'tint.exe'}' not built from Dawn {commit}")
 
+        if self.build_dir:
+            self.log(f"tint: Dawn work dir (short path, MAX_PATH): {self.build_dir}")
         self.log(f"tint: checking out Dawn {commit} (shallow) ...")
         self._checkout(self.dawn_src, repo, commit)
         deps = parse_deps((self.dawn_src / "DEPS").read_text(encoding="utf-8"), DAWN_DEPS)
@@ -321,11 +366,13 @@ class ShaderToolsFetcher:
 
         cmake = self._cmake or find_cmake()
         self.log("tint: configuring (Tint CLI only) ...")
+        work = self.dawn_build.parent
+        work.mkdir(parents=True, exist_ok=True)
         self.run([cmake, "-S", str(self.dawn_src), "-B", str(self.dawn_build), "-G", CMAKE_GENERATOR,
-                  "-A", "x64", *TINT_CMAKE_OPTIONS], self.root)
+                  "-A", "x64", *TINT_CMAKE_OPTIONS], work)
         self.log("tint: building Release (takes a while) ...")
         self.run([cmake, "--build", str(self.dawn_build), "--config", "Release", "--target", TINT_TARGET,
-                  "--parallel"], self.root)
+                  "--parallel"], work)
         built = self.dawn_build / "Release" / "tint.exe"
         if not built.is_file():
             raise FetchError(f"tint: build finished but '{built}' does not exist")
@@ -360,18 +407,25 @@ class ShaderToolsFetcher:
         raise ToolNotFound(name)
 
 
-def main(argv: list[str] | None = None, fetcher_factory: Callable[[], ShaderToolsFetcher] | None = None,
+def main(argv: list[str] | None = None, fetcher_factory: Callable[..., ShaderToolsFetcher] | None = None,
          stderr: TextIO | None = None) -> int:
     err = stderr or sys.stderr
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--only", choices=["dxc", "tint", "all"], default="all", help="fetch/build only one item")
     ap.add_argument("--verify", action="store_true", help="check pins and tools only; no network, no build")
+    ap.add_argument("--build-dir", type=Path,
+                    help="Dawn checkout + build directory (default: in-repo, or %%LOCALAPPDATA%%\\eng-tint-<sha8> "
+                         f"when the repo path is longer than {SHORT_PATH_LIMIT} characters)")
     try:
         args = ap.parse_args(argv)
     except SystemExit as e:
         return 2 if e.code else 0
     try:
-        f = (fetcher_factory or ShaderToolsFetcher)()
+        build_dir = args.build_dir
+        if build_dir is None and fetcher_factory is None:
+            lock = json.loads((DEFAULT_ROOT / "tools.lock.json").read_text(encoding="utf-8"))
+            build_dir = default_build_dir(REPO, lock["dawn"]["commit"], os.environ)
+        f = (fetcher_factory or ShaderToolsFetcher)(build_dir=build_dir)
         names = TOOL_NAMES if args.only == "all" else [args.only]
         if args.verify:  # presence first: a missing tool is "tool not found" (exit 2), not a pin error
             for name in names:
@@ -388,8 +442,8 @@ def main(argv: list[str] | None = None, fetcher_factory: Callable[[], ShaderTool
     except FetchError as e:
         print(f"fetch_shader_tools: {e}", file=err)
         return 1
-    except OSError as e:
-        print(f"fetch_shader_tools: IO / network error: {e}", file=err)
+    except (OSError, ValueError, KeyError) as e:
+        print(f"fetch_shader_tools: IO / network / lock error: {e}", file=err)
         return 1
     return 0
 

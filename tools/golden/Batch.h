@@ -5,7 +5,8 @@
 //   {"phase": str, "cases": [{
 //       "name": str, "status": "PASS"|"FAIL",
 //       "reason": "ok"|"over-threshold"|"missing-reference"|"missing-test"|"size-mismatch",
-//       "detail": str,                     // human-readable message ("" when ok)
+//       "detail": str,                     // human-readable message ("" when ok); file paths in it
+//                                          // are relative to the git checkout root ('/' separated)
 //       "flipMean": number|null,           // null when no comparison happened
 //       "psnr": number|"inf"|null,         // "inf" = identical images
 //       "thresholdFlip": number,

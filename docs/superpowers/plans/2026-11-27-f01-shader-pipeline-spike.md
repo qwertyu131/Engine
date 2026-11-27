@@ -42,7 +42,7 @@
 - Lock schema: `{"dxc":{"tag","url","sha256"},"dawn":{"repo","commit"},"spirv-cross":{"commit"}}`.
 
 - [ ] Step 1: unittest (network mocked): second run no download; sha mismatch → `sha256 mismatch`; missing tool path → message `tool not found: <name> (run scripts/fetch_shader_tools.py)`.
-- [ ] Step 2: run → FAIL. Step 3: implement, run real fetch/build. Step 4: `third_party/tools/dxc/bin/x64/dxc.exe --version`, `tint.exe --version` print versions; unittest PASS.
+- [ ] Step 2: run → FAIL. Step 3: implement, run real fetch/build. Step 4: `third_party/tools/dxc/bin/x64/dxc.exe --version` prints the DXC version; the Tint version is the Dawn commit in `third_party/tools/tint/.dawn-commit` (`tint.exe` at the pinned Dawn commit has no `--version` flag; corrected in plan F2 Task 1); unittest PASS.
 - [ ] Step 5: commit `build(tools): pinned DXC, Tint, SPIRV-Cross toolchain`.
 
 ### Task 2: `shaderc` core + CLI, one trivial shader through all targets
@@ -52,9 +52,10 @@
 
 **Interfaces:**
 - `enum class eng::sc::Target { DXIL, DXBC, SPIRV, MSL, GLSL_ES300, GLSL_ES320, WGSL };` `enum class Stage { Vertex, Fragment, Compute };`
-- `struct CompileRequest { std::filesystem::path src; std::string entry; Stage stage; Target target; std::vector<std::pair<std::string,std::string>> defines; std::vector<std::filesystem::path> includeDirs; };`
+- `enum class DxbcPath { Direct, Cross };`
+- `struct CompileRequest { std::filesystem::path src; std::string entry; Stage stage; Target target; std::vector<std::pair<std::string,std::string>> defines; std::vector<std::filesystem::path> includeDirs; DxbcPath dxbcPath = DxbcPath::Cross; /* DXBC only */ };`
 - `struct CompileResult { std::vector<uint8_t> bytecode; std::string text; /* MSL/GLSL/WGSL/HLSL */ nlohmann::json reflection; std::vector<std::string> diagnostics; };`
-- `std::expected<CompileResult, std::string> compile(const CompileRequest&, const ToolPaths&)` and `std::expected<void, std::string> validate(Target, const CompileResult&, const ToolPaths&)` (spirv-val; `dxc -dumpbin` + dxil.dll signing check; `fxc` success = valid DXBC; `glslangValidator -S <stage>` with `#version 300 es` / `320 es`; `tint --validate` on WGSL; MSL → `PENDING-CI` status, not error).
+- `std::expected<CompileResult, std::string> compile(const CompileRequest&, const ToolPaths&)` and `enum class ValidateStatus { Passed, PendingCI };` `std::expected<ValidateStatus, std::string> validate(Target, const CompileResult&, const ToolPaths&)` (interface text corrected to the implementation in plan F2 Task 1) (spirv-val; `dxc -dumpbin` + dxil.dll signing check; `fxc` success = valid DXBC; `glslangValidator -S <stage>` with `#version 300 es` / `320 es`; `tint --validate` on WGSL; MSL → `PENDING-CI` status, not error).
 - CLI: `shaderc compile --src <f> --entry <e> --stage vs|fs|cs --target <t>|all [--define K=V]... [-I dir]... --out <dir> [--validate]`; output names `<stem>.<entry>.<target>.<ext>` + `<stem>.<entry>.<target>.refl.json`; exit 0 ok, 1 compile/validate failure, 2 usage/tool missing.
 - DXBC path: implement BOTH (a) source → FXC `ps_5_0/vs_5_0` directly and (b) DXC→SPIR-V→SPIRV-Cross HLSL SM5→FXC; flag `--dxbc-path direct|cross` (default decided in Task 5 from evidence).
 

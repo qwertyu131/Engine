@@ -1,0 +1,16 @@
+{
+  "comment": "Mean LDR-FLIP of test b.png against reference a.png, computed once with NVIDIA's reference implementation (plan F2 Task 1). tools/golden compare() must match it within 1e-3 (tests/unit/golden/test_compare.cpp).",
+  "flipMean": 0.16938497126102448,
+  "reference": "a.png",
+  "test": "b.png",
+  "upstream": {
+    "repo": "https://github.com/NVlabs/flip",
+    "commit": "d3ab02a4425eb167d8a4021b382a2bafc6e6c838",
+    "package": "flip_evaluator 1.7 (src/flip_evaluator/flip_python_api.py), built from that commit with pip install --no-build-isolation (scikit-build-core 0.11.5, nanobind 2.9.2), Python 3.14.5, Windows 11, MSVC",
+    "commands": [
+      "flip -r a.png -t b.png -v 2  ->  Mean: 0.169385 (ppd 67)",
+      "python -c \"import flip_evaluator as f; print(f.evaluate('a.png', 'b.png', 'LDR')[1])\"  ->  0.16938497126102448 (ppd 67.02064514160156)"
+    ],
+    "date": "2026-11-28"
+  }
+}
