@@ -2,7 +2,7 @@
 
 Usage:
     python scripts/make_f02_assets.py                 # writes tests/assets/f02/cube_faces.png
-    python scripts/make_f02_assets.py --check         # exit 1 if the committed PNG is stale
+    python scripts/make_f02_assets.py --check         # exit 1 if the committed PNG's pixels are stale
     python scripts/make_f02_assets.py --probes W H    # prints the cube probe pixels for a W x H render
 
 cube_faces.png (256 x 256, RGBA8, sRGB-encoded colours): a 3 x 2 grid of 80 x 120 px tiles inside an
@@ -15,7 +15,8 @@ not the same code): camera, model rotation, per-face UV mapping, ray cast agains
 tests hard-code its output; a Y flip, UV-origin or winding error in the renderer therefore cannot be
 cancelled by the same error in the probe positions.
 
-Stdlib only; output is byte-identical across runs.
+Stdlib only; the pixels are identical across runs. The compressed bytes depend on the zlib build (Windows
+CPython 3.14 ships zlib-ng), so freshness is checked on the decoded pixels, never on the file bytes.
 """
 from __future__ import annotations
 
@@ -113,6 +114,42 @@ def cube_faces_png() -> bytes:
     return png_bytes(SIZE, SIZE, cube_faces_rgba())
 
 
+def decode_png(data: bytes) -> tuple[int, int, bytes]:
+    """(width, height, RGBA8 pixels) of an 8-bit RGBA, non-interlaced PNG whose rows all use filter 0 (the
+    PNGs png_bytes writes). Raises ValueError for anything else."""
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError("not a PNG")
+    pos, idat, w, h = 8, b"", 0, 0
+    while pos < len(data):
+        (n,) = struct.unpack(">I", data[pos:pos + 4])
+        kind = data[pos + 4:pos + 8]
+        body = data[pos + 8:pos + 8 + n]
+        if kind == b"IHDR":
+            w, h, depth, ctype, _, _, interlace = struct.unpack(">IIBBBBB", body[:13])
+            if (depth, ctype, interlace) != (8, 6, 0):
+                raise ValueError("not 8-bit RGBA non-interlaced")
+        elif kind == b"IDAT":
+            idat += body
+        pos += 12 + n
+    raw = zlib.decompress(idat)
+    stride = w * 4 + 1
+    rows = []
+    for y in range(h):
+        line = raw[y * stride:(y + 1) * stride]
+        if line[0] != 0:
+            raise ValueError("unsupported PNG row filter")
+        rows.append(line[1:])
+    return w, h, b"".join(rows)
+
+
+def is_fresh(path: Path = OUT) -> bool:
+    """True if `path` decodes to exactly the pixels this script generates."""
+    try:
+        return path.is_file() and decode_png(path.read_bytes()) == (SIZE, SIZE, cube_faces_rgba())
+    except (ValueError, zlib.error, struct.error):
+        return False
+
+
 # --- independent scene model (probes) -----------------------------------------------------------
 
 def _rot(p):
@@ -208,13 +245,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{p['kind']:<12} face {p['face']}: pixel ({p['x']}, {p['y']}) screen {p['screen']} -> "
                   f"hit {p['hitFace']} local uv ({p['u']}, {p['v']}) srgb {p['srgb']}")
         return 0
-    data = cube_faces_png()
     if args.check:
-        if not OUT.is_file() or OUT.read_bytes() != data:
+        if not is_fresh():
             print(f"make_f02_assets: {OUT} is stale (run python scripts/make_f02_assets.py)", file=sys.stderr)
             return 1
         print(f"make_f02_assets: {OUT} up to date")
         return 0
+    data = cube_faces_png()
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_bytes(data)
     print(f"make_f02_assets: wrote {OUT} ({len(data)} bytes)")

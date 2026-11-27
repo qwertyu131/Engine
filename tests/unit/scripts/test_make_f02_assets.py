@@ -8,10 +8,8 @@ from __future__ import annotations
 
 import importlib.util
 import io
-import struct
 import sys
 import unittest
-import zlib
 from contextlib import redirect_stdout
 from pathlib import Path
 
@@ -29,33 +27,15 @@ def _load_module():
 mk = _load_module()
 
 
-def decode_png(data: bytes) -> tuple[int, int, bytes]:
-    """Minimal decoder for the RGBA8, filter-0 PNGs this script writes."""
-    assert data[:8] == b"\x89PNG\r\n\x1a\n"
-    pos, idat, w, h = 8, b"", 0, 0
-    while pos < len(data):
-        (n,) = struct.unpack(">I", data[pos:pos + 4])
-        kind = data[pos + 4:pos + 8]
-        body = data[pos + 8:pos + 8 + n]
-        if kind == b"IHDR":
-            w, h, depth, ctype = struct.unpack(">IIBB", body[:10])
-            assert (depth, ctype) == (8, 6)
-        elif kind == b"IDAT":
-            idat += body
-        pos += 12 + n
-    raw = zlib.decompress(idat)
-    rows = []
-    for y in range(h):
-        line = raw[y * (w * 4 + 1):(y + 1) * (w * 4 + 1)]
-        assert line[0] == 0
-        rows.append(line[1:])
-    return w, h, b"".join(rows)
+decode_png = mk.decode_png
 
 
 class CubeTextureTest(unittest.TestCase):
     def test_committed_png_is_fresh(self):
-        committed = (REPO / "tests" / "assets" / "f02" / "cube_faces.png").read_bytes()
-        self.assertEqual(committed, mk.cube_faces_png(), "run python scripts/make_f02_assets.py")
+        # Decoded pixels, not file bytes: the deflate output differs between zlib builds (zlib-ng on Windows).
+        committed = decode_png((REPO / "tests" / "assets" / "f02" / "cube_faces.png").read_bytes())
+        self.assertEqual(committed, (256, 256, mk.cube_faces_rgba()), "run python scripts/make_f02_assets.py")
+        self.assertTrue(mk.is_fresh())
 
     def test_tile_centres_have_the_face_colours(self):
         w, h, px = decode_png(mk.cube_faces_png())
