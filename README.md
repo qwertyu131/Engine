@@ -39,11 +39,14 @@ Options: `ENG_BUILD_TESTS` (ON), `ENG_ENABLE_ASSERTS` (`DEBUG_ONLY` default, `ON
 ## Golden image diff
 
 ```powershell
-build\win-msvc	ools\golden\Debug\golden.exe compare --test a.png --ref b.png --out-diff diff.png [--threshold-flip 0.05] [--json r.json]
-build\win-msvc	ools\golden\Debug\golden.exe batch --manifest manifest.json --out outdir
+build\win-msvc\tools\golden\Debug\golden.exe compare --test a.png --ref b.png --out-diff diff.png [--threshold-flip 0.05] [--json r.json]
+build\win-msvc\tools\golden\Debug\golden.exe batch --manifest manifest.json --out outdir
 ```
 
 Exit codes: `0` all PASS, `1` at least one FAIL, `2` usage / IO error (in `compare`, also a size or
 channel-count mismatch). `batch` writes `outdir/results.json` (schema in `tools/golden/Batch.h`;
 paths relative to `results.json`) and one `<case>.diff.png` FLIP heatmap per compared case.
+Visual report (self-contained HTML, images embedded, works offline):
+`python tools/golden/report.py --results outdir/results.json --out outdir/report.html`.
+Python tests: `python -m unittest discover tests`.
 The golden targets are compiled as C++23 (`std::expected`); `engine` stays C++20.
