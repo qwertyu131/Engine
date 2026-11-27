@@ -467,7 +467,10 @@ int run(const std::vector<std::string>& args) {
             const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - f0).count();
             stats.push(dt * 1000.0f);
             renderedMs += ms;
-            ++rendered;
+            if (++rendered == 1) {
+                std::printf("viewer: first frame presented\n"); // tests/viewer/run_viewer.py waits for it
+                std::fflush(stdout);
+            }
         }
         if (exitCode == kExitOk && !opts->screenshot.empty() && !screenshotTaken) {
             exitCode = kExitError;
