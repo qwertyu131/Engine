@@ -49,7 +49,7 @@ Values follow the glTF-Sample-Viewer app defaults (`KhronosGroup/glTF-Sample-Vie
 | Exposure | 1.0 |
 | IBL | on, intensity 1.0 |
 | Punctual lights | **off** |
-| Camera | `UserCamera.resetView` default fit camera, yfov 45 deg, aspect width/height, no orbit |
+| Camera | `applyTransformHierarchy`, then `UserCamera.resetView` default fit camera, yfov 45 deg, aspect width/height, no orbit |
 | Scene | `gltf.scene ?? 0` |
 | Animation | none, t = 0 |
 | Material variant | none |
@@ -65,8 +65,11 @@ whether both renders were byte-identical.
 
 ## Known observations
 
-- `MetalRoughSpheres` appears small in the frame. That is the Sample-Viewer 1.1.0 fit-camera result
-  for that model, kept as-is on purpose (the reference must match the viewer, not look nice).
+- The fit camera needs world transforms: like the app (`applyLoadedGltf` in `src/main.js`), the
+  generator calls `scene.applyTransformHierarchy` before `UserCamera.resetView`. Without it, models
+  with node transforms (e.g. `MetalRoughSpheres`) are framed from untransformed extents.
+- `MetalRoughSpheres.png` was checked against the asset's own `screenshot/screenshot.png` at the
+  pinned Sample-Assets commit (same layout: silver spheres in front, gold spheres behind).
 - `DamagedHelmet.png` was checked visually against the Sample-Viewer's own Playwright snapshot
   `tests/__screenshots__/default-model-chromium-darwin.png` (same framing, orientation, background).
 - The references above were produced on an RTX 3070 Ti via ANGLE/D3D11. Another GPU can differ in

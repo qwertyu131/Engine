@@ -60,7 +60,7 @@ const RENDER_SETTINGS = {
   morphing: true,
   skinning: true,
   animation: 'none (animationIndices = [], t = 0, bind/rest pose)',
-  camera: 'UserCamera.resetView(gltf, sceneIndex) default fit camera; yfov 45 deg; aspect = width/height; no orbit',
+  camera: 'scene.applyTransformHierarchy, then UserCamera.resetView(gltf, sceneIndex) default fit camera; yfov 45 deg; aspect = width/height; no orbit',
   sceneIndex: 'gltf.scene ?? 0',
   variant: 'KHR_materials_variants: none (default materials)',
   contextAttributes: { alpha: false, antialias: true, preserveDrawingBuffer: true },
@@ -160,6 +160,9 @@ window.__refgen = {
     state.cameraIndex = undefined;
     state.animationIndices = [];
     state.variant = undefined;
+    // As the Sample-Viewer app does (src/main.js applyLoadedGltf): world transforms first,
+    // otherwise the fit camera measures untransformed extents.
+    state.gltf.scenes[state.sceneIndex].applyTransformHierarchy(state.gltf);
     state.userCamera.perspective.aspectRatio = S.width / S.height;
     state.userCamera.resetView(state.gltf, state.sceneIndex);
     const stats = view.gatherStatistics(state);

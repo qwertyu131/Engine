@@ -19,8 +19,8 @@ jobs:
   windows:
     runs-on: windows-latest   # windows-2025-vs2026: Visual Studio 18 2026 generator available
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
       - name: Configure
@@ -35,7 +35,7 @@ jobs:
         run: python scripts/run_golden.py --phase f00 --build-dir build/win-msvc --config Debug
       - name: Upload golden report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: golden-report-f00-windows
           path: |
@@ -46,7 +46,7 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Ninja and Clang
         run: |
           sudo apt-get update

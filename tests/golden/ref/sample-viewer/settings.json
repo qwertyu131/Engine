@@ -67,7 +67,7 @@
     "morphing": true,
     "skinning": true,
     "animation": "none (animationIndices = [], t = 0, bind/rest pose)",
-    "camera": "UserCamera.resetView(gltf, sceneIndex) default fit camera; yfov 45 deg; aspect = width/height; no orbit",
+    "camera": "scene.applyTransformHierarchy, then UserCamera.resetView(gltf, sceneIndex) default fit camera; yfov 45 deg; aspect = width/height; no orbit",
     "sceneIndex": "gltf.scene ?? 0",
     "variant": "KHR_materials_variants: none (default materials)",
     "contextAttributes": {
@@ -102,8 +102,8 @@
       "variant": "glTF-Binary",
       "file": "DamagedHelmet.glb",
       "png": "DamagedHelmet.png",
-      "pngSha256": "ec455df42d428584f3dd5f5e62b5bfc384b91727e0ec463b8667d12c1af77c10",
-      "pixelStdDev": 41.386,
+      "pngSha256": "e677d6a17424f23c091dee9816f020a276cff9d71ca8f6cafd89761e3b2460be",
+      "pixelStdDev": 42.96,
       "deterministicRerender": true,
       "sceneStats": {
         "meshCount": 1,
@@ -118,8 +118,8 @@
       "variant": "glTF-Binary",
       "file": "MetalRoughSpheres.glb",
       "png": "MetalRoughSpheres.png",
-      "pngSha256": "4a8626c4a2b539706f60eab2f1b8c45f39971d75630b92bade759ecc7ea66032",
-      "pixelStdDev": 26.916,
+      "pngSha256": "b884926eaf09e557b218d794175190b329ca715d53477ad96fbcfe7b022120ef",
+      "pixelStdDev": 35.375,
       "deterministicRerender": true,
       "sceneStats": {
         "meshCount": 5,
