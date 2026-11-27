@@ -6,7 +6,7 @@ add_executable(engine_unit_tests
 target_link_libraries(engine_unit_tests PRIVATE engine::engine doctest::doctest)
 
 # One CTest entry per doctest suite, so `ctest -R <suite>` selects real test cases.
-set(ENG_UNIT_SUITES log cvar)
+set(ENG_UNIT_SUITES log assert cvar)
 foreach(suite IN LISTS ENG_UNIT_SUITES)
     add_test(NAME unit.${suite}
              COMMAND engine_unit_tests --test-suite=${suite} --no-version=true)

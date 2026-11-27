@@ -1,5 +1,6 @@
 #include "core/CVar.h"
 
+#include "core/Assert.h"
 #include "core/Log.h"
 
 #include <algorithm>
@@ -372,6 +373,10 @@ void CVarRegistry::forEach(const std::function<void(const CVar&)>& fn) const {
 }
 
 uint64_t CVarRegistry::onChanged(Listener listener) {
+    ENG_ASSERT_MSG(static_cast<bool>(listener), "onChanged: empty listener");
+    if (!listener) {
+        return 0; // never a valid id; removeListener(0) is a no-op
+    }
     std::lock_guard lock(m_mutex);
     const uint64_t id = m_nextListenerId++;
     m_listeners.emplace_back(id, std::make_shared<Listener>(std::move(listener)));

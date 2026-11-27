@@ -138,6 +138,7 @@ public:
     // Visits every cvar in case-insensitive name order.
     void forEach(const std::function<void(const CVar&)>& fn) const;
 
+    // Returns a listener id (> 0). An empty listener asserts (Debug) and returns 0.
     uint64_t onChanged(Listener listener);
     void removeListener(uint64_t id);
 

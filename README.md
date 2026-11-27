@@ -7,7 +7,8 @@ Plans: `docs/superpowers/plans/`
 
 ## Build (Windows, plain PowerShell)
 
-Requirements: Visual Studio 18 2026 (MSVC), CMake >= 3.28, git.
+Requirements: Visual Studio 18 2026 (MSVC), git, CMake >= 3.28 (the `Visual Studio 18 2026`
+generator itself needs a CMake release that knows it; verified with CMake 4.3.2).
 
 ```powershell
 cmake --preset win-msvc
