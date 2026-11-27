@@ -15,6 +15,7 @@ include(cmake/Dependencies.cmake)
 
 add_subdirectory(engine)
 add_subdirectory(tools/golden)
+add_subdirectory(apps/headless)
 
 if(ENG_BUILD_TESTS)
     enable_testing()

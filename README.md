@@ -30,8 +30,10 @@ ctest --preset linux-clang -C Debug --output-on-failure
 |---|---|
 | `engine/core/` | log, assert, cvar registry |
 | `tools/golden/` | `golden` image diff CLI (NVIDIA FLIP + PSNR) and `golden_core` library |
+| `apps/headless/` | `headless` offscreen render -> PNG (F0: `cpu` backend, `builtin:test-pattern` only) |
+| `scripts/` | `run_golden.py` (headless -> golden -> report driver) |
 | `tests/unit/` | doctest unit tests (one CTest entry per suite: `unit.<suite>`, plus `unit.all`) |
-| `tests/golden/` | golden CLI exit-code tests (`golden.cli.*`), fixtures (`fixtures/make_fixtures.py`) |
+| `tests/golden/` | golden / headless CLI exit-code tests (`golden.cli.*`, `headless.cli.*`), fixtures (`fixtures/make_fixtures.py`), per-phase manifests (`<phase>/manifest.json`), committed references (`ref/<phase>/`) |
 | `cmake/Dependencies.cmake` | pinned FetchContent dependencies |
 
 Options: `ENG_BUILD_TESTS` (ON), `ENG_ENABLE_ASSERTS` (`DEBUG_ONLY` default, `ON`, `OFF`).
@@ -50,3 +52,16 @@ Visual report (self-contained HTML, images embedded, works offline):
 `python tools/golden/report.py --results outdir/results.json --out outdir/report.html`.
 Python tests: `python -m unittest discover tests`.
 The golden targets are compiled as C++23 (`std::expected`); `engine` stays C++20.
+
+## Headless render + golden run
+
+```powershell
+build\win-msvc\apps\headless\Debug\headless.exe --backend cpu --scene builtin:test-pattern --width 256 --height 256 --out tp.png [--cvar name=value]... [--bench N]
+python scripts/run_golden.py --phase f00 --build-dir build/win-msvc --config Debug
+```
+
+`headless` exit codes: `0` ok, `2` usage / IO error (also unknown `--cvar` or rejected value),
+`3` backend not available in this build (F0 has only `cpu`). `--bench N` prints
+`frame_ms_avg=<ms> frame_ms_p95=<ms>`. `run_golden.py` renders every case of
+`tests/golden/<phase>/manifest.json`, runs `golden batch` and `report.py`, and writes
+`tests/golden/out/<phase>/{results.json,report.html}`; its exit code is golden's.

@@ -4,9 +4,15 @@
 # ARGS may contain @WORK@ (a scratch dir recreated on every run) and @UTF8DIR@ (WORK/"ç ğ ü test",
 # into which UTF8_FIXTURE is copied as red.png, to exercise non-ASCII paths with spaces).
 # EXPECT_IN_RESULTS is searched in WORK/out/results.json.
+# Optional: -DTOOL=<exe> runs another CLI (e.g. headless) instead of GOLDEN;
+# -DEXPECT_IN_OUTPUT=<substring> must appear in stdout or stderr;
+# -DEXPECT_FILE=<path> (may contain @WORK@ / @UTF8DIR@) must exist after the run.
 cmake_minimum_required(VERSION 3.28)
 
 string(REPLACE "|" ";" ARGS "${ARGS}")
+if(DEFINED TOOL)
+    set(GOLDEN "${TOOL}")
+endif()
 
 if(DEFINED WORK)
     file(REMOVE_RECURSE "${WORK}")
@@ -18,6 +24,10 @@ if(DEFINED WORK)
     endif()
     string(REPLACE "@UTF8DIR@" "${utf8dir}" ARGS "${ARGS}")
     string(REPLACE "@WORK@" "${WORK}" ARGS "${ARGS}")
+    if(DEFINED EXPECT_FILE)
+        string(REPLACE "@UTF8DIR@" "${utf8dir}" EXPECT_FILE "${EXPECT_FILE}")
+        string(REPLACE "@WORK@" "${WORK}" EXPECT_FILE "${EXPECT_FILE}")
+    endif()
 endif()
 
 execute_process(COMMAND "${GOLDEN}" ${ARGS}
@@ -33,4 +43,15 @@ if(DEFINED EXPECT_IN_RESULTS)
     if(pos EQUAL -1)
         message(FATAL_ERROR "results.json does not contain '${EXPECT_IN_RESULTS}':\n${results}")
     endif()
+endif()
+
+if(DEFINED EXPECT_IN_OUTPUT)
+    string(FIND "${out}${err}" "${EXPECT_IN_OUTPUT}" pos)
+    if(pos EQUAL -1)
+        message(FATAL_ERROR "output does not contain '${EXPECT_IN_OUTPUT}'")
+    endif()
+endif()
+
+if(DEFINED EXPECT_FILE AND NOT EXISTS "${EXPECT_FILE}")
+    message(FATAL_ERROR "expected file was not written: ${EXPECT_FILE}")
 endif()
