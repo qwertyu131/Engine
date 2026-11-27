@@ -10,7 +10,8 @@
       "cvars": [],
       "bench": 10,
       "ref": "../ref/f00/test_pattern_256.png",
-      "thresholdFlip": 0.05
+      "thresholdFlip": 0.05,
+      "thresholdReason": "golden default; the CPU test pattern is deterministic (byte-identical in practice)"
     }
   ]
 }

@@ -8,7 +8,7 @@
 //   cpu     F0: `--scene builtin:test-pattern` (deterministic CPU pattern, see TestPattern.h).
 //   vulkan  F2: through engine/rhi, with validation (VK_LAYER_KHRONOS_validation + sync validation).
 //   d3d11   F2: through engine/rhi, with the debug layer; --warp = WARP software rasterizer.
-// GPU scenes (Scenes.h): builtin:triangle, builtin:textured-cube. --adapter selects the adapter by index
+// GPU scenes (Scenes.h): builtin:triangle, builtin:textured-cube, builtin:pbr-spheres. --adapter selects the adapter by index
 // (default: the backend's default). --shader-dir is the shader library of the `shaders` build step
 // (default: the build tree's, compiled in). --asset-dir is the test asset root (default: the source
 // tree's tests/assets, compiled in).
@@ -68,7 +68,7 @@ void printUsage(std::ostream& os) {
     for (const eng::rhi::Backend b : eng::rhi::compiledBackends()) {
         os << ", " << eng::rhi::toString(b);
     }
-    os << "\nscenes: builtin:test-pattern (cpu), builtin:triangle, builtin:textured-cube (gpu)\n"
+    os << "\nscenes: builtin:test-pattern (cpu), builtin:triangle, builtin:textured-cube, builtin:pbr-spheres (gpu)\n"
           "exit codes: 0 = ok, 2 = usage / IO error, 3 = backend not available, 4 = validation error,\n"
           "            5 = device lost / GPU error\n";
 }
@@ -225,9 +225,15 @@ int run(const std::vector<std::string>& args) {
     fs::path shaderDir;
     fs::path assetDir;
     if (gpu) {
-        if (opts->scene != eng::scenes::kTriangle && opts->scene != eng::scenes::kTexturedCube) {
+        bool known = false;
+        std::string names;
+        for (const std::string_view n : eng::scenes::sceneNames()) {
+            known = known || opts->scene == n;
+            names += (names.empty() ? "" : ", ") + std::string(n);
+        }
+        if (!known) {
             std::cerr << "headless: scene '" << opts->scene << "' not supported on backend " << opts->backend
-                      << " in this build (" << eng::scenes::kTriangle << ", " << eng::scenes::kTexturedCube << ")\n";
+                      << " in this build (" << names << ")\n";
             return kExitError;
         }
 #if defined(ENG_DEFAULT_SHADER_DIR)
@@ -261,22 +267,35 @@ int run(const std::vector<std::string>& args) {
         return kExitError;
     }
 
+    // GPU scene: created once (shaders, geometry, textures, IBL), recorded every frame (plan F2 Task 5).
+    // Target format: builtin:textured-cube draws into RGBA8_SRGB (its texture is sRGB), the others into
+    // RGBA8_UNORM (builtin:pbr-spheres applies its own gamma 2.2 encode, as Sample-Viewer).
+    std::unique_ptr<eng::scenes::Scene> scene;
+    const eng::rhi::Format targetFormat =
+        opts->scene == eng::scenes::kTexturedCube ? eng::rhi::Format::RGBA8_SRGB : eng::rhi::Format::RGBA8_UNORM;
+    if (device) {
+        eng::scenes::SceneDesc sd;
+        sd.shaderDir = shaderDir;
+        sd.assetDir = assetDir;
+        sd.colorFormat = targetFormat;
+        sd.width = static_cast<uint32_t>(opts->width);
+        sd.height = static_cast<uint32_t>(opts->height);
+        auto s = eng::scenes::createScene(*device, opts->scene, sd);
+        if (!s) {
+            std::cerr << "headless: " << s.error().message << "\n";
+            return s.error().exitCode;
+        }
+        scene = std::move(*s);
+    }
+
     int gpuError = kExitOk;
     std::string gpuMessage;
     const auto renderFrame = [&]() -> eng::Image8 {
         if (!device) {
             return eng::makeTestPattern(opts->width, opts->height);
         }
-        eng::rhi::Result<eng::rhi::Image> img;
-        if (opts->scene == eng::scenes::kTexturedCube) {
-            eng::scenes::CubeOptions co;
-            co.width = static_cast<uint32_t>(opts->width);
-            co.height = static_cast<uint32_t>(opts->height);
-            img = eng::scenes::renderTexturedCube(*device, shaderDir, assetDir, co);
-        } else {
-            img = eng::scenes::renderTriangle(*device, shaderDir, static_cast<uint32_t>(opts->width),
-                                              static_cast<uint32_t>(opts->height));
-        }
+        eng::rhi::Result<eng::rhi::Image> img = eng::scenes::renderOffscreen(
+            *device, *scene, targetFormat, static_cast<uint32_t>(opts->width), static_cast<uint32_t>(opts->height));
         eng::Image8 out;
         if (!img) {
             gpuError = img.error().exitCode;
@@ -318,6 +337,13 @@ int run(const std::vector<std::string>& args) {
         frame = renderFrame();
     }
 
+    scene.reset();
+    if (device) {
+        if (auto r = device->submitAndWait(); !r && gpuError == kExitOk) { // runs the deferred destruction
+            gpuError = r.error().exitCode;
+            gpuMessage = r.error().message;
+        }
+    }
     if (gpuError != kExitOk) {
         std::cerr << "headless: " << gpuMessage << "\n";
         return gpuError;

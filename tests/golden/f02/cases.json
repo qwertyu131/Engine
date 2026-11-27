@@ -1,0 +1,748 @@
+{
+  "phase": "f02",
+  "comment": "Plan F2 Task 5: 3 scenes x 2 backends (each vs the committed D3D11 reference tests/golden/ref/f02/<scene>.png) + 3 Vulkan-vs-D3D11 compares (compareWith) + the Review Focus 5 non-ASCII --out case. Probes are absolute pixel checks from hand-computed / independently modelled values: triangle = Scenes.h vertex layout, textured-cube = scripts/make_f02_assets.py --probes 128 128, pbr-spheres = scripts/f02_pbr_model.py --probes 256 256.",
+  "cases": [
+    {
+      "name": "triangle.vulkan",
+      "backend": "vulkan",
+      "scene": "builtin:triangle",
+      "width": 64,
+      "height": 64,
+      "ref": "../ref/f02/triangle.png",
+      "thresholdFlip": 0.01,
+      "thresholdReason": "vs the committed D3D11 reference; Vulkan and D3D11 hardware were byte-identical in Task 2 (flipMean 0); 0.01 is the plan's starting threshold",
+      "probes": [
+        {
+          "name": "red vertex (top-left)",
+          "x": 8,
+          "y": 8,
+          "rgba": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "tol": 2
+        },
+        {
+          "name": "green vertex (top-right)",
+          "x": 55,
+          "y": 8,
+          "rgba": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "tol": 2
+        },
+        {
+          "name": "blue vertex (bottom)",
+          "x": 32,
+          "y": 56,
+          "rgba": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "tol": 2
+        },
+        {
+          "name": "background = clear 0.1 (25.5)",
+          "x": 2,
+          "y": 61,
+          "rgba": [
+            25,
+            25,
+            25,
+            255
+          ],
+          "tol": 1
+        },
+        {
+          "name": "background = clear 0.1 (25.5)",
+          "x": 61,
+          "y": 61,
+          "rgba": [
+            25,
+            25,
+            25,
+            255
+          ],
+          "tol": 1
+        }
+      ]
+    },
+    {
+      "name": "triangle.d3d11",
+      "backend": "d3d11",
+      "scene": "builtin:triangle",
+      "width": 64,
+      "height": 64,
+      "ref": "../ref/f02/triangle.png",
+      "thresholdFlip": 0.01,
+      "thresholdReason": "vs the committed D3D11 reference; Vulkan and D3D11 hardware were byte-identical in Task 2 (flipMean 0); 0.01 is the plan's starting threshold",
+      "probes": [
+        {
+          "name": "red vertex (top-left)",
+          "x": 8,
+          "y": 8,
+          "rgba": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "tol": 2
+        },
+        {
+          "name": "green vertex (top-right)",
+          "x": 55,
+          "y": 8,
+          "rgba": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "tol": 2
+        },
+        {
+          "name": "blue vertex (bottom)",
+          "x": 32,
+          "y": 56,
+          "rgba": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "tol": 2
+        },
+        {
+          "name": "background = clear 0.1 (25.5)",
+          "x": 2,
+          "y": 61,
+          "rgba": [
+            25,
+            25,
+            25,
+            255
+          ],
+          "tol": 1
+        },
+        {
+          "name": "background = clear 0.1 (25.5)",
+          "x": 61,
+          "y": 61,
+          "rgba": [
+            25,
+            25,
+            25,
+            255
+          ],
+          "tol": 1
+        }
+      ]
+    },
+    {
+      "name": "triangle.vulkan-vs-d3d11",
+      "test": "triangle.vulkan",
+      "compareWith": "triangle.d3d11",
+      "thresholdFlip": 0.01,
+      "thresholdReason": "backend parity (spec 5.4, D3D11 vs Vulkan leg); Vulkan and D3D11 hardware were byte-identical in Task 2 (flipMean 0); 0.01 is the plan's starting threshold"
+    },
+    {
+      "name": "textured-cube.vulkan",
+      "backend": "vulkan",
+      "scene": "builtin:textured-cube",
+      "width": 128,
+      "height": 128,
+      "ref": "../ref/f02/textured-cube.png",
+      "thresholdFlip": 0.01,
+      "thresholdReason": "vs the committed D3D11 reference; Task 4: d3d11 vs vulkan byte-identical (flipMean 0); 0.01 is the plan's starting threshold",
+      "probes": [
+        {
+          "name": "face centre -X (cube_faces.png tile)",
+          "x": 39,
+          "y": 68,
+          "rgba": [
+            60,
+            170,
+            70,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "name": "face centre +Y",
+          "x": 64,
+          "y": 38,
+          "rgba": [
+            50,
+            90,
+            200,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "name": "face centre +Z",
+          "x": 78,
+          "y": 72,
+          "rgba": [
+            180,
+            70,
+            190,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "name": "depth: +Z covers the hidden far edge +X/-Y",
+          "x": 83,
+          "y": 81,
+          "rgba": [
+            180,
+            70,
+            190,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "name": "background (51, 51, 51)",
+          "x": 2,
+          "y": 2,
+          "rgba": [
+            51,
+            51,
+            51,
+            255
+          ],
+          "tol": 1
+        },
+        {
+          "name": "background (51, 51, 51)",
+          "x": 125,
+          "y": 125,
+          "rgba": [
+            51,
+            51,
+            51,
+            255
+          ],
+          "tol": 1
+        }
+      ]
+    },
+    {
+      "name": "textured-cube.d3d11",
+      "backend": "d3d11",
+      "scene": "builtin:textured-cube",
+      "width": 128,
+      "height": 128,
+      "ref": "../ref/f02/textured-cube.png",
+      "thresholdFlip": 0.01,
+      "thresholdReason": "vs the committed D3D11 reference; Task 4: d3d11 vs vulkan byte-identical (flipMean 0); 0.01 is the plan's starting threshold",
+      "probes": [
+        {
+          "name": "face centre -X (cube_faces.png tile)",
+          "x": 39,
+          "y": 68,
+          "rgba": [
+            60,
+            170,
+            70,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "name": "face centre +Y",
+          "x": 64,
+          "y": 38,
+          "rgba": [
+            50,
+            90,
+            200,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "name": "face centre +Z",
+          "x": 78,
+          "y": 72,
+          "rgba": [
+            180,
+            70,
+            190,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "name": "depth: +Z covers the hidden far edge +X/-Y",
+          "x": 83,
+          "y": 81,
+          "rgba": [
+            180,
+            70,
+            190,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "name": "background (51, 51, 51)",
+          "x": 2,
+          "y": 2,
+          "rgba": [
+            51,
+            51,
+            51,
+            255
+          ],
+          "tol": 1
+        },
+        {
+          "name": "background (51, 51, 51)",
+          "x": 125,
+          "y": 125,
+          "rgba": [
+            51,
+            51,
+            51,
+            255
+          ],
+          "tol": 1
+        }
+      ]
+    },
+    {
+      "name": "textured-cube.vulkan-vs-d3d11",
+      "test": "textured-cube.vulkan",
+      "compareWith": "textured-cube.d3d11",
+      "thresholdFlip": 0.01,
+      "thresholdReason": "backend parity (spec 5.4, D3D11 vs Vulkan leg); Task 4: d3d11 vs vulkan byte-identical (flipMean 0); 0.01 is the plan's starting threshold"
+    },
+    {
+      "name": "pbr-spheres.vulkan",
+      "backend": "vulkan",
+      "scene": "builtin:pbr-spheres",
+      "width": 256,
+      "height": 256,
+      "ref": "../ref/f02/pbr-spheres.png",
+      "thresholdFlip": 0.03,
+      "thresholdReason": "vs the committed D3D11 reference; plan starting threshold 0.03: T2 SPIR-V vs T1 DXBC (cross path) bodies are identical in F1, but transcendental / filtering precision differs per driver",
+      "probes": [
+        {
+          "kind": "background",
+          "name": "background top-left",
+          "x": 6,
+          "y": 6,
+          "rgba": [
+            157,
+            175,
+            210,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "kind": "background",
+          "name": "background top-right",
+          "x": 249,
+          "y": 6,
+          "rgba": [
+            176,
+            196,
+            234,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "kind": "background",
+          "name": "background bottom-left",
+          "x": 6,
+          "y": 249,
+          "rgba": [
+            98,
+            88,
+            75,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "kind": "background",
+          "name": "background bottom-right",
+          "x": 249,
+          "y": 249,
+          "rgba": [
+            114,
+            102,
+            89,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "kind": "unlit",
+          "name": "unlit sphere 0 baseColorFactor [0.7, 0.2, 0.0]",
+          "x": 46,
+          "y": 230,
+          "rgba": [
+            217,
+            123,
+            0,
+            255
+          ],
+          "tol": 1
+        },
+        {
+          "kind": "unlit",
+          "name": "unlit sphere 1 baseColorFactor [0.0, 0.6, 0.3]",
+          "x": 87,
+          "y": 230,
+          "rgba": [
+            0,
+            202,
+            148,
+            255
+          ],
+          "tol": 1
+        },
+        {
+          "kind": "unlit",
+          "name": "unlit sphere 2 baseColorFactor [0.25, 0.0, 0.7]",
+          "x": 128,
+          "y": 230,
+          "rgba": [
+            136,
+            0,
+            217,
+            255
+          ],
+          "tol": 1
+        },
+        {
+          "kind": "unlit",
+          "name": "unlit sphere 3 baseColorFactor [0.55, 0.5, 0.0]",
+          "x": 168,
+          "y": 230,
+          "rgba": [
+            194,
+            186,
+            0,
+            255
+          ],
+          "tol": 1
+        },
+        {
+          "kind": "unlit",
+          "name": "unlit sphere 4 baseColorFactor [0.0, 0.35, 0.65]",
+          "x": 209,
+          "y": 230,
+          "rgba": [
+            0,
+            158,
+            210,
+            255
+          ],
+          "tol": 1
+        },
+        {
+          "kind": "reflection",
+          "name": "mirror metal sphere above centre reflects the sky: blue > red",
+          "x": 212,
+          "y": 14,
+          "channelGreater": [
+            2,
+            0
+          ],
+          "margin": 20
+        },
+        {
+          "kind": "reflection",
+          "name": "mirror metal sphere below centre reflects the ground: red > blue",
+          "x": 212,
+          "y": 29,
+          "channelGreater": [
+            0,
+            2
+          ],
+          "margin": 10
+        },
+        {
+          "kind": "sun",
+          "name": "rough dielectric centre darker than smooth dielectric centre (sun reflection)",
+          "x": 46,
+          "y": 189,
+          "darkerThan": {
+            "x": 46,
+            "y": 25
+          },
+          "margin": 10
+        }
+      ]
+    },
+    {
+      "name": "pbr-spheres.d3d11",
+      "backend": "d3d11",
+      "scene": "builtin:pbr-spheres",
+      "width": 256,
+      "height": 256,
+      "ref": "../ref/f02/pbr-spheres.png",
+      "thresholdFlip": 0.03,
+      "thresholdReason": "vs the committed D3D11 reference; plan starting threshold 0.03: T2 SPIR-V vs T1 DXBC (cross path) bodies are identical in F1, but transcendental / filtering precision differs per driver",
+      "probes": [
+        {
+          "kind": "background",
+          "name": "background top-left",
+          "x": 6,
+          "y": 6,
+          "rgba": [
+            157,
+            175,
+            210,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "kind": "background",
+          "name": "background top-right",
+          "x": 249,
+          "y": 6,
+          "rgba": [
+            176,
+            196,
+            234,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "kind": "background",
+          "name": "background bottom-left",
+          "x": 6,
+          "y": 249,
+          "rgba": [
+            98,
+            88,
+            75,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "kind": "background",
+          "name": "background bottom-right",
+          "x": 249,
+          "y": 249,
+          "rgba": [
+            114,
+            102,
+            89,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "kind": "unlit",
+          "name": "unlit sphere 0 baseColorFactor [0.7, 0.2, 0.0]",
+          "x": 46,
+          "y": 230,
+          "rgba": [
+            217,
+            123,
+            0,
+            255
+          ],
+          "tol": 1
+        },
+        {
+          "kind": "unlit",
+          "name": "unlit sphere 1 baseColorFactor [0.0, 0.6, 0.3]",
+          "x": 87,
+          "y": 230,
+          "rgba": [
+            0,
+            202,
+            148,
+            255
+          ],
+          "tol": 1
+        },
+        {
+          "kind": "unlit",
+          "name": "unlit sphere 2 baseColorFactor [0.25, 0.0, 0.7]",
+          "x": 128,
+          "y": 230,
+          "rgba": [
+            136,
+            0,
+            217,
+            255
+          ],
+          "tol": 1
+        },
+        {
+          "kind": "unlit",
+          "name": "unlit sphere 3 baseColorFactor [0.55, 0.5, 0.0]",
+          "x": 168,
+          "y": 230,
+          "rgba": [
+            194,
+            186,
+            0,
+            255
+          ],
+          "tol": 1
+        },
+        {
+          "kind": "unlit",
+          "name": "unlit sphere 4 baseColorFactor [0.0, 0.35, 0.65]",
+          "x": 209,
+          "y": 230,
+          "rgba": [
+            0,
+            158,
+            210,
+            255
+          ],
+          "tol": 1
+        },
+        {
+          "kind": "reflection",
+          "name": "mirror metal sphere above centre reflects the sky: blue > red",
+          "x": 212,
+          "y": 14,
+          "channelGreater": [
+            2,
+            0
+          ],
+          "margin": 20
+        },
+        {
+          "kind": "reflection",
+          "name": "mirror metal sphere below centre reflects the ground: red > blue",
+          "x": 212,
+          "y": 29,
+          "channelGreater": [
+            0,
+            2
+          ],
+          "margin": 10
+        },
+        {
+          "kind": "sun",
+          "name": "rough dielectric centre darker than smooth dielectric centre (sun reflection)",
+          "x": 46,
+          "y": 189,
+          "darkerThan": {
+            "x": 46,
+            "y": 25
+          },
+          "margin": 10
+        }
+      ]
+    },
+    {
+      "name": "pbr-spheres.vulkan-vs-d3d11",
+      "test": "pbr-spheres.vulkan",
+      "compareWith": "pbr-spheres.d3d11",
+      "thresholdFlip": 0.03,
+      "thresholdReason": "backend parity (spec 5.4, D3D11 vs Vulkan leg); plan starting threshold 0.03: T2 SPIR-V vs T1 DXBC (cross path) bodies are identical in F1, but transcendental / filtering precision differs per driver"
+    },
+    {
+      "name": "textured-cube.d3d11.utf8-out",
+      "backend": "d3d11",
+      "scene": "builtin:textured-cube",
+      "width": 128,
+      "height": 128,
+      "out": "build/f2/çıktı klasörü/textured cube d3d11.png",
+      "ref": "../ref/f02/textured-cube.png",
+      "thresholdFlip": 0.01,
+      "thresholdReason": "Review Focus 5: --out under a non-ASCII, spaced directory; same image as textured-cube.d3d11",
+      "probes": [
+        {
+          "name": "face centre -X (cube_faces.png tile)",
+          "x": 39,
+          "y": 68,
+          "rgba": [
+            60,
+            170,
+            70,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "name": "face centre +Y",
+          "x": 64,
+          "y": 38,
+          "rgba": [
+            50,
+            90,
+            200,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "name": "face centre +Z",
+          "x": 78,
+          "y": 72,
+          "rgba": [
+            180,
+            70,
+            190,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "name": "depth: +Z covers the hidden far edge +X/-Y",
+          "x": 83,
+          "y": 81,
+          "rgba": [
+            180,
+            70,
+            190,
+            255
+          ],
+          "tol": 3
+        },
+        {
+          "name": "background (51, 51, 51)",
+          "x": 2,
+          "y": 2,
+          "rgba": [
+            51,
+            51,
+            51,
+            255
+          ],
+          "tol": 1
+        },
+        {
+          "name": "background (51, 51, 51)",
+          "x": 125,
+          "y": 125,
+          "rgba": [
+            51,
+            51,
+            51,
+            255
+          ],
+          "tol": 1
+        }
+      ]
+    }
+  ]
+}

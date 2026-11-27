@@ -74,6 +74,13 @@ dialog { padding: 0; border: 1px solid var(--border); background: var(--card); m
 dialog img { display: block; max-width: 94vw; max-height: 90vh; min-width: min(512px, 94vw);
              image-rendering: pixelated; cursor: zoom-out; }
 dialog p { margin: 4px 8px; color: var(--muted); font-size: 12px; }
+table.probes { border-collapse: collapse; margin: 0 0 8px; font-size: 12px; font-variant-numeric: tabular-nums; }
+table.probes th, table.probes td { border: 1px solid var(--border); padding: 2px 6px; text-align: left; }
+table.probes th { color: var(--muted); font-weight: 600; }
+tr.probe-pass td:first-child { color: var(--pass); font-weight: 700; }
+tr.probe-fail td:first-child { color: var(--fail); font-weight: 700; }
+.swatch { display: inline-block; width: 10px; height: 10px; border: 1px solid var(--border); vertical-align: middle;
+          margin-right: 4px; }
 """
 
 JS = """
@@ -161,14 +168,61 @@ def render_case(case: dict, base: Path) -> str:
         ("psnr (dB)", fmt_number(case.get("psnr"), 2)),
         ("frameTimeMs", fmt_number(case.get("frameTimeMs"), 3)),
     ]
+    if case.get("backendPair"):
+        metrics.insert(0, ("backends", esc(case["backendPair"])))
+    elif case.get("backend"):
+        metrics.insert(0, ("backend", esc(case["backend"])))
+    if case.get("scene"):
+        metrics.insert(1, ("scene", esc(case["scene"])))
     dl = "".join(f"<div><dt>{esc(k)}</dt><dd>{v}</dd></div>" for k, v in metrics)
+    if case.get("thresholdReason"):
+        dl += f'<div><dt>threshold reason</dt><dd>{esc(case["thresholdReason"])}</dd></div>'
     images = (figure("Render", base, case.get("test"), str(name))
               + figure("Reference", base, case.get("ref"), str(name))
               + figure("FLIP diff", base, case.get("diff"), str(name)))
     detail_html = f'<p class="detail">{esc(detail)}</p>' if detail else ""
+    probes_html = render_probes(case.get("probes"))
     return (f'<section data-case="{esc(name)}" data-status="{status}">'
             f'<div class="case-head"><span class="badge {status}">{status}</span><h2>{esc(name)}</h2></div>'
-            f'<dl>{dl}</dl>{detail_html}<div class="images">{images}</div></section>')
+            f'<dl>{dl}</dl>{detail_html}{probes_html}<div class="images">{images}</div></section>')
+
+
+def rgba_text(v: object) -> str:
+    if not isinstance(v, list):
+        return DASH
+    swatch = ""
+    if len(v) >= 3 and all(isinstance(c, int) for c in v[:3]):
+        swatch = f'<span class="swatch" style="background: rgb({v[0]} {v[1]} {v[2]})"></span>'
+    return swatch + esc(", ".join(str(c) for c in v))
+
+
+def render_probes(probes: object) -> str:
+    """Probe table (plan F2 Task 5): absolute {x, y, rgba, tol}; relational {x, y, darkerThan, margin} and
+    {x, y, channelGreater, margin}."""
+    if not isinstance(probes, list) or not probes:
+        return ""
+    rows = []
+    for p in probes:
+        if not isinstance(p, dict):
+            continue
+        ok = bool(p.get("pass"))
+        if isinstance(p.get("darkerThan"), dict):
+            o = p["darkerThan"]
+            expect = f"darker than ({esc(o.get('x'))}, {esc(o.get('y'))}) by &ge; {esc(p.get('margin'))} (R+G+B)"
+            got = f"{rgba_text(p.get('got'))} vs {rgba_text(p.get('gotOther'))}"
+        elif isinstance(p.get("channelGreater"), list) and len(p["channelGreater"]) == 2:
+            names = "RGBA"
+            a, b = (names[c] if isinstance(c, int) and 0 <= c < 4 else "?" for c in p["channelGreater"])
+            expect = f"{a} &ge; {b} + {esc(p.get('margin'))}"
+            got = rgba_text(p.get("got"))
+        else:
+            expect = f"{rgba_text(p.get('rgba'))} &plusmn;{esc(p.get('tol'))}"
+            got = rgba_text(p.get("got"))
+        rows.append(f'<tr class="{"probe-pass" if ok else "probe-fail"}"><td>{"PASS" if ok else "FAIL"}</td>'
+                    f'<td>({esc(p.get("x"))}, {esc(p.get("y"))})</td><td>{esc(p.get("name", ""))}</td>'
+                    f'<td>{expect}</td><td>{got}</td></tr>')
+    return ('<table class="probes"><thead><tr><th></th><th>pixel</th><th>probe</th><th>expected</th>'
+            f'<th>got</th></tr></thead><tbody>{"".join(rows)}</tbody></table>')
 
 
 def build_html(results: dict, base: Path) -> str:

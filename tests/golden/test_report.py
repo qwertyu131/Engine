@@ -114,6 +114,32 @@ class ReportTest(unittest.TestCase):
         self.assertEqual(html.count('class="placeholder"'), 1)
         self.assertIn("unreadable", html)
 
+    def test_probes_and_backend_pair(self) -> None:
+        # plan F2 Task 5: the report shows each case's backend (or backend pair) and its probe table.
+        a = self.pass_case(name="tri.vulkan")
+        a.update({"backend": "vulkan", "scene": "builtin:triangle", "status": "FAIL", "reason": "probe-failed",
+                  "probes": [{"name": "red vertex", "x": 8, "y": 8, "rgba": [255, 0, 0, 255], "tol": 2,
+                              "got": [254, 0, 0, 255], "pass": True},
+                             {"name": "sun", "x": 1, "y": 2, "darkerThan": {"x": 3, "y": 4}, "margin": 10,
+                              "got": [9, 9, 9, 255], "gotOther": [10, 10, 10, 255], "pass": False},
+                             {"name": "sky", "x": 5, "y": 6, "channelGreater": [2, 0], "margin": 20,
+                              "got": [100, 120, 180, 255], "pass": True}]})
+        b = self.pass_case(name="tri.vulkan-vs-d3d11")
+        b.update({"backendPair": "vulkan vs d3d11", "scene": "builtin:triangle"})
+        self.write_results([a, b])
+        proc = run_report(self.results, self.out)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        html = self.out.read_text(encoding="utf-8")
+        self.assertIn("vulkan vs d3d11", html)
+        self.assertIn("builtin:triangle", html)
+        self.assertEqual(html.count('class="probes"'), 1)
+        self.assertIn("red vertex", html)
+        self.assertIn("254, 0, 0, 255", html)
+        self.assertIn("darker than (3, 4)", html)
+        self.assertEqual(html.count('class="probe-fail"'), 1)
+        self.assertEqual(html.count('class="probe-pass"'), 2)
+        self.assertIn("B &ge; R + 20", html)
+
     def test_invalid_results_exit_2(self) -> None:
         self.results.write_text("{ not json", encoding="utf-8")
         proc = run_report(self.results, self.out)

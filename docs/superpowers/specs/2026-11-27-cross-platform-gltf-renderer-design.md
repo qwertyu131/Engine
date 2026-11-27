@@ -124,6 +124,7 @@ tests/
   - WebGPU: DXC → SPIR-V → **Tint** → WGSL
 - Offline derleme; çıktı `.shaderpack` (permutation key → backend blob). Runtime'da derleme yok (Web/GLES hariç driver-level link).
 - **Spike kabul kriteri:** tek bir tam glTF PBR shader'ı (metal-roughness + normal + emissive + occlusion + skin + morph) tüm 6 hedefe derlenir; Windows'ta çalışan 3 backend'de (D3D11, D3D12, Vulkan) aynı görüntüyü verir (FLIP < eşik). Başarısızsa plan revize edilir — sonraki fazlar bu spike'a bağlıdır.
+- **Parite bölünmesi (F2 Task 5, 2026-11-28):** yukarıdaki runtime "aynı görüntü" maddesinin **D3D11 ↔ Vulkan** ayağı F2'de kapandı: `builtin:pbr-spheres` (F1 `pbr.hlsl`; Vulkan `spirv T2_SKIN0_MORPH0_UNLIT0`, D3D11 `dxbc T1_SKIN0_MORPH0_UNLIT0` + UNLIT1 satırı, CPU'da üretilen IBL) iki backend'de render edilir; `tests/golden/f02/cases.json` her backend'i commit edilmiş D3D11 referansına **ve** Vulkan'ı doğrudan D3D11'e karşılaştırır (eşik mean FLIP 0.03, gerekçesi dosyada) ve bağımsız bir Python modelinden (`scripts/f02_pbr_model.py`) gelen mutlak piksel probe'larını kontrol eder. **D3D12 ayağı F7 kapısına taşındı** (D3D12 backend'i F7'de yazılır).
 
 ## 6. Kapasite çözümleme sistemi (merkez artefakt)
 

@@ -142,7 +142,8 @@ if(TARGET shaders)
         rhi/test_bind_group.cpp
         rhi/test_cube.cpp
         rhi/test_d3d11.cpp
-        rhi/test_cross_backend.cpp)
+        rhi/test_cross_backend.cpp
+        rhi/test_pbr_spheres.cpp)
     target_link_libraries(rhi_unit_tests PRIVATE engine::rhi headless_core nlohmann_json::nlohmann_json doctest::doctest)
     target_compile_definitions(rhi_unit_tests PRIVATE ENG_TEST_SHADER_LIB_DIR="${ENG_SHADER_LIB_DIR}"
         ENG_TEST_ASSET_DIR="${PROJECT_SOURCE_DIR}/tests/assets")

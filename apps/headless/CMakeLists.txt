@@ -8,7 +8,11 @@ add_library(headless_core STATIC
     TestPattern.cpp
     Scenes.h
     Scenes.cpp
-    CubeScene.cpp)
+    SceneUtil.h
+    CubeScene.cpp
+    Ibl.h
+    Ibl.cpp
+    PbrSpheresScene.cpp)
 target_include_directories(headless_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(headless_core PUBLIC golden_core engine::rhi)
 

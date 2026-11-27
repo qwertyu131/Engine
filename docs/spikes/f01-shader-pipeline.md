@@ -214,6 +214,13 @@ Costs accepted with cross:
    - F5's `.shaderpack` builder should run the signature check on every VS/PS pair it packs.
 3. **The runtime image equality of §5.4 is still open** (D3D11 / D3D12 / Vulkan, FLIP < threshold). It is
    the F2 gate. A mismatch there may reopen this decision.
+   **Update (plan F2 Task 5, 2026-11-28): parity split.** The D3D11 vs Vulkan leg is done in F2:
+   `builtin:pbr-spheres` renders this `pbr.hlsl` with spirv `T2_SKIN0_MORPH0_UNLIT0` (Vulkan) and the default
+   `cross`-path dxbc `T1_SKIN0_MORPH0_UNLIT0` (D3D11), plus the UNLIT1 row; `run_golden --phase f02` compares
+   each backend against the committed D3D11 reference and Vulkan directly against D3D11 (mean FLIP <= 0.03),
+   with absolute probes from `scripts/f02_pbr_model.py`. Measured on the RTX 3070 Ti: D3D11 vs Vulkan
+   flipMean 0 (byte-identical); WARP vs Vulkan flipMean 0.0066. The `cross` decision stands. The D3D12 leg
+   moves to the F7 gate.
 4. **MSL stays unvalidated until CI is unlocked.** A Metal compile failure would need changes to the
    SPIRV-Cross MSL options or to the shaders. It would surface late (F13).
 5. **Tint has no version string.** The Dawn commit is the version. After an update, re-run the whole
