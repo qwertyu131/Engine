@@ -112,4 +112,19 @@ if(ENG_BUILD_SHADERC)
              --target glsl-es300 --define TIER=1 --out @WORK@/out)
     shaderc_cli_test(compile_error 1 EXPECT_IN_OUTPUT "NoSuchEntry"
         ARGS compile --src ${sc_src} --entry NoSuchEntry --stage vs --target spirv --out @WORK@/out)
+
+    # Plan F1 Task 5: the committed MSL under tests/shaders/msl (validated by the macOS CI job with
+    # `xcrun metal`) must be byte-identical to what this shaderc produces; refresh with
+    # `python scripts/msl_artifacts.py`.
+    find_package(Python3 COMPONENTS Interpreter)
+    if(NOT sc_have_tools)
+        add_test(NAME shaderc.msl_artifacts_fresh COMMAND shaderc_unit_tests)
+        set_tests_properties(shaderc.msl_artifacts_fresh PROPERTIES SKIP_RETURN_CODE 77)
+    elseif(Python3_Interpreter_FOUND)
+        add_test(NAME shaderc.msl_artifacts_fresh
+                 COMMAND Python3::Interpreter ${PROJECT_SOURCE_DIR}/scripts/msl_artifacts.py --check
+                         --shaderc $<TARGET_FILE:shaderc>)
+    else()
+        message(WARNING "Python 3 not found: ctest shaderc.msl_artifacts_fresh is not registered")
+    endif()
 endif()
