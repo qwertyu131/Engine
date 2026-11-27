@@ -44,7 +44,8 @@ It used a Debug shaderc built from the Task 5 source, with the default DXBC path
 - **Bytes** are deterministic (Review Focus 4). A fresh run must give the same values.
 - **ms** is the wall-clock time of one shaderc process, with 8 parallel jobs. It covers DXC preprocess,
   SPIR-V, reflection, the backend and the validator. It changes from run to run.
-- A Release shaderc gave an `msTotal` of about 9.2 s for the same matrix.
+- For scale only: a Release shaderc built from `9e35a78` (before the Task 5 fix, run with
+  `--dxbc-path cross`) gave an `msTotal` of about 9.2 s for the same matrix.
 
 | Target | Backend (tier) | Define sets x stages | Validator | Result | Bytes VS min-max (sum) | Bytes PS min-max (sum) | ms mean VS / PS |
 |---|---|---|---|---|---|---|---|
@@ -64,8 +65,9 @@ Both paths compile all 16 DXBC permutations (T1 x skin x morph x unlit x VS/PS).
 accepts it" does not tell the paths apart. The comparison also checks **D3D11 VS -> PS signature
 linkage**.
 
-D3D11 links stages by semantic name, semantic index and register. It rejects a mismatched pair at `Draw`,
-not when the shader is created. So no compile-time validator sees a mismatch.
+D3D11 links stages by semantic name, semantic index and register. Shader creation accepts a mismatched
+pair; the D3D11 debug layer reports it at `Draw` (id 343 below). So no compile-time validator sees a
+mismatch.
 
 | | direct (HLSL -> DXC `-P` -> register rewrite -> FXC) | cross at `9e35a78` (before Task 5) | cross with Task 5 fix (default) |
 |---|---|---|---|
@@ -124,8 +126,9 @@ The reasons, in order:
      reflection.
    - With direct, FXC parses the source as a second front end, with its own language rules. A shader
      that DXC accepts (HLSL 2021) can fail on FXC. The repo already has a case: `bindings_ok.hlsl` and its
-     `Pass` cbuffer (error above). Other examples are HLSL 2021 `select()` and templates, which FXC does
-     not have.
+     `Pass` cbuffer (error above). Another one, checked with a 1-line pixel shader that returns
+     `select(p > 0, p, -p)`: the cross path compiles it, direct fails with
+     `error X3004: undeclared identifier 'select'`. HLSL 2021 templates were not tested.
    - Direct would limit every future shader to the common subset of DXC HLSL 2021 and FXC legacy HLSL.
      Only compiling the dxbc target checks that subset; no tool checks it as a rule.
 2. **No regex rewrite of source text.** Direct rewrites `register(..., spaceN)` in the preprocessed
@@ -216,7 +219,7 @@ Costs accepted with cross:
 5. **Tint has no version string.** The Dawn commit is the version. After an update, re-run the whole
    matrix (`compile_shaders.py`) and the WGSL checks.
 6. **Compile cost is low.** One permutation for one target takes about 0.5-0.9 s (Debug shaderc,
-   8 jobs). Process start and DXC take most of that time. The 112 compiles take about 10 s, so K-A's
+   8 jobs; no per-step breakdown was measured). The 112 compiles take about 10 s, so K-A's
    budget of ≤ 64 variants per backend will not slow the build much.
 
 ## Appendix: per-item results (`build/spike_default/summary.json`)
