@@ -1,0 +1,339 @@
+// Renders glTF-Sample-Viewer reference images headlessly (spec K-B, plan F0 Task 7).
+//
+//   node tools/refgen/render.mjs --models DamagedHelmet,MetalRoughSpheres --out tests/golden/ref/sample-viewer
+//   node tools/refgen/render.mjs --models all --out <dir> --width 512 --height 512
+//
+// Drives the official Khronos glTF sample renderer (npm @khronosgroup/gltf-viewer, pinned in
+// package-lock.json) inside a pinned Chrome (Puppeteer, browser cached under tools/refgen/.cache).
+// Every fixed rendering parameter is written to <out>/settings.json; F3 reference mode must
+// reproduce exactly those. A model whose render is blank, throws, or logs a console error is a
+// hard failure: nothing is written for it and the process exits non-zero. Nothing is faked.
+import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+import http from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import puppeteer from 'puppeteer';
+import { parseArgs, rgbaBottomUpToRgbTopDown, encodePngRgb, pixelStats, sha256Hex } from './lib.mjs';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const REPO = path.resolve(HERE, '..', '..');
+const VIEWER_DIST = path.join(HERE, 'node_modules', '@khronosgroup', 'gltf-viewer', 'dist');
+const DRACO_DIR = path.join(HERE, 'node_modules', 'draco3d');
+const MODELS_DIR = path.join(REPO, 'tests', 'assets', 'glTF-Sample-Assets', 'Models');
+const ENV_CACHE = path.join(HERE, '.cache', 'env');
+
+// Files the npm package does not ship. Pinned by commit SHA + sha256; downloaded into the
+// git-ignored cache (never committed).
+const PINNED_FILES = {
+  'Cannon_Exterior.hdr': {
+    url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Environments/3a030b54c2e4f0f4d469eec2f98f47398c9a2a30/Cannon_Exterior.hdr',
+    sha256: '7d65926ed2fa41c121738af2addf1fd5f1ae42d12ff77255e2679777f06c984b',
+    license: 'CC0-1.0 (Greg Zaal), see Cannon_Exterior.hdr.license in the same commit',
+  },
+  'lut_sheen_E.png': {
+    url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Renderer/d59d1d612ab6a6c242ff561b753fd4623a0ee4bd/assets/images/lut_sheen_E.png',
+    sha256: '7f21d7754dd3a2a972d9d1298ee3e67e20c5b2f21969095d322a1bc20f8b2f04',
+    license: 'Apache-2.0 (glTF-Sample-Renderer v1.1.0)',
+  },
+};
+
+// Fixed rendering parameters. Values mirror the glTF-Sample-Viewer app defaults
+// (KhronosGroup/glTF-Sample-Viewer@8be392572d5def1cd6d18d3487e0b959c6f3c7c5: src/main.js,
+// src/logic/viewer_store.js) except where plan F0 Task 7 overrides them (punctual lights off).
+const RENDER_SETTINGS = {
+  environment: 'Cannon_Exterior',
+  environmentNote: 'first entry (index 0, selectedEnvironment: 0) of the Sample-Viewer environment list, low_resolution_hdrs branch',
+  environmentRotationDeg: 90.0,
+  environmentRotationNote: 'Sample-Viewer rotation "+Z" == 90 degrees',
+  toneMap: 'Khronos PBR Neutral',
+  exposure: 1.0,
+  exposureNote: 'Sample-Viewer UI exposure 0 EV -> factor 1/2^0',
+  useIBL: true,
+  iblIntensity: 1.0,
+  usePunctual: false,
+  useDirectionalLightsWithDisabledIBL: true,
+  renderEnvironmentMap: true,
+  blurEnvironmentMap: true,
+  clearColor: [58, 64, 74, 255],
+  internalMSAA: 4,
+  morphing: true,
+  skinning: true,
+  animation: 'none (animationIndices = [], t = 0, bind/rest pose)',
+  camera: 'UserCamera.resetView(gltf, sceneIndex) default fit camera; yfov 45 deg; aspect = width/height; no orbit',
+  sceneIndex: 'gltf.scene ?? 0',
+  variant: 'KHR_materials_variants: none (default materials)',
+  contextAttributes: { alpha: false, antialias: true, preserveDrawingBuffer: true },
+  framesBeforeCapture: 3,
+};
+
+function launchConfigs(mode) {
+  const all = {
+    'headless-new': { headless: true, args: ['--enable-gpu', '--ignore-gpu-blocklist', '--enable-webgl'] },
+    'angle-d3d11': { headless: true, args: ['--enable-gpu', '--ignore-gpu-blocklist', '--enable-webgl', '--use-angle=d3d11'] },
+    'headed-offscreen': { headless: false, args: ['--ignore-gpu-blocklist', '--window-position=-32000,-32000'] },
+  };
+  const order = mode === 'auto' ? ['headless-new', 'angle-d3d11', 'headed-offscreen'] : [mode];
+  return order.map((name) => ({ name, ...all[name] }));
+}
+
+async function ensurePinnedFiles() {
+  await fsp.mkdir(ENV_CACHE, { recursive: true });
+  for (const [name, pin] of Object.entries(PINNED_FILES)) {
+    const dst = path.join(ENV_CACHE, name);
+    if (fs.existsSync(dst) && sha256Hex(await fsp.readFile(dst)) === pin.sha256) continue;
+    const part = dst + '.part';
+    await fsp.rm(part, { force: true });
+    console.log(`fetch ${pin.url}`);
+    const res = await fetch(pin.url);
+    if (!res.ok) throw new Error(`download failed ${res.status} ${pin.url}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    const got = sha256Hex(buf);
+    if (got !== pin.sha256) throw new Error(`sha256 mismatch for ${name}: expected ${pin.sha256}, got ${got}`);
+    await fsp.writeFile(part, buf);
+    await fsp.rename(part, dst);
+  }
+}
+
+function listAllModels() {
+  return fs.readdirSync(MODELS_DIR, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
+}
+
+// Prefer the self-contained binary variant, then plain glTF.
+function resolveModel(name) {
+  for (const variant of ['glTF-Binary', 'glTF']) {
+    const dir = path.join(MODELS_DIR, name, variant);
+    if (!fs.existsSync(dir)) continue;
+    const ext = variant === 'glTF-Binary' ? '.glb' : '.gltf';
+    const file = fs.readdirSync(dir).find((f) => f.toLowerCase().endsWith(ext));
+    if (file) return { variant, file, urlPath: `/models/${encodeURIComponent(name)}/${variant}/${encodeURIComponent(file)}` };
+  }
+  return null;
+}
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.wasm': 'application/wasm',
+  '.json': 'application/json', '.gltf': 'model/gltf+json', '.glb': 'model/gltf-binary', '.bin': 'application/octet-stream',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.ktx2': 'image/ktx2', '.webp': 'image/webp', '.hdr': 'application/octet-stream',
+};
+
+const PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>refgen</title>
+<link rel="icon" href="data:,">
+<style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body><canvas id="c"></canvas>
+<script src="/viewer/libs/libktx.js"></script>
+<script src="/draco/draco_decoder_nodejs.js"></script>
+<script type="module">
+import { GltfView, GltfState } from '/viewer/gltf-viewer.module.js';
+const S = await (await fetch('/settings')).json();
+const canvas = document.getElementById('c');
+canvas.width = S.width; canvas.height = S.height;
+canvas.style.width = S.width + 'px'; canvas.style.height = S.height + 'px';
+const gl = canvas.getContext('webgl2', S.contextAttributes);
+if (!gl) throw new Error('webgl2 context unavailable');
+const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+const view = new GltfView(gl);
+// Same wiring as the Sample-Viewer app: Draco from the draco3d package, wasm served next to it.
+const dracoLib = (opts) => DracoDecoderModule({ ...opts, locateFile: () => '/draco/draco_decoder.wasm' });
+const loader = view.createResourceLoader(dracoLib, undefined, '/viewer/libs/');
+const state = view.createState();
+const p = state.renderingParameters;
+p.toneMap = GltfState.ToneMaps.KHR_PBR_NEUTRAL;
+p.debugOutput = GltfState.DebugOutput.NONE;
+p.exposure = S.exposure; p.useIBL = S.useIBL; p.iblIntensity = S.iblIntensity; p.usePunctual = S.usePunctual;
+p.useDirectionalLightsWithDisabledIBL = S.useDirectionalLightsWithDisabledIBL;
+p.renderEnvironmentMap = S.renderEnvironmentMap; p.blurEnvironmentMap = S.blurEnvironmentMap;
+p.environmentRotation = S.environmentRotationDeg; p.clearColor = S.clearColor; p.internalMSAA = S.internalMSAA;
+p.morphing = S.morphing; p.skinning = S.skinning;
+state.environment = await loader.loadEnvironment('/env/' + S.environment + '.hdr', { lut_sheen_E_file: '/env/lut_sheen_E.png' });
+if (!state.environment) throw new Error('environment failed to load');
+window.__refgen = {
+  info: {
+    renderer: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
+    vendor: dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR),
+    version: gl.getParameter(gl.VERSION),
+    toneMapConst: p.toneMap,
+  },
+  async render(url) {
+    state.gltf = await loader.loadGltf(url);
+    state.sceneIndex = state.gltf.scene ?? 0;
+    state.cameraIndex = undefined;
+    state.animationIndices = [];
+    state.variant = undefined;
+    state.userCamera.perspective.aspectRatio = S.width / S.height;
+    state.userCamera.resetView(state.gltf, state.sceneIndex);
+    const stats = view.gatherStatistics(state);
+    for (let i = 0; i < S.framesBeforeCapture; i++) view.renderFrame(state, S.width, S.height);
+    gl.finish();
+    const px = new Uint8Array(S.width * S.height * 4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.readPixels(0, 0, S.width, S.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    let bin = '';
+    for (let i = 0; i < px.length; i += 0x8000) bin += String.fromCharCode.apply(null, px.subarray(i, i + 0x8000));
+    return { pixels: btoa(bin), stats };
+  },
+};
+window.__refgenReady = true;
+</script></body></html>`;
+
+function startServer(settings) {
+  const roots = { '/viewer/': VIEWER_DIST, '/draco/': DRACO_DIR, '/models/': MODELS_DIR, '/env/': ENV_CACHE };
+  const server = http.createServer(async (req, res) => {
+    try {
+      const url = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+      if (url === '/' || url === '/index.html') return send(res, 200, MIME['.html'], PAGE);
+      if (url === '/settings') return send(res, 200, MIME['.json'], JSON.stringify(settings));
+      for (const [prefix, root] of Object.entries(roots)) {
+        if (!url.startsWith(prefix)) continue;
+        const file = path.resolve(root, url.slice(prefix.length));
+        if (!file.startsWith(path.resolve(root) + path.sep)) return send(res, 403, 'text/plain', 'forbidden');
+        const data = await fsp.readFile(file);
+        return send(res, 200, MIME[path.extname(file).toLowerCase()] ?? 'application/octet-stream', data);
+      }
+      send(res, 404, 'text/plain', 'not found');
+    } catch {
+      send(res, 404, 'text/plain', 'not found');
+    }
+  });
+  return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server)));
+}
+
+function send(res, code, type, body) {
+  res.writeHead(code, { 'Content-Type': type, 'Cache-Control': 'no-store' });
+  res.end(body);
+}
+
+// Minimum pixel std-dev for a frame to count as "rendered something". A flat clear colour is 0;
+// a blurred environment background alone is low but non-zero, so the model check below
+// (statistics + model-vs-background difference) is what catches a failed model load.
+const MIN_STDDEV = 2.0;
+
+async function openPage(browser, baseUrl, width, height, errors) {
+  const page = await browser.newPage();
+  await page.setViewport({ width, height, deviceScaleFactor: 1 });
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(`console.error: ${m.text()}`); });
+  page.on('requestfailed', (r) => errors.push(`requestfailed: ${r.url()} ${r.failure()?.errorText}`));
+  page.on('response', (r) => { if (r.status() >= 400) errors.push(`http ${r.status()}: ${r.url()}`); });
+  await page.goto(baseUrl, { waitUntil: 'load' });
+  // Fail fast: a page error during setup will never turn into readiness.
+  const deadline = Date.now() + 120000;
+  while (!(await page.evaluate(() => window.__refgenReady === true))) {
+    const fatal = errors.find((e) => e.startsWith('pageerror'));
+    if (fatal) throw new Error(`page setup failed: ${fatal}`);
+    if (Date.now() > deadline) throw new Error(`page not ready after 120 s: ${errors.join(' | ')}`);
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return page;
+}
+
+async function renderOne(page, model, width, height, errors) {
+  const before = errors.length;
+  const r1 = await page.evaluate((u) => window.__refgen.render(u), model.urlPath);
+  const r2 = await page.evaluate((u) => window.__refgen.render(u), model.urlPath);
+  const newErrors = errors.slice(before);
+  const rgba1 = Buffer.from(r1.pixels, 'base64');
+  const rgba2 = Buffer.from(r2.pixels, 'base64');
+  const rgb = rgbaBottomUpToRgbTopDown(rgba1, width, height);
+  const st = pixelStats(rgb);
+  const problems = [...newErrors];
+  if (rgba1.length !== width * height * 4) problems.push(`readback size ${rgba1.length}`);
+  if (st.stdDev < MIN_STDDEV) problems.push(`blank frame (pixel std-dev ${st.stdDev.toFixed(3)} < ${MIN_STDDEV})`);
+  if (!r1.stats || !(r1.stats.meshCount > 0) || !(r1.stats.faceCount > 0)) problems.push(`no geometry rendered: ${JSON.stringify(r1.stats)}`);
+  const h1 = sha256Hex(rgba1), h2 = sha256Hex(rgba2);
+  return { rgb, stats: st, sceneStats: r1.stats, deterministic: h1 === h2, problems };
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  if (!args.models || !args.out) throw new Error('--models and --out are required');
+  const names = args.models.length === 1 && args.models[0] === 'all' ? listAllModels() : args.models;
+  const models = names.map((n) => ({ name: n, ...(resolveModel(n) ?? {}) }));
+  const missing = models.filter((m) => !m.urlPath).map((m) => m.name);
+  if (missing.length) throw new Error(`model(s) not found under ${MODELS_DIR}: ${missing.join(', ')} (run scripts/fetch_assets.py)`);
+
+  await ensurePinnedFiles();
+  const settings = { ...RENDER_SETTINGS, width: args.width, height: args.height };
+  const server = await startServer(settings);
+  const baseUrl = `http://127.0.0.1:${server.address().port}/`;
+  const outDir = path.resolve(args.out);
+  await fsp.mkdir(outDir, { recursive: true });
+
+  const attempts = [];
+  let browser, page, mode, errors, info;
+  try {
+    // Spike / launch-mode selection: the first mode whose DamagedHelmet-or-first-model render
+    // passes every check is used for the whole batch.
+    for (const cfg of launchConfigs(args.mode)) {
+      errors = [];
+      try {
+        browser = await puppeteer.launch({ headless: cfg.headless, args: cfg.args, protocolTimeout: 300000 });
+        page = await openPage(browser, baseUrl, args.width, args.height, errors);
+        const probe = models.find((m) => m.name === 'DamagedHelmet') ?? models[0];
+        const r = await renderOne(page, probe, args.width, args.height, errors);
+        if (r.problems.length) throw new Error(r.problems.join(' | '));
+        info = await page.evaluate(() => window.__refgen.info);
+        mode = cfg.name;
+        attempts.push({ mode: cfg.name, ok: true });
+        break;
+      } catch (e) {
+        attempts.push({ mode: cfg.name, ok: false, error: String(e.message ?? e), pageErrors: errors.slice(0, 20) });
+        console.error(`launch mode '${cfg.name}' failed: ${e.message ?? e}`);
+        if (browser) await browser.close().catch(() => {});
+        browser = undefined;
+      }
+    }
+    if (!mode) {
+      await fsp.writeFile(path.join(outDir, 'refgen-failure.json'), JSON.stringify({ attempts }, null, 2) + '\n');
+      throw new Error(`no launch mode produced a valid render; see ${path.join(outDir, 'refgen-failure.json')}`);
+    }
+
+    const results = [];
+    let failed = 0;
+    for (const m of models) {
+      const r = await renderOne(page, m, args.width, args.height, errors);
+      if (r.problems.length) {
+        failed++;
+        console.error(`FAIL ${m.name}: ${r.problems.join(' | ')}`);
+        results.push({ name: m.name, status: 'FAIL', problems: r.problems });
+        continue;
+      }
+      const png = encodePngRgb(r.rgb, args.width, args.height);
+      await fsp.writeFile(path.join(outDir, `${m.name}.png`), png);
+      console.log(`ok   ${m.name}  std-dev=${r.stats.stdDev.toFixed(2)} deterministic=${r.deterministic}`);
+      results.push({
+        name: m.name, status: 'OK', variant: m.variant, file: m.file, png: `${m.name}.png`, pngSha256: sha256Hex(png),
+        pixelStdDev: Number(r.stats.stdDev.toFixed(3)), deterministicRerender: r.deterministic, sceneStats: r.sceneStats,
+      });
+    }
+
+    const pkgLock = JSON.parse(await fsp.readFile(path.join(HERE, 'package-lock.json'), 'utf8'));
+    const assetsLock = JSON.parse(await fsp.readFile(path.join(REPO, 'tests', 'assets', 'assets.lock.json'), 'utf8'));
+    const doc = {
+      generator: 'tools/refgen/render.mjs',
+      renderer: { package: '@khronosgroup/gltf-viewer', version: pkgLock.packages['node_modules/@khronosgroup/gltf-viewer'].version, sourceTag: 'KhronosGroup/glTF-Sample-Renderer v1.1.0 (d59d1d612ab6a6c242ff561b753fd4623a0ee4bd)', draco3d: pkgLock.packages['node_modules/draco3d'].version },
+      browser: { puppeteer: pkgLock.packages['node_modules/puppeteer'].version, version: await browser.version(), launchMode: mode, webgl: info },
+      launchAttempts: attempts,
+      sampleAssets: assetsLock['glTF-Sample-Assets'],
+      pinnedFiles: PINNED_FILES,
+      settings,
+      models: results,
+    };
+    // Keep settings.json stable across re-runs that render the same set: merge by model name.
+    const settingsPath = args.settings ? path.resolve(args.settings) : path.join(outDir, 'settings.json');
+    if (fs.existsSync(settingsPath)) {
+      const prev = JSON.parse(await fsp.readFile(settingsPath, 'utf8'));
+      const byName = new Map((prev.models ?? []).map((x) => [x.name, x]));
+      for (const x of results) byName.set(x.name, x);
+      doc.models = [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+    }
+    await fsp.writeFile(settingsPath, JSON.stringify(doc, null, 2) + '\n');
+    console.log(`wrote ${settingsPath} (mode ${mode}, ${info.renderer})`);
+    if (failed) process.exitCode = 1;
+  } finally {
+    if (browser) await browser.close().catch(() => {});
+    server.close();
+  }
+}
+
+main().catch((e) => { console.error(e.message ?? e); process.exitCode = 2; });

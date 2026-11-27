@@ -1,0 +1,164 @@
+{
+  "generator": "tools/refgen/render.mjs",
+  "renderer": {
+    "package": "@khronosgroup/gltf-viewer",
+    "version": "1.1.0",
+    "sourceTag": "KhronosGroup/glTF-Sample-Renderer v1.1.0 (d59d1d612ab6a6c242ff561b753fd4623a0ee4bd)",
+    "draco3d": "1.5.7"
+  },
+  "browser": {
+    "puppeteer": "25.17.0",
+    "version": "Chrome/157.0.8103.50",
+    "launchMode": "headless-new",
+    "webgl": {
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Ti (0x00002482) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "vendor": "Google Inc. (NVIDIA)",
+      "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+      "toneMapConst": "Khronos PBR Neutral"
+    }
+  },
+  "launchAttempts": [
+    {
+      "mode": "headless-new",
+      "ok": true
+    }
+  ],
+  "sampleAssets": {
+    "repo": "https://github.com/KhronosGroup/glTF-Sample-Assets",
+    "commit": "e124e8d8d7330a5372bc2b4d00d39a4a9d7997ea",
+    "sparse": [
+      "/Models/",
+      "!/Models/*/screenshot/"
+    ]
+  },
+  "pinnedFiles": {
+    "Cannon_Exterior.hdr": {
+      "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Environments/3a030b54c2e4f0f4d469eec2f98f47398c9a2a30/Cannon_Exterior.hdr",
+      "sha256": "7d65926ed2fa41c121738af2addf1fd5f1ae42d12ff77255e2679777f06c984b",
+      "license": "CC0-1.0 (Greg Zaal), see Cannon_Exterior.hdr.license in the same commit"
+    },
+    "lut_sheen_E.png": {
+      "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Renderer/d59d1d612ab6a6c242ff561b753fd4623a0ee4bd/assets/images/lut_sheen_E.png",
+      "sha256": "7f21d7754dd3a2a972d9d1298ee3e67e20c5b2f21969095d322a1bc20f8b2f04",
+      "license": "Apache-2.0 (glTF-Sample-Renderer v1.1.0)"
+    }
+  },
+  "settings": {
+    "environment": "Cannon_Exterior",
+    "environmentNote": "first entry (index 0, selectedEnvironment: 0) of the Sample-Viewer environment list, low_resolution_hdrs branch",
+    "environmentRotationDeg": 90,
+    "environmentRotationNote": "Sample-Viewer rotation \"+Z\" == 90 degrees",
+    "toneMap": "Khronos PBR Neutral",
+    "exposure": 1,
+    "exposureNote": "Sample-Viewer UI exposure 0 EV -> factor 1/2^0",
+    "useIBL": true,
+    "iblIntensity": 1,
+    "usePunctual": false,
+    "useDirectionalLightsWithDisabledIBL": true,
+    "renderEnvironmentMap": true,
+    "blurEnvironmentMap": true,
+    "clearColor": [
+      58,
+      64,
+      74,
+      255
+    ],
+    "internalMSAA": 4,
+    "morphing": true,
+    "skinning": true,
+    "animation": "none (animationIndices = [], t = 0, bind/rest pose)",
+    "camera": "UserCamera.resetView(gltf, sceneIndex) default fit camera; yfov 45 deg; aspect = width/height; no orbit",
+    "sceneIndex": "gltf.scene ?? 0",
+    "variant": "KHR_materials_variants: none (default materials)",
+    "contextAttributes": {
+      "alpha": false,
+      "antialias": true,
+      "preserveDrawingBuffer": true
+    },
+    "framesBeforeCapture": 3,
+    "width": 512,
+    "height": 512
+  },
+  "models": [
+    {
+      "name": "AlphaBlendModeTest",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "AlphaBlendModeTest.glb",
+      "png": "AlphaBlendModeTest.png",
+      "pngSha256": "c0e5f8647a2f461ed158004b995fd08cb20d319214dba7b6181e72475192b87f",
+      "pixelStdDev": 33.956,
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 9,
+        "faceCount": 61,
+        "opaqueMaterialsCount": 5,
+        "transparentMaterialsCount": 1
+      }
+    },
+    {
+      "name": "DamagedHelmet",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "DamagedHelmet.glb",
+      "png": "DamagedHelmet.png",
+      "pngSha256": "ec455df42d428584f3dd5f5e62b5bfc384b91727e0ec463b8667d12c1af77c10",
+      "pixelStdDev": 41.386,
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 15452,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "MetalRoughSpheres",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "MetalRoughSpheres.glb",
+      "png": "MetalRoughSpheres.png",
+      "pngSha256": "4a8626c4a2b539706f60eab2f1b8c45f39971d75630b92bade759ecc7ea66032",
+      "pixelStdDev": 26.916,
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 5,
+        "faceCount": 501776,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "NormalTangentTest",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "NormalTangentTest.glb",
+      "png": "NormalTangentTest.png",
+      "pngSha256": "19f430c188192cf81e5d2e8b075e7f03256d9444870439fe0da57d8e7ac29e87",
+      "pixelStdDev": 33.232,
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 7774,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "TextureCoordinateTest",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "TextureCoordinateTest.glb",
+      "png": "TextureCoordinateTest.png",
+      "pngSha256": "3f284a094a067a4e87010f61d704e981f804627832b7ba9471e5a8990de1d4ed",
+      "pixelStdDev": 64.85,
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 5,
+        "faceCount": 10,
+        "opaqueMaterialsCount": 5,
+        "transparentMaterialsCount": 0
+      }
+    }
+  ]
+}
