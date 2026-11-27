@@ -106,3 +106,19 @@ export function pixelStats(rgb) {
 export function sha256Hex(buf) {
   return crypto.createHash('sha256').update(buf).digest('hex');
 }
+
+// Fraction of RGBA pixels where any of R, G, B differs by more than `threshold` between two
+// equally sized buffers (alpha ignored). Used to prove a model is on screen: model frame vs. the
+// same camera rendering the environment only.
+export function differingPixelFraction(rgbaA, rgbaB, threshold) {
+  if (rgbaA.length !== rgbaB.length || rgbaA.length % 4 !== 0) {
+    throw new Error(`size mismatch: ${rgbaA.length} vs ${rgbaB.length} bytes`);
+  }
+  const n = rgbaA.length / 4;
+  let diff = 0;
+  for (let i = 0; i < rgbaA.length; i += 4) {
+    if (Math.abs(rgbaA[i] - rgbaB[i]) > threshold || Math.abs(rgbaA[i + 1] - rgbaB[i + 1]) > threshold
+      || Math.abs(rgbaA[i + 2] - rgbaB[i + 2]) > threshold) diff++;
+  }
+  return n ? diff / n : 0;
+}

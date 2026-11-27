@@ -37,6 +37,10 @@ the last case also writes `<out>/refgen-failure.json` with every attempt's error
 
 Values follow the glTF-Sample-Viewer app defaults (`KhronosGroup/glTF-Sample-Viewer@8be3925`,
 `src/main.js`, `src/logic/viewer_store.js`), except punctual lights, which plan F0 Task 7 turns off.
+Parity with the app is by value, not by code path: the app at that commit drives a newer renderer
+than the 1.1.0 npm package (it calls `uniformEnvironmentColor` and
+`AnimationTimer.setTimeOverride`/`clearTimeOverride`, which 1.1.0 does not have), so the same
+values are applied through the 1.1.0 API.
 
 | Setting | Value |
 |---|---|
@@ -45,13 +49,14 @@ Values follow the glTF-Sample-Viewer app defaults (`KhronosGroup/glTF-Sample-Vie
 | Environment | `Cannon_Exterior.hdr` (Sample-Viewer default, index 0) from glTF-Sample-Environments `low_resolution_hdrs` @ `3a030b5`, sha256-checked |
 | Environment rotation | 90 deg ("+Z") |
 | Background | environment map rendered and blurred (Sample-Viewer default) |
+| Clear colour | `[0, 0, 0, 1]` float RGBA (app value when no colour is selected). Not visible while the environment map is rendered, which covers the whole background |
 | Tonemap | Khronos PBR Neutral |
 | Exposure | 1.0 |
 | IBL | on, intensity 1.0 |
 | Punctual lights | **off** |
-| Camera | `applyTransformHierarchy`, then `UserCamera.resetView` default fit camera, yfov 45 deg, aspect width/height, no orbit |
+| Camera | `applyTransformHierarchy`, then `UserCamera.resetView` default fit camera on the rest pose, yfov 45 deg, aspect width/height, no orbit |
 | Scene | `gltf.scene ?? 0` |
-| Animation | none, t = 0 |
+| Animation | as the app: every animation that does not overlap an earlier one (`gltf.nonDisjointAnimations`), sampled at t = 0 (timer paused, `elapsedSec() == 0`; `setFixedTime(0)` is not used because `fixedTime \|\| wallclock` treats 0 as unset). Models without animations render in rest pose |
 | Material variant | none |
 | Context | WebGL2, `alpha: false`, `antialias: true` (as the app); 3 frames rendered before readback |
 | Model file | `glTF-Binary/*.glb` if present, else `glTF/*.gltf` |
@@ -59,8 +64,12 @@ Values follow the glTF-Sample-Viewer app defaults (`KhronosGroup/glTF-Sample-Vie
 ## Checks per model
 
 A model counts as rendered only if: no page error, console error or failed/4xx request occurred;
-`gatherStatistics` reports meshCount > 0 and faceCount > 0; pixel std-dev >= 2.0; and the readback is
-the expected size. Each model is rendered twice; `deterministicRerender` in settings.json says
+`gatherStatistics` reports meshCount > 0 and faceCount > 0; pixel std-dev >= 2.0; the readback is
+the expected size; and the model is visible. Visibility: after the reference capture, the same
+camera renders the environment only (a copy of the scene object with no root nodes is swapped in,
+because the renderer caches drawables per scene object). At least 1% of the pixels must differ from
+that frame by more than 8 in some RGB channel (`modelCoverage` in settings.json). The environment
+frame is taken after the capture, so it cannot change the reference pixels. Each model is rendered twice; `deterministicRerender` in settings.json says
 whether both renders were byte-identical.
 
 ## Known observations

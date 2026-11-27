@@ -58,16 +58,17 @@
     "renderEnvironmentMap": true,
     "blurEnvironmentMap": true,
     "clearColor": [
-      58,
-      64,
-      74,
-      255
+      0,
+      0,
+      0,
+      1
     ],
+    "clearColorNote": "float RGBA passed straight to gl.clearColor; Sample-Viewer app value when no colour is selected (syncClearColor in src/main.js). Not visible while renderEnvironmentMap is true: the environment covers the whole background",
     "internalMSAA": 4,
     "morphing": true,
     "skinning": true,
-    "animation": "none (animationIndices = [], t = 0, bind/rest pose)",
-    "camera": "scene.applyTransformHierarchy, then UserCamera.resetView(gltf, sceneIndex) default fit camera; yfov 45 deg; aspect = width/height; no orbit",
+    "animation": "as the app (applyLoadedGltf): every animation not overlapping an earlier one (gltf.nonDisjointAnimations), sampled at t = 0 (AnimationTimer paused, elapsedSec() == 0); models without animations render in rest pose",
+    "camera": "scene.applyTransformHierarchy, then UserCamera.resetView(gltf, sceneIndex) default fit camera on the rest pose (before animation is applied, as the app); yfov 45 deg; aspect = width/height; no orbit",
     "sceneIndex": "gltf.scene ?? 0",
     "variant": "KHR_materials_variants: none (default materials)",
     "contextAttributes": {
@@ -77,7 +78,9 @@
     },
     "framesBeforeCapture": 3,
     "width": 512,
-    "height": 512
+    "height": 512,
+    "modelDiffThreshold": 8,
+    "minModelCoverage": 0.01
   },
   "models": [
     {
@@ -88,6 +91,8 @@
       "png": "AlphaBlendModeTest.png",
       "pngSha256": "c0e5f8647a2f461ed158004b995fd08cb20d319214dba7b6181e72475192b87f",
       "pixelStdDev": 33.956,
+      "modelCoverage": 0.243,
+      "animationIndices": [],
       "deterministicRerender": true,
       "sceneStats": {
         "meshCount": 9,
@@ -104,6 +109,8 @@
       "png": "DamagedHelmet.png",
       "pngSha256": "e677d6a17424f23c091dee9816f020a276cff9d71ca8f6cafd89761e3b2460be",
       "pixelStdDev": 42.96,
+      "modelCoverage": 0.2236,
+      "animationIndices": [],
       "deterministicRerender": true,
       "sceneStats": {
         "meshCount": 1,
@@ -120,6 +127,8 @@
       "png": "MetalRoughSpheres.png",
       "pngSha256": "b884926eaf09e557b218d794175190b329ca715d53477ad96fbcfe7b022120ef",
       "pixelStdDev": 35.375,
+      "modelCoverage": 0.2375,
+      "animationIndices": [],
       "deterministicRerender": true,
       "sceneStats": {
         "meshCount": 5,
@@ -136,6 +145,8 @@
       "png": "NormalTangentTest.png",
       "pngSha256": "19f430c188192cf81e5d2e8b075e7f03256d9444870439fe0da57d8e7ac29e87",
       "pixelStdDev": 33.232,
+      "modelCoverage": 0.2914,
+      "animationIndices": [],
       "deterministicRerender": true,
       "sceneStats": {
         "meshCount": 1,
@@ -152,6 +163,8 @@
       "png": "TextureCoordinateTest.png",
       "pngSha256": "3f284a094a067a4e87010f61d704e981f804627832b7ba9471e5a8990de1d4ed",
       "pixelStdDev": 64.85,
+      "modelCoverage": 0.7013,
+      "animationIndices": [],
       "deterministicRerender": true,
       "sceneStats": {
         "meshCount": 5,

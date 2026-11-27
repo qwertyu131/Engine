@@ -14,7 +14,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer';
-import { parseArgs, rgbaBottomUpToRgbTopDown, encodePngRgb, pixelStats, sha256Hex } from './lib.mjs';
+import { parseArgs, rgbaBottomUpToRgbTopDown, encodePngRgb, pixelStats, sha256Hex, differingPixelFraction } from './lib.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..', '..');
@@ -41,6 +41,9 @@ const PINNED_FILES = {
 // Fixed rendering parameters. Values mirror the glTF-Sample-Viewer app defaults
 // (KhronosGroup/glTF-Sample-Viewer@8be392572d5def1cd6d18d3487e0b959c6f3c7c5: src/main.js,
 // src/logic/viewer_store.js) except where plan F0 Task 7 overrides them (punctual lights off).
+// The app at that commit drives a newer renderer than the 1.1.0 npm package (it calls
+// uniformEnvironmentColor and AnimationTimer.setTimeOverride, which 1.1.0 lacks), so "mirrors
+// the app" means: same values, applied through the 1.1.0 API.
 const RENDER_SETTINGS = {
   environment: 'Cannon_Exterior',
   environmentNote: 'first entry (index 0, selectedEnvironment: 0) of the Sample-Viewer environment list, low_resolution_hdrs branch',
@@ -55,12 +58,13 @@ const RENDER_SETTINGS = {
   useDirectionalLightsWithDisabledIBL: true,
   renderEnvironmentMap: true,
   blurEnvironmentMap: true,
-  clearColor: [58, 64, 74, 255],
+  clearColor: [0, 0, 0, 1],
+  clearColorNote: 'float RGBA passed straight to gl.clearColor; Sample-Viewer app value when no colour is selected (syncClearColor in src/main.js). Not visible while renderEnvironmentMap is true: the environment covers the whole background',
   internalMSAA: 4,
   morphing: true,
   skinning: true,
-  animation: 'none (animationIndices = [], t = 0, bind/rest pose)',
-  camera: 'scene.applyTransformHierarchy, then UserCamera.resetView(gltf, sceneIndex) default fit camera; yfov 45 deg; aspect = width/height; no orbit',
+  animation: 'as the app (applyLoadedGltf): every animation not overlapping an earlier one (gltf.nonDisjointAnimations), sampled at t = 0 (AnimationTimer paused, elapsedSec() == 0); models without animations render in rest pose',
+  camera: 'scene.applyTransformHierarchy, then UserCamera.resetView(gltf, sceneIndex) default fit camera on the rest pose (before animation is applied, as the app); yfov 45 deg; aspect = width/height; no orbit',
   sceneIndex: 'gltf.scene ?? 0',
   variant: 'KHR_materials_variants: none (default materials)',
   contextAttributes: { alpha: false, antialias: true, preserveDrawingBuffer: true },
@@ -147,6 +151,17 @@ p.environmentRotation = S.environmentRotationDeg; p.clearColor = S.clearColor; p
 p.morphing = S.morphing; p.skinning = S.skinning;
 state.environment = await loader.loadEnvironment('/env/' + S.environment + '.hdr', { lut_sheen_E_file: '/env/lut_sheen_E.png' });
 if (!state.environment) throw new Error('environment failed to load');
+function readback() {
+  const px = new Uint8Array(S.width * S.height * 4);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.readPixels(0, 0, S.width, S.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  return px;
+}
+function b64(px) {
+  let bin = '';
+  for (let i = 0; i < px.length; i += 0x8000) bin += String.fromCharCode.apply(null, px.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
 window.__refgen = {
   info: {
     renderer: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
@@ -158,7 +173,16 @@ window.__refgen = {
     state.gltf = await loader.loadGltf(url);
     state.sceneIndex = state.gltf.scene ?? 0;
     state.cameraIndex = undefined;
+    // As the app: enable every animation that does not overlap an earlier one; sample at t = 0.
+    // The timer is left paused with pausedTime 0 (elapsedSec() == 0). setFixedTime(0) is NOT
+    // used: elapsedSec() returns fixedTime || wallclock, so 0 would fall through to wall-clock time.
     state.animationIndices = [];
+    for (let i = 0; i < (state.gltf.animations?.length ?? 0); i++) {
+      if (!state.gltf.nonDisjointAnimations(state.animationIndices).includes(i)) state.animationIndices.push(i);
+    }
+    state.animationTimer.pause();
+    state.animationTimer.reset();
+    if (!state.animationTimer.paused || state.animationTimer.elapsedSec() !== 0) throw new Error('animation timer not at t = 0');
     state.variant = undefined;
     // As the Sample-Viewer app does (src/main.js applyLoadedGltf): world transforms first,
     // otherwise the fit camera measures untransformed extents.
@@ -168,12 +192,25 @@ window.__refgen = {
     const stats = view.gatherStatistics(state);
     for (let i = 0; i < S.framesBeforeCapture; i++) view.renderFrame(state, S.width, S.height);
     gl.finish();
-    const px = new Uint8Array(S.width * S.height * 4);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.readPixels(0, 0, S.width, S.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
-    let bin = '';
-    for (let i = 0; i < px.length; i += 0x8000) bin += String.fromCharCode.apply(null, px.subarray(i, i + 0x8000));
-    return { pixels: btoa(bin), stats };
+    const px = readback();
+    // Environment-only frame with the same camera, taken AFTER the model capture so it cannot
+    // affect the reference pixels. The renderer caches drawables per scene object
+    // (preparedScene !== scene), so a separate scene object without root nodes is swapped in,
+    // rendered, and the original put back.
+    const scene = state.gltf.scenes[state.sceneIndex];
+    const empty = Object.assign(Object.create(Object.getPrototypeOf(scene)), scene, { nodes: [] });
+    let bg, bgStats;
+    try {
+      state.gltf.scenes[state.sceneIndex] = empty;
+      // gatherStatistics cannot be used here (it reduces an empty array without a seed and throws).
+      bgStats = { meshCount: empty.gatherNodes(state.gltf).filter((n) => n.mesh !== undefined).length };
+      for (let i = 0; i < S.framesBeforeCapture; i++) view.renderFrame(state, S.width, S.height);
+      gl.finish();
+      bg = readback();
+    } finally {
+      state.gltf.scenes[state.sceneIndex] = scene;
+    }
+    return { pixels: b64(px), background: b64(bg), backgroundStats: bgStats, stats, animationIndices: [...state.animationIndices] };
   },
 };
 window.__refgenReady = true;
@@ -207,9 +244,13 @@ function send(res, code, type, body) {
 }
 
 // Minimum pixel std-dev for a frame to count as "rendered something". A flat clear colour is 0;
-// a blurred environment background alone is low but non-zero, so the model check below
-// (statistics + model-vs-background difference) is what catches a failed model load.
+// a blurred environment background alone is low but non-zero, so it cannot prove the model is
+// visible. That is done by comparing the model frame with an environment-only frame from the
+// same camera: at least MIN_MODEL_COVERAGE of the pixels must differ by more than
+// MODEL_DIFF_THRESHOLD in some RGB channel (catches an off-frame or invisible model).
 const MIN_STDDEV = 2.0;
+const MODEL_DIFF_THRESHOLD = 8;
+const MIN_MODEL_COVERAGE = 0.01;
 
 async function openPage(browser, baseUrl, width, height, errors) {
   const page = await browser.newPage();
@@ -243,8 +284,17 @@ async function renderOne(page, model, width, height, errors) {
   if (rgba1.length !== width * height * 4) problems.push(`readback size ${rgba1.length}`);
   if (st.stdDev < MIN_STDDEV) problems.push(`blank frame (pixel std-dev ${st.stdDev.toFixed(3)} < ${MIN_STDDEV})`);
   if (!r1.stats || !(r1.stats.meshCount > 0) || !(r1.stats.faceCount > 0)) problems.push(`no geometry rendered: ${JSON.stringify(r1.stats)}`);
+  const bg = Buffer.from(r1.background, 'base64');
+  if (!r1.backgroundStats || r1.backgroundStats.meshCount !== 0) problems.push(`environment-only frame still has geometry: ${JSON.stringify(r1.backgroundStats)}`);
+  let coverage = 0;
+  if (bg.length === rgba1.length) {
+    coverage = differingPixelFraction(rgba1, bg, MODEL_DIFF_THRESHOLD);
+    if (coverage < MIN_MODEL_COVERAGE) problems.push(`model not visible: ${(coverage * 100).toFixed(3)}% of pixels differ from the environment-only frame (< ${MIN_MODEL_COVERAGE * 100}%)`);
+  } else {
+    problems.push(`environment-only readback size ${bg.length}`);
+  }
   const h1 = sha256Hex(rgba1), h2 = sha256Hex(rgba2);
-  return { rgb, stats: st, sceneStats: r1.stats, deterministic: h1 === h2, problems };
+  return { rgb, stats: st, sceneStats: r1.stats, coverage, animationIndices: r1.animationIndices, deterministic: h1 === h2, problems };
 }
 
 async function main() {
@@ -303,10 +353,11 @@ async function main() {
       }
       const png = encodePngRgb(r.rgb, args.width, args.height);
       await fsp.writeFile(path.join(outDir, `${m.name}.png`), png);
-      console.log(`ok   ${m.name}  std-dev=${r.stats.stdDev.toFixed(2)} deterministic=${r.deterministic}`);
+      console.log(`ok   ${m.name}  std-dev=${r.stats.stdDev.toFixed(2)} model-coverage=${(r.coverage * 100).toFixed(2)}% animations=[${r.animationIndices}] deterministic=${r.deterministic}`);
       results.push({
         name: m.name, status: 'OK', variant: m.variant, file: m.file, png: `${m.name}.png`, pngSha256: sha256Hex(png),
-        pixelStdDev: Number(r.stats.stdDev.toFixed(3)), deterministicRerender: r.deterministic, sceneStats: r.sceneStats,
+        pixelStdDev: Number(r.stats.stdDev.toFixed(3)), modelCoverage: Number(r.coverage.toFixed(4)), animationIndices: r.animationIndices,
+        deterministicRerender: r.deterministic, sceneStats: r.sceneStats,
       });
     }
 
@@ -319,7 +370,7 @@ async function main() {
       launchAttempts: attempts,
       sampleAssets: assetsLock['glTF-Sample-Assets'],
       pinnedFiles: PINNED_FILES,
-      settings,
+      settings: { ...settings, modelDiffThreshold: MODEL_DIFF_THRESHOLD, minModelCoverage: MIN_MODEL_COVERAGE },
       models: results,
     };
     // Keep settings.json stable across re-runs that render the same set: merge by model name.

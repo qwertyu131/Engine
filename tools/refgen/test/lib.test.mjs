@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import zlib from 'node:zlib';
-import { parseArgs, encodePngRgb, rgbaBottomUpToRgbTopDown, pixelStats, sha256Hex } from '../lib.mjs';
+import { parseArgs, encodePngRgb, rgbaBottomUpToRgbTopDown, pixelStats, sha256Hex, differingPixelFraction } from '../lib.mjs';
 
 test('parseArgs reads models list, out, size and defaults', () => {
   const a = parseArgs(['--models', 'DamagedHelmet,MetalRoughSpheres', '--out', 'x/y', '--width', '256']);
@@ -58,4 +58,14 @@ test('pixelStats: flat image has zero std-dev, varied image does not', () => {
 test('sha256Hex matches known digest', () => {
   assert.equal(sha256Hex(Buffer.from('abc')),
     'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+});
+
+test('differingPixelFraction counts RGBA pixels whose max channel delta exceeds the threshold', () => {
+  // 4 pixels; alpha is ignored.
+  const bg = Uint8Array.from([10, 10, 10, 255, 10, 10, 10, 255, 10, 10, 10, 255, 10, 10, 10, 255]);
+  assert.equal(differingPixelFraction(bg, bg, 8), 0);
+  const model = Uint8Array.from([10, 10, 10, 0, 18, 10, 10, 255, 10, 19, 10, 255, 200, 0, 90, 255]);
+  // pixel 0: alpha only -> same; pixel 1: delta 8 (not > 8) -> same; pixels 2, 3 differ.
+  assert.equal(differingPixelFraction(model, bg, 8), 0.5);
+  assert.throws(() => differingPixelFraction(model, bg.subarray(0, 8), 8), /size/);
 });
