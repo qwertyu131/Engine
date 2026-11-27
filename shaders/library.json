@@ -1,0 +1,8 @@
+{
+  "comment": "Shaders the RHI loads at run time (plan F2 Task 2). The CMake target `shaders` runs `scripts/compile_shaders.py --library shaders/library.json --targets spirv,dxbc --out <build>/shaders`; ShaderLibrary reads <out>/<shader>/<target>/<key>/. Paths are repo-relative permutation files.",
+  "shaders": [
+    "shaders/pbr/permutations.json",
+    "shaders/test/triangle.permutations.json",
+    "shaders/test/color_triangle.permutations.json"
+  ]
+}

@@ -137,5 +137,53 @@ class RunTest(unittest.TestCase):
             self.assertIn("tool not found: shaderc", buf.getvalue())
 
 
+LIBRARY = REPO / "shaders" / "library.json"
+
+
+class LibraryTest(unittest.TestCase):
+    """Build step for the RHI (plan F2 Task 2): every shader of shaders/library.json, only the targets the
+    RHI backends load, written to <out>/<shader>/<target>/<key>/ for ShaderLibrary."""
+
+    def run_main(self, fake: FakeShaderc, out: Path, extra: list[str]) -> tuple[int, str]:
+        shaderc = out.parent / "shaderc.exe"
+        shaderc.write_bytes(b"")
+        buf = io.StringIO()
+        with redirect_stdout(buf), redirect_stderr(buf):
+            rc = cs.main(["--out", str(out), "--shaderc", str(shaderc), "--jobs", "4"] + extra, runner=fake)
+        return rc, buf.getvalue()
+
+    def test_library_layout_and_target_filter(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            out = Path(d) / "ç shaders"
+            fake = FakeShaderc()
+            rc, text = self.run_main(fake, out, ["--library", str(LIBRARY), "--targets", "spirv,dxbc"])
+            self.assertEqual(rc, 0, text)
+            s = json.loads((out / "summary.json").read_text(encoding="utf-8"))
+            # pbr: spirv T2 x 8 + dxbc T1 x 8 define sets, 2 entries; triangle + color_triangle: 2 targets x 2 entries.
+            self.assertEqual(s["total"], 32 + 4 + 4)
+            self.assertEqual(s["failed"], [])
+            self.assertEqual({i["target"] for i in s["items"]}, {"spirv", "dxbc"})
+            dirs = {Path(c[c.index("--out") + 1]).relative_to(out).as_posix() for c in fake.calls}
+            self.assertIn("pbr/spirv/T2_SKIN0_MORPH0_UNLIT0", dirs)
+            self.assertIn("pbr/dxbc/T1_SKIN1_MORPH1_UNLIT1", dirs)
+            self.assertIn("triangle/spirv/default", dirs)
+            self.assertIn("triangle/dxbc/default", dirs)
+            self.assertIn("color_triangle/spirv/default", dirs)
+            self.assertIn("pbr/spirv/T2_SKIN0_MORPH0_UNLIT0/PSMain", {i["id"] for i in s["items"]})
+
+    def test_shader_without_tier_axis_has_key_default(self) -> None:
+        perms = cs.load_permutations(REPO / "shaders" / "test" / "triangle.permutations.json")
+        jobs = cs.expand_jobs(perms)
+        self.assertEqual({j.key for j in jobs}, {"default"})
+        self.assertEqual({j.target for j in jobs}, {"spirv", "dxbc"})
+        self.assertEqual({j.shader for j in jobs}, {"triangle"})
+
+    def test_unknown_target_filter_is_usage_error(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            rc, text = self.run_main(FakeShaderc(), Path(d) / "out", ["--library", str(LIBRARY), "--targets", "hlsl"])
+            self.assertEqual(rc, 2)
+            self.assertIn("unknown target", text)
+
+
 if __name__ == "__main__":
     unittest.main()

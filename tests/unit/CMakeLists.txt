@@ -128,3 +128,36 @@ if(ENG_BUILD_SHADERC)
         message(WARNING "Python 3 not found: ctest shaderc.msl_artifacts_fresh is not registered")
     endif()
 endif()
+
+# --- RHI (F2) ----------------------------------------------------------------------------------
+# rhi_unit_tests needs the shader library of the `shaders` build step (built first). One ctest entry
+# per backend configuration; a backend that is compiled in but absent on the machine reports ctest
+# "Skipped" with the reason (exit 77), a missing validation layer is a failure (tests/unit/rhi/test_main.cpp).
+if(TARGET shaders)
+    add_executable(rhi_unit_tests
+        rhi/test_main.cpp
+        rhi/RhiTestEnv.h
+        rhi/test_shader_library.cpp
+        rhi/test_triangle.cpp)
+    target_link_libraries(rhi_unit_tests PRIVATE engine::rhi headless_core nlohmann_json::nlohmann_json doctest::doctest)
+    target_compile_definitions(rhi_unit_tests PRIVATE ENG_TEST_SHADER_LIB_DIR="${ENG_SHADER_LIB_DIR}")
+    add_dependencies(rhi_unit_tests shaders)
+    if(MSVC)
+        target_compile_options(rhi_unit_tests PRIVATE /W4 /WX /permissive- /utf-8 /external:W0)
+    endif()
+    add_test(NAME unit.rhi.shaderlib COMMAND rhi_unit_tests --no-version=true)
+    set(rhi_backends)
+    if(ENG_RHI_VULKAN)
+        list(APPEND rhi_backends vulkan)
+    endif()
+    if(ENG_RHI_D3D11)
+        list(APPEND rhi_backends d3d11 d3d11-warp)
+    endif()
+    foreach(b IN LISTS rhi_backends)
+        add_test(NAME unit.rhi.${b} COMMAND rhi_unit_tests --rhi-backend=${b} --no-version=true)
+        set_tests_properties(unit.rhi.${b} PROPERTIES
+            SKIP_RETURN_CODE 77
+            FAIL_REGULAR_EXPRESSION "test cases: +0 \\|")
+    endforeach()
+    set_tests_properties(unit.rhi.shaderlib PROPERTIES FAIL_REGULAR_EXPRESSION "test cases: +0 \\|")
+endif()

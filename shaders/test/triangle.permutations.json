@@ -1,0 +1,13 @@
+{
+  "comment": "F1 test shader shaders/test/triangle.hlsl, built for the RHI ShaderLibrary test (plan F2 Task 2). No permutation axes: key 'default'.",
+  "source": "shaders/test/triangle.hlsl",
+  "entries": [
+    { "entry": "VSMain", "stage": "vs" },
+    { "entry": "PSMain", "stage": "fs" }
+  ],
+  "axes": {},
+  "targets": {
+    "spirv": { "backend": "Vulkan" },
+    "dxbc":  { "backend": "D3D11" }
+  }
+}

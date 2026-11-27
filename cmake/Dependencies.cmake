@@ -85,3 +85,42 @@ if(ENG_BUILD_SHADERC)
         SYSTEM)
     FetchContent_MakeAvailable(spirv_cross)
 endif()
+
+# --- RHI (engine/rhi, F2) -------------------------------------------------------------------
+# Vulkan backend: Vulkan headers from the Vulkan SDK (find_package(Vulkan), headers only; the loader is
+# loaded at run time by volk). Neither project's own CMake is configured (SOURCE_SUBDIR): volk is used
+# header-only (VOLK_IMPLEMENTATION in engine/rhi/vulkan/VkLibs.cpp), VMA is header-only.
+# volk at tag vulkan-sdk-1.4.341.0 (commit d979819fd03de3a7606d6e23d6ff4968942599da), MIT.
+# VulkanMemoryAllocator v3.5.0 (commit 0f1a757da579831283413295cc7f3b47eb521c77), MIT.
+# Both SHAs resolved with `git ls-remote` (2026-11-28).
+if(WIN32)
+    option(ENG_RHI_D3D11 "Build the D3D11 RHI backend" ON)
+else()
+    set(ENG_RHI_D3D11 OFF CACHE BOOL "Build the D3D11 RHI backend (Windows only)" FORCE)
+endif()
+find_package(Vulkan QUIET)
+if(TARGET Vulkan::Headers)
+    option(ENG_RHI_VULKAN "Build the Vulkan RHI backend" ON)
+else()
+    message(STATUS "Vulkan headers not found (VULKAN_SDK): the Vulkan RHI backend is not built")
+    set(ENG_RHI_VULKAN OFF CACHE BOOL "Build the Vulkan RHI backend" FORCE)
+endif()
+if(ENG_RHI_VULKAN)
+    FetchContent_Declare(volk
+        GIT_REPOSITORY https://github.com/zeux/volk.git
+        GIT_TAG        d979819fd03de3a7606d6e23d6ff4968942599da # vulkan-sdk-1.4.341.0
+        SOURCE_SUBDIR  _no_cmake_)
+    FetchContent_Declare(vma
+        GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+        GIT_TAG        0f1a757da579831283413295cc7f3b47eb521c77 # v3.5.0
+        SOURCE_SUBDIR  _no_cmake_)
+    FetchContent_MakeAvailable(volk vma)
+    if(NOT TARGET eng_volk)
+        add_library(eng_volk INTERFACE)
+        target_include_directories(eng_volk SYSTEM INTERFACE "${volk_SOURCE_DIR}")
+        target_compile_definitions(eng_volk INTERFACE VK_NO_PROTOTYPES)
+        target_link_libraries(eng_volk INTERFACE Vulkan::Headers)
+        add_library(eng_vma INTERFACE)
+        target_include_directories(eng_vma SYSTEM INTERFACE "${vma_SOURCE_DIR}/include")
+    endif()
+endif()

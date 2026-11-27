@@ -27,3 +27,6 @@ if(MSVC)
 else()
     target_compile_options(engine PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
+
+# RHI (plan F2 Task 2): separate target, C++23 (std::expected in the pinned interface).
+add_subdirectory(rhi)

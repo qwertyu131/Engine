@@ -1,10 +1,16 @@
 // headless: offscreen render -> PNG (spec §10, plan F0 Task 5).
 //
-//   headless --backend <name> --scene <path|builtin:test-pattern> --out <png>
+//   headless --backend <name> --scene <path|builtin:...> --out <png>
 //            [--width N=256] [--height N=256] [--cvar name=value]... [--bench <frames>]
+//            [--warp] [--adapter <index>] [--shader-dir <dir>]
 //
-// F0: only `--backend cpu` with `--scene builtin:test-pattern` (deterministic CPU pattern, see
-// TestPattern.h). Real GPU backends register in F2.
+// Backends:
+//   cpu     F0: `--scene builtin:test-pattern` (deterministic CPU pattern, see TestPattern.h).
+//   vulkan  F2: through engine/rhi, with validation (VK_LAYER_KHRONOS_validation + sync validation).
+//   d3d11   F2: through engine/rhi, with the debug layer; --warp = WARP software rasterizer.
+// GPU scenes (Scenes.h): builtin:triangle. --adapter selects the adapter by index (default: the
+// backend's default). --shader-dir is the shader library of the `shaders` build step (default: the
+// build tree's, compiled in).
 //
 // --cvar   applied with CVarSource::CommandLine, in order. An unknown cvar or a rejected value is
 //          a usage error (a test gate must not silently run with a typo'd setting).
@@ -12,15 +18,19 @@
 //          `frame_ms_avg=<float> frame_ms_p95=<float>` on stdout (p95 = nearest rank).
 //          The PNG written is the last frame.
 //
-// Exit codes: 0 = image written, 2 = usage / IO error, 3 = backend not available in this build.
+// Exit codes: 0 = image written, 2 = usage / IO error, 3 = backend not available in this build or on
+// this machine, 4 = validation error (also: validation layer missing), 5 = device lost / GPU error.
 // All path arguments are UTF-8 (on Windows they are taken from the wide command line).
 
+#include "Scenes.h"
 #include "TestPattern.h"
 
 #include "Image.h"
 #include "Utf8.h"
 #include "core/CVar.h"
 #include "core/Log.h"
+#include "rhi/Rhi.h"
+#include "rhi/ShaderLibrary.h"
 
 #include <algorithm>
 #include <charconv>
@@ -30,6 +40,7 @@
 #include <exception>
 #include <filesystem>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -49,10 +60,16 @@ constexpr int kMaxBenchFrames = 1'000'000;
 
 void printUsage(std::ostream& os) {
     os << "usage:\n"
-          "  headless --backend <name> --scene <path|builtin:test-pattern> --out <png>\n"
+          "  headless --backend <name> --scene <path|builtin:...> --out <png>\n"
           "           [--width N=256] [--height N=256] [--cvar name=value]... [--bench <frames>]\n"
-          "backends in this build: cpu\n"
-          "exit codes: 0 = ok, 2 = usage / IO error, 3 = backend not available in this build\n";
+          "           [--warp] [--adapter <index>] [--shader-dir <dir>]\n"
+          "backends in this build: cpu";
+    for (const eng::rhi::Backend b : eng::rhi::compiledBackends()) {
+        os << ", " << eng::rhi::toString(b);
+    }
+    os << "\nscenes: builtin:test-pattern (cpu), builtin:triangle (gpu)\n"
+          "exit codes: 0 = ok, 2 = usage / IO error, 3 = backend not available, 4 = validation error,\n"
+          "            5 = device lost / GPU error\n";
 }
 
 struct Options {
@@ -63,6 +80,9 @@ struct Options {
     int height = 256;
     std::vector<std::string> cvars;
     std::optional<int> benchFrames;
+    bool warp = false;
+    int adapter = -1;
+    std::string shaderDir;
 };
 
 std::optional<int> parseInt(const std::string& s, int min, int max) {
@@ -83,6 +103,10 @@ std::optional<Options> parseArgs(const std::vector<std::string>& args) {
     bool haveOut = false;
     for (size_t i = 1; i < args.size(); ++i) {
         const std::string& key = args[i];
+        if (key == "--warp") { // flag, no value
+            o.warp = true;
+            continue;
+        }
         if (i + 1 >= args.size()) {
             std::cerr << "headless: option '" << key << "' needs a value (or is unknown)\n";
             return std::nullopt;
@@ -105,6 +129,15 @@ std::optional<Options> parseArgs(const std::vector<std::string>& args) {
                 return std::nullopt;
             }
             (key == "--width" ? o.width : o.height) = *v;
+        } else if (key == "--adapter") {
+            auto v = parseInt(val, 0, 64);
+            if (!v) {
+                std::cerr << "headless: --adapter must be an integer in [0, 64] (got '" << val << "')\n";
+                return std::nullopt;
+            }
+            o.adapter = *v;
+        } else if (key == "--shader-dir") {
+            o.shaderDir = val;
         } else if (key == "--cvar") {
             o.cvars.push_back(val);
         } else if (key == "--bench") {
@@ -161,10 +194,19 @@ int run(const std::vector<std::string>& args) {
         return kExitError;
     }
 
-    // Real backends (d3d11, d3d12, vulkan, ...) register here in F2.
-    if (opts->backend != "cpu") {
+    std::optional<eng::rhi::Backend> gpu;
+    for (const eng::rhi::Backend b : eng::rhi::compiledBackends()) {
+        if (opts->backend == eng::rhi::toString(b)) {
+            gpu = b;
+        }
+    }
+    if (opts->backend != "cpu" && !gpu) {
         std::cerr << "backend '" << opts->backend << "' not available in this build\n";
         return kExitNoBackend;
+    }
+    if (!gpu && (opts->warp || opts->adapter >= 0)) {
+        std::cerr << "headless: --warp / --adapter need a GPU backend\n";
+        return kExitError;
     }
 
     eng::CVar* warmup = eng::CVarRegistry::get().registerInt(
@@ -174,13 +216,61 @@ int run(const std::vector<std::string>& args) {
         return kExitError;
     }
 
-    if (opts->scene != kBuiltinTestPattern) {
+    // GPU backends: device + scene through engine/rhi (plan F2 Task 2).
+    std::unique_ptr<eng::rhi::IDevice> device;
+    fs::path shaderDir;
+    if (gpu) {
+        if (opts->scene != eng::scenes::kTriangle) {
+            std::cerr << "headless: scene '" << opts->scene << "' not supported on backend " << opts->backend
+                      << " in this build (only " << eng::scenes::kTriangle << ")\n";
+            return kExitError;
+        }
+#if defined(ENG_DEFAULT_SHADER_DIR)
+        shaderDir = eng::rhi::pathFromUtf8(opts->shaderDir.empty() ? ENG_DEFAULT_SHADER_DIR : opts->shaderDir);
+#else
+        if (opts->shaderDir.empty()) {
+            std::cerr << "headless: --shader-dir is required (no shader library in this build)\n";
+            return kExitError;
+        }
+        shaderDir = eng::rhi::pathFromUtf8(opts->shaderDir);
+#endif
+        eng::rhi::DeviceDesc dd;
+        dd.backend = *gpu;
+        dd.warp = opts->warp;
+        dd.adapterIndex = opts->adapter;
+        auto dev = eng::rhi::createDevice(dd);
+        if (!dev) {
+            std::cerr << "headless: " << dev.error().message << "\n";
+            return dev.error().exitCode;
+        }
+        device = std::move(*dev);
+        ENG_LOG_INFO("backend {}: {} (API {})", opts->backend, device->caps().adapterName, device->caps().apiVersion);
+    } else if (opts->scene != kBuiltinTestPattern) {
         std::cerr << "headless: scene '" << opts->scene << "' not supported in this build (only "
                   << kBuiltinTestPattern << ")\n";
         return kExitError;
     }
 
-    const auto renderFrame = [&] { return eng::makeTestPattern(opts->width, opts->height); };
+    int gpuError = kExitOk;
+    std::string gpuMessage;
+    const auto renderFrame = [&]() -> eng::Image8 {
+        if (!device) {
+            return eng::makeTestPattern(opts->width, opts->height);
+        }
+        auto img = eng::scenes::renderTriangle(*device, shaderDir, static_cast<uint32_t>(opts->width),
+                                               static_cast<uint32_t>(opts->height));
+        eng::Image8 out;
+        if (!img) {
+            gpuError = img.error().exitCode;
+            gpuMessage = img.error().message;
+            return out;
+        }
+        out.width = static_cast<int>(img->width);
+        out.height = static_cast<int>(img->height);
+        out.channels = 4;
+        out.rgba8 = std::move(img->rgba8);
+        return out;
+    };
     eng::Image8 frame;
     if (opts->benchFrames) {
         for (int i = 0; i < warmup->getInt(); ++i) {
@@ -208,6 +298,15 @@ int run(const std::vector<std::string>& args) {
         std::cout << line << "\n";
     } else {
         frame = renderFrame();
+    }
+
+    if (gpuError != kExitOk) {
+        std::cerr << "headless: " << gpuMessage << "\n";
+        return gpuError;
+    }
+    if (device && device->validationErrorCount() > 0) {
+        std::cerr << "headless: " << device->validationErrorCount() << " validation message(s)\n";
+        return eng::rhi::kExitValidation;
     }
 
     const fs::path out = eng::golden::fromUtf8(opts->out);
