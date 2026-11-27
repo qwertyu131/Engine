@@ -436,7 +436,17 @@ std::expected<CompileResult, std::string> Job::run() {
     }
     preprocessed_.assign(pre->begin(), pre->end());
     // SPIR-V first: it is the reflection source for every target and the input of the cross paths.
-    auto spv = dxc({"-spirv", "-fspv-target-env=vulkan1.1", "-Fo"}, "out.spv");
+    // DXBC cross, pixel shader: keep every declared input (-fspv-preserve-interface). Otherwise DXC drops
+    // the inputs the entry does not read, FXC packs the remaining ones from register 0 and the D3D11
+    // VS -> PS linkage breaks (debug layer: "Semantic 'TEXCOORD' is defined for mismatched hardware
+    // registers between the output stage and input stage"; plan F1 Task 5). Inputs only: no effect on
+    // resources/reflection, and the vertex stage keeps its exact input layout.
+    std::vector<Arg> spvArgs = {"-spirv", "-fspv-target-env=vulkan1.1"};
+    if (req_.target == Target::DXBC && req_.dxbcPath == DxbcPath::Cross && req_.stage == Stage::Fragment) {
+        spvArgs.emplace_back("-fspv-preserve-interface");
+    }
+    spvArgs.emplace_back("-Fo");
+    auto spv = dxc(spvArgs, "out.spv");
     if (!spv) {
         return std::unexpected(spv.error());
     }

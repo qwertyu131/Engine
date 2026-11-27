@@ -4,7 +4,9 @@
 //   - reflection (name, kind, space, index) and vertex inputs identical across targets;
 //   - T0 vertex attributes <= 16 (GLES 3.0 / WebGL2 / D3D10 minimum; no validator checks it);
 //   - compiling twice gives byte-identical outputs (Review Focus 4);
-//   - the reserved feature groups compile as no-ops.
+//   - the reserved feature groups compile as no-ops;
+//   - D3D11 (DXBC) VS -> PS linkage on both --dxbc-path values: every PS input has the same semantic,
+//     index and register in the VS output; the default path is cross (plan F1 Task 5 decision).
 #include "Compiler.h"
 #include "Targets.h"
 #include "Validate.h"
@@ -14,6 +16,8 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -116,6 +120,56 @@ nlohmann::json loadPermutations() {
 
 std::string what(const std::expected<CompileResult, std::string>& r) {
     return r.has_value() ? std::string() : r.error();
+}
+
+// One element of a DXBC ISGN / OSGN chunk (the D3D11 stage-linkage signature).
+struct SigElement {
+    std::string semantic;
+    uint32_t semanticIndex = 0;
+    uint32_t reg = 0;
+    uint8_t mask = 0;
+};
+
+uint32_t le32(const std::vector<uint8_t>& b, size_t off) {
+    REQUIRE(off + 4 <= b.size());
+    uint32_t v = 0;
+    std::memcpy(&v, b.data() + off, 4);
+    return v;
+}
+
+// DXBC container: "DXBC", 16-byte hash, version, total size, chunk count, chunk offsets; a chunk is
+// fourcc + size + data. ISGN/OSGN data: element count, 8, then 24-byte elements (name offset, semantic
+// index, system value, component type, register, mask, rw mask, 2 pad); name offsets are relative to the
+// chunk data.
+std::vector<SigElement> dxbcSignature(const std::vector<uint8_t>& b, const char (&fourcc)[5]) {
+    REQUIRE(b.size() >= 32);
+    REQUIRE(std::memcmp(b.data(), "DXBC", 4) == 0);
+    const uint32_t chunks = le32(b, 28);
+    for (uint32_t c = 0; c < chunks; ++c) {
+        const size_t chunk = le32(b, 32 + 4 * size_t(c));
+        REQUIRE(chunk + 8 <= b.size());
+        if (std::memcmp(b.data() + chunk, fourcc, 4) != 0) {
+            continue;
+        }
+        const size_t data = chunk + 8;
+        const uint32_t count = le32(b, data);
+        std::vector<SigElement> out;
+        for (uint32_t i = 0; i < count; ++i) {
+            const size_t e = data + 8 + 24 * size_t(i);
+            REQUIRE(e + 24 <= b.size());
+            SigElement s;
+            const size_t name = data + le32(b, e);
+            REQUIRE(name < b.size());
+            s.semantic = reinterpret_cast<const char*>(b.data() + name);
+            s.semanticIndex = le32(b, e + 4);
+            s.reg = le32(b, e + 16);
+            s.mask = b[e + 20];
+            out.push_back(s);
+        }
+        return out;
+    }
+    FAIL("DXBC chunk " << fourcc << " not found");
+    return {};
 }
 
 } // namespace
@@ -241,6 +295,52 @@ TEST_CASE("pbr: reserved feature groups FG_CLEARCOAT_SHEEN_SPEC / FG_TRANSMISSIO
         REQUIRE_MESSAGE(b.has_value(), what(b));
         CHECK(a->bytecode == b->bytecode);
         CHECK(a->text == b->text);
+    }
+}
+
+TEST_CASE("pbr: D3D11 VS -> PS signatures link on both DXBC paths; the default path is cross") {
+    // Task 5 (docs/spikes/f01-shader-pipeline.md): without -fspv-preserve-interface the cross path drops
+    // the PS inputs an FG_UNLIT=1 pixel shader does not read, and FXC re-packs the rest from register 0;
+    // the D3D11 debug layer rejects that pair at Draw ("Semantic 'TEXCOORD' is defined for mismatched
+    // hardware registers between the output stage and input stage").
+    CHECK(CompileRequest{}.dxbcPath == DxbcPath::Cross);
+    for (DxbcPath path : {DxbcPath::Cross, DxbcPath::Direct}) {
+        for (int skin : {0, 1}) {
+            for (int morph : {0, 1}) {
+                for (int unlit : {0, 1}) {
+                    const Perm p{1, skin, morph, unlit};
+                    CAPTURE(toString(path));
+                    CAPTURE(skin);
+                    CAPTURE(morph);
+                    CAPTURE(unlit);
+                    CompileRequest vreq = request("VSMain", Stage::Vertex, Target::DXBC, p);
+                    CompileRequest preq = request("PSMain", Stage::Fragment, Target::DXBC, p);
+                    vreq.dxbcPath = path;
+                    preq.dxbcPath = path;
+                    auto vs = compile(vreq, test::tools());
+                    auto ps = compile(preq, test::tools());
+                    REQUIRE_MESSAGE(vs.has_value(), what(vs));
+                    REQUIRE_MESSAGE(ps.has_value(), what(ps));
+                    const auto vsOut = dxbcSignature(vs->bytecode, "OSGN");
+                    const auto psIn = dxbcSignature(ps->bytecode, "ISGN");
+                    REQUIRE_FALSE(psIn.empty());
+                    for (const SigElement& in : psIn) {
+                        if (in.semantic == "SV_IsFrontFace" || in.semantic == "SV_SampleIndex" ||
+                            in.semantic == "SV_Coverage" || in.semantic == "SV_PrimitiveID") {
+                            continue; // generated by the rasterizer, not linked to the VS
+                        }
+                        CAPTURE(in.semantic);
+                        CAPTURE(in.semanticIndex);
+                        auto it = std::find_if(vsOut.begin(), vsOut.end(), [&](const SigElement& o) {
+                            return o.semantic == in.semantic && o.semanticIndex == in.semanticIndex;
+                        });
+                        REQUIRE(it != vsOut.end());
+                        CHECK(it->reg == in.reg);
+                        CHECK((in.mask & ~it->mask) == 0);
+                    }
+                }
+            }
+        }
     }
 }
 

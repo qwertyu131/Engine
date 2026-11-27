@@ -41,7 +41,7 @@ struct CompileRequest {
     Target target = Target::SPIRV;
     std::vector<std::pair<std::string, std::string>> defines;
     std::vector<std::filesystem::path> includeDirs;
-    DxbcPath dxbcPath = DxbcPath::Cross; // only for Target::DXBC
+    DxbcPath dxbcPath = DxbcPath::Cross; // only for Target::DXBC; default decided in plan F1 Task 5 (docs/spikes)
 };
 
 struct CompileResult {
