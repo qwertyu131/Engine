@@ -1,0 +1,59 @@
+# F0 CI (plan F0 Task 8, spec §10): build + unit tests + golden report on Windows,
+# build + unit tests on Linux. macOS (xcrun metal) arrives in F1.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest   # windows-2025-vs2026: Visual Studio 18 2026 generator available
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Configure
+        run: cmake --preset win-msvc
+      - name: Build (Debug)
+        run: cmake --build --preset win-msvc --config Debug
+      - name: Unit tests (ctest)
+        run: ctest --preset win-msvc -C Debug
+      - name: Python tests
+        run: python -m unittest discover tests
+      - name: Golden f00
+        run: python scripts/run_golden.py --phase f00 --build-dir build/win-msvc --config Debug
+      - name: Upload golden report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-report-f00-windows
+          path: |
+            tests/golden/out/f00/report.html
+            tests/golden/out/f00/results.json
+          if-no-files-found: warn
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ninja and Clang
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build clang
+      - name: Configure
+        run: cmake --preset linux-clang
+      - name: Build (Debug)
+        run: cmake --build --preset linux-clang --config Debug
+      - name: Unit tests (ctest)
+        run: ctest --preset linux-clang -C Debug
