@@ -15,7 +15,7 @@ python ../../scripts/fetch_assets.py --only sample-assets   # models under tests
 ```
 
 `.puppeteerrc.cjs` sets `skipDownload: true`, so `npm ci` downloads no browser. Firefox is found at
-`C:\Program Files\Mozilla Firefoxirefox.exe` (override: `--firefox <exe>` or `REFGEN_FIREFOX`). `node_modules/` and `.cache/` are git-ignored.
+`C:\Program Files\Mozilla Firefox\firefox.exe` (override: `--firefox <exe>` or `REFGEN_FIREFOX`). `node_modules/` and `.cache/` are git-ignored.
 
 ## Run
 
