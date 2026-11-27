@@ -56,7 +56,7 @@ if(ENG_BUILD_SHADERC)
         endif()
     endforeach()
     function(shaderc_cli_test name expect)
-        cmake_parse_arguments(PARSE_ARGV 2 T "" "EXPECT_IN_OUTPUT;EXPECT_FILE" "ARGS")
+        cmake_parse_arguments(PARSE_ARGV 2 T "" "EXPECT_IN_OUTPUT;EXPECT_FILE;UTF8_SRC" "ARGS")
         if(NOT sc_have_tools)
             # Same skip path as the unit tests: prints the missing tool, exit 77 -> ctest "Skipped".
             add_test(NAME shaderc.cli.${name} COMMAND shaderc_unit_tests)
@@ -70,6 +70,10 @@ if(ENG_BUILD_SHADERC)
         if(T_EXPECT_FILE)
             list(APPEND defs "-DEXPECT_FILE=${T_EXPECT_FILE}")
         endif()
+        if(T_UTF8_SRC) # copied to @UTF8DIR@ (WORK/"ç ğ ü test") under its own file name
+            get_filename_component(sc_name "${T_UTF8_SRC}" NAME)
+            list(APPEND defs "-DUTF8_FIXTURE=${T_UTF8_SRC}" "-DUTF8_FIXTURE_NAME=${sc_name}")
+        endif()
         string(REPLACE ";" "|" args "${T_ARGS}")
         add_test(NAME shaderc.cli.${name} COMMAND ${CMAKE_COMMAND} ${defs} "-DARGS=${args}" -P ${sc_script})
     endfunction()
@@ -78,6 +82,15 @@ if(ENG_BUILD_SHADERC)
         ARGS compile --src ${sc_src} --entry VSMain --stage vs --target all --out "@WORK@/ç ğ ü out" --validate)
     shaderc_cli_test(all_targets_fs 0 EXPECT_FILE "@WORK@/ç ğ ü out/triangle.PSMain.glsl-es300.refl.json"
         ARGS compile --src ${sc_src} --entry PSMain --stage fs --target all --out "@WORK@/ç ğ ü out" --validate)
+    # Review Focus 5: non-ASCII + spaces in BOTH --src and --out.
+    shaderc_cli_test(utf8_src_and_out 0 UTF8_SRC ${sc_src}
+        EXPECT_FILE "@UTF8DIR@/çıktı ğ/triangle.PSMain.dxbc.dxbc"
+        ARGS compile --src "@UTF8DIR@/triangle.hlsl" --entry PSMain --stage fs --target all
+             --out "@UTF8DIR@/çıktı ğ" --validate)
+    shaderc_cli_test(utf8_src_dxbc_direct 0 UTF8_SRC ${sc_src}
+        EXPECT_FILE "@UTF8DIR@/out/triangle.VSMain.dxbc.dxbc"
+        ARGS compile --src "@UTF8DIR@/triangle.hlsl" --entry VSMain --stage vs --target dxbc --dxbc-path direct
+             --out "@UTF8DIR@/out" --validate)
     shaderc_cli_test(dxbc_direct 0 EXPECT_FILE "@WORK@/out/triangle.PSMain.dxbc.dxbc"
         ARGS compile --src ${sc_src} --entry PSMain --stage fs --target dxbc --dxbc-path direct --out @WORK@/out --validate)
     shaderc_cli_test(tool_missing 2 EXPECT_IN_OUTPUT "tool not found: spirv-val (run scripts/fetch_shader_tools.py)"

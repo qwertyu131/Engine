@@ -2,7 +2,8 @@
 # Usage: cmake -DGOLDEN=<exe> -DEXPECT=<code> -DARGS="a|b|c" [-DWORK=<dir>] [-DUTF8_FIXTURE=<png>]
 #              [-DEXPECT_IN_RESULTS=<substring>] -P cli_exit_code.cmake
 # ARGS may contain @WORK@ (a scratch dir recreated on every run) and @UTF8DIR@ (WORK/"ç ğ ü test",
-# into which UTF8_FIXTURE is copied as red.png, to exercise non-ASCII paths with spaces).
+# into which UTF8_FIXTURE is copied as red.png - or as UTF8_FIXTURE_NAME - to exercise non-ASCII
+# paths with spaces).
 # EXPECT_IN_RESULTS is searched in WORK/out/results.json.
 # Optional: -DTOOL=<exe> runs another CLI (e.g. headless) instead of GOLDEN;
 # -DEXPECT_IN_OUTPUT=<substring> must appear in stdout or stderr;
@@ -20,7 +21,10 @@ if(DEFINED WORK)
     set(utf8dir "${WORK}/ç ğ ü test")
     if(DEFINED UTF8_FIXTURE)
         file(MAKE_DIRECTORY "${utf8dir}")
-        file(COPY_FILE "${UTF8_FIXTURE}" "${utf8dir}/red.png")
+        if(NOT DEFINED UTF8_FIXTURE_NAME)
+            set(UTF8_FIXTURE_NAME "red.png")
+        endif()
+        file(COPY_FILE "${UTF8_FIXTURE}" "${utf8dir}/${UTF8_FIXTURE_NAME}")
     endif()
     string(REPLACE "@UTF8DIR@" "${utf8dir}" ARGS "${ARGS}")
     string(REPLACE "@WORK@" "${WORK}" ARGS "${ARGS}")
