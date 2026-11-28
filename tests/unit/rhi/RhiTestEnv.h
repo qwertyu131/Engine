@@ -27,4 +27,8 @@ struct BackendConfig {
 // Set by test_main.cpp from --rhi-backend=<name> (one ctest entry per backend configuration).
 const BackendConfig& currentBackend();
 
+// Set by test_main.cpp from --caps-json=<file> (suite rhi.dumpcaps, plan F3 Task 1): a JSON file written by
+// `headless --dump-caps`. Empty otherwise.
+const std::string& capsJsonPath();
+
 } // namespace eng::rhi::test

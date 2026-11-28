@@ -9,6 +9,11 @@
 //     frame, MAP_WRITE_NO_OVERWRITE after it), copies the new bytes and unmaps (a buffer must not be mapped
 //     while a draw uses it). Ranges are bound with *SetConstantBuffers1 (first / count in 16-byte constants,
 //     multiples of 16, so allocations are 256-byte aligned and sized).
+//   - setBindGroup (plan F3 Task 1) needs a bound pipeline whose layout for the space equals the group's (names,
+//     kinds, per-stage register class / slot): D3D11 binds by slot, so a group made for another permutation would
+//     silently feed the wrong registers. A missing pipeline or a mismatch is an RHI validation error (logged,
+//     counted: exit 4) and the bind is skipped. A constant-buffer range never extends past the buffer: uniform
+//     buffers are allocated in whole 256-byte blocks and the bound count is clamped to what is left of the buffer.
 #include "D3D11Common.h"
 
 #include "core/Log.h"
@@ -31,6 +36,35 @@ D3D11_TEXTURE_ADDRESS_MODE toD3D(AddressMode m) {
 }
 
 constexpr uint64_t kConstantsAlign = 256; // 16 constants of 16 bytes (*SetConstantBuffers1 granularity)
+
+std::string stageBindingText(const StageBinding& b) {
+    return b.used ? std::format("{}{}", b.registerClass, b.registerSlot) : std::string("unused");
+}
+
+// Empty if `group` can be bound where the pipeline expects `pipe`; otherwise the first difference.
+std::string layoutDifference(const BindGroupLayout& pipe, const BindGroupLayout& group) {
+    if (pipe.entries.size() != group.entries.size()) {
+        return std::format("{} resources in the group, {} in the pipeline", group.entries.size(), pipe.entries.size());
+    }
+    for (size_t i = 0; i < pipe.entries.size(); ++i) {
+        const BindGroupLayoutEntry& a = pipe.entries[i];
+        const BindGroupLayoutEntry& b = group.entries[i];
+        if (a.name != b.name || a.kind != b.kind || a.index != b.index || a.arraySize != b.arraySize) {
+            return std::format("group has {} ({}), pipeline has {} ({})", b.name, bindingKindName(b.kind), a.name,
+                               bindingKindName(a.kind));
+        }
+        for (uint32_t stage = 0; stage < kGraphicsStages; ++stage) {
+            const StageBinding& sa = a.stages[stage];
+            const StageBinding& sb = b.stages[stage];
+            if (sa.used != sb.used || (sa.used && (sa.registerClass != sb.registerClass ||
+                                                    sa.registerSlot != sb.registerSlot))) {
+                return std::format("{} {} stage: group {}, pipeline {}", a.name, stage == kStageVertex ? "vertex" : "pixel",
+                                   stageBindingText(sb), stageBindingText(sa));
+            }
+        }
+    }
+    return {};
+}
 
 } // namespace
 
@@ -141,6 +175,21 @@ void D3D11CommandList::setBindGroup(uint32_t space, BindGroupHandle group) {
     }
     ENG_ASSERT_MSG(g->space == space, "setBindGroup: the group was created for another space");
     const Pipeline* p = pipeline_ ? dev_.pipelines().tryGet(pipeline_.id) : nullptr;
+    if (!p) {
+        dev_.reportValidation(std::format("bind group space {} bound without a pipeline (setPipeline first); bind "
+                                          "skipped",
+                                          space));
+        return;
+    }
+    const auto lit = std::find_if(p->bindGroupLayouts.begin(), p->bindGroupLayouts.end(),
+                                  [&](const BindGroupLayout& l) { return l.space == space; });
+    const std::string diff = lit == p->bindGroupLayouts.end() ? std::string("the pipeline has no resources in this space")
+                                                              : layoutDifference(*lit, g->layout);
+    if (!diff.empty()) {
+        dev_.reportValidation(
+            std::format("bind group space {} layout does not match pipeline ({}); bind skipped", space, diff));
+        return;
+    }
     ID3D11DeviceContext1* ctx = dev_.context();
     std::vector<std::pair<uint32_t, ID3D11UnorderedAccessView*>> uavs;
     for (const BindGroup::Slot& s : g->slots) {
@@ -157,10 +206,13 @@ void D3D11CommandList::setBindGroup(uint32_t space, BindGroupHandle group) {
                     vs ? ctx->VSSetConstantBuffers1(s.slot, 1, &buf, nullptr, nullptr)
                        : ctx->PSSetConstantBuffers1(s.slot, 1, &buf, nullptr, nullptr);
                 } else {
-                    // First / count in 16-byte constants, both multiples of 16; the count covers the reflected size.
+                    // First / count in 16-byte constants, both multiples of 16; the count covers the reflected size
+                    // and is clamped to the rest of the buffer (allocBytes and offset are multiples of 256).
                     const uint64_t bytes = std::max<uint64_t>(bb->size, s.sizeBytes);
                     const UINT first = static_cast<UINT>(bb->offset / 16u);
-                    const UINT num = static_cast<UINT>((bytes + kConstantsAlign - 1) / kConstantsAlign * 16u);
+                    const uint64_t left = b->allocBytes > bb->offset ? (b->allocBytes - bb->offset) / 16u : 0u;
+                    const UINT num = static_cast<UINT>(
+                        std::min<uint64_t>((bytes + kConstantsAlign - 1) / kConstantsAlign * 16u, left));
                     vs ? ctx->VSSetConstantBuffers1(s.slot, 1, &buf, &first, &num)
                        : ctx->PSSetConstantBuffers1(s.slot, 1, &buf, &first, &num);
                 }
@@ -225,6 +277,7 @@ BufferBinding D3D11Device::allocTransient(uint64_t size, uint64_t align) {
         bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
         Buffer b;
         b.size = kTransientRingBytes;
+        b.allocBytes = kTransientRingBytes;
         b.usage = BufferUsage::Uniform;
         if (HRESULT hr = device_->CreateBuffer(&bd, nullptr, &b.buffer); FAILED(hr)) {
             ENG_LOG_ERROR("{}", hrError("CreateBuffer (transient ring)", hr).message);

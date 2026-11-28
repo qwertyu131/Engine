@@ -155,7 +155,8 @@ public:
         pd.vertexLayout.buffers = {{sizeof(CubeVertex), false}};
         pd.vertexLayout.attributes = {{"POSITION", Format::RGB32_FLOAT, 0, offsetof(CubeVertex, position)},
                                       {"TEXCOORD0", Format::RG32_FLOAT, 0, offsetof(CubeVertex, uv)}};
-        pd.raster.cull = CullMode::None;
+        pd.raster.cull = desc_.cubeCull;
+        pd.raster.frontFace = FrontFace::Clockwise; // corners TL -> TR -> BR seen from outside (cubeGeometry)
         pd.depth = {true, true, CompareOp::Less};
         pd.colorFormats = {desc_.colorFormat};
         pd.depthFormat = Format::D32_FLOAT;

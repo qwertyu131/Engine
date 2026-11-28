@@ -26,7 +26,9 @@ Result<BufferHandle> D3D11Device::createBuffer(const BufferDesc& desc, std::span
     }
     if (any(desc.usage, BufferUsage::Uniform)) {
         bd.BindFlags |= D3D11_BIND_CONSTANT_BUFFER;
-        bd.ByteWidth = (bd.ByteWidth + 15u) & ~15u;
+        // Whole 256-byte blocks (plan F3 Task 1): a *SetConstantBuffers1 range (first / count in multiples of
+        // 16 constants) then always stays inside the allocation.
+        bd.ByteWidth = (bd.ByteWidth + 255u) & ~255u;
     }
     const bool storage = any(desc.usage, BufferUsage::Storage);
     if (storage) {
@@ -47,6 +49,7 @@ Result<BufferHandle> D3D11Device::createBuffer(const BufferDesc& desc, std::span
     }
     Buffer b;
     b.size = desc.size;
+    b.allocBytes = bd.ByteWidth;
     b.usage = desc.usage;
     if (HRESULT hr = device_->CreateBuffer(&bd, init.empty() ? nullptr : &sd, &b.buffer); FAILED(hr)) {
         return std::unexpected(hrError("CreateBuffer", hr));

@@ -232,6 +232,7 @@ Result<Image> renderTexturedCube(IDevice& dev, const std::filesystem::path& shad
     d.colorFormat = o.target;
     d.width = o.width;
     d.height = o.height;
+    d.cubeCull = o.cull;
     return renderSceneOffscreen(dev, kTexturedCube, d);
 }
 

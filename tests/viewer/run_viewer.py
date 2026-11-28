@@ -4,8 +4,9 @@ Usage:
     python tests/viewer/run_viewer.py --viewer <exe> --backend vulkan|d3d11 --check frames|resize|ui --work <dir>
 
 Checks:
-    frames  `--frames 120 --size 800x600 --screenshot <work>/frames.png` exits 0 within the timeout and the
-            screenshot's cube centre (400, 300) is not the background (51, 51, 51).
+    frames  `--frames 120 --size 800x600 --screenshot "<work>/çıktı klasörü/ekran görüntüsü.png"` exits 0 within
+            the timeout, the screenshot is written under that non-ASCII path with spaces, and its cube centre
+            (400, 300) is not the background (51, 51, 51).
     resize  `--script resize --frames 60` exits 0 (validation errors would be exit 4); the log shows every
             script step with the client size the window really got, including 1x1 and minimised (0x0).
     ui      two runs with r.Viewer.ShowUI=0 / 1: the probe (200, 18) on the first panel's title bar (fixed
@@ -17,7 +18,9 @@ Checks:
             final screenshot's probe (200, 18) shows the background like a ShowUI=0 run. The messages are
             posted after the viewer logs its first presented frame (the panels exist then). The checkbox position
             is the layout at 100 % display scaling (the panels are at fixed pixel positions).
-A viewer that exits 3 (backend not available on this machine) gives exit 77 = ctest Skipped.
+A viewer that exits 3 AND logs "backend not available:" (device creation failed: the backend is absent on this
+machine) gives exit 77 = ctest Skipped. Any other exit 3 (e.g. a tier rejection on a present backend) is a
+failure (plan F3 Task 1).
 
 The viewer is never killed: a run that does not exit within the timeout is reported as a HANG with its
 command line, and the test fails (plan F2 Global Constraints: agents never kill a process).
@@ -27,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -47,6 +51,14 @@ def _decode():
 
 
 decode_png = _decode()
+
+
+BACKEND_ABSENT = "backend not available:"  # the viewer's device-creation message for an absent backend
+
+
+def backend_absent(rc: int | None, out: str) -> bool:
+    """True only for the absent-backend exit: exit 3 with the backend-absent text."""
+    return rc == 3 and BACKEND_ABSENT in out
 
 
 def post_click(x: int, y: int) -> bool:
@@ -127,14 +139,18 @@ def main(argv: list[str] | None = None) -> int:
     base = [a.viewer, "--backend", a.backend]
 
     if a.check == "frames":
-        shot = work / "frames.png"
-        shot.unlink(missing_ok=True)
-        rc, _ = run(base + ["--frames", "120", "--size", "800x600", "--screenshot", str(shot)])
-        if rc == 3:
+        shot = work / "çıktı klasörü" / "ekran görüntüsü.png"
+        if shot.parent.exists():
+            shutil.rmtree(shot.parent)
+        rc, out = run(base + ["--frames", "120", "--size", "800x600", "--screenshot", str(shot)])
+        if backend_absent(rc, out):
             print("SKIP: backend not available on this machine (viewer exit 3)")
             return SKIP
         if rc != 0:
             print(f"FAIL: exit {rc}")
+            return 1
+        if not shot.is_file():
+            print(f"FAIL: screenshot not written: {shot}")
             return 1
         got = pixel(shot, 400, 300)
         print(f"cube centre (400, 300) = {got}")
@@ -145,7 +161,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if a.check == "resize":
         rc, out = run(base + ["--script", "resize", "--frames", "60"])
-        if rc == 3:
+        if backend_absent(rc, out):
             print("SKIP: backend not available on this machine (viewer exit 3)")
             return SKIP
         if rc != 0:
@@ -164,7 +180,7 @@ def main(argv: list[str] | None = None) -> int:
         # vsync on: 600 frames take several seconds, the click lands in the middle of the run
         rc, out = run(base + ["--frames", "600", "--size", "800x600", "--screenshot", str(shot)],
                       during=lambda: post_click(*CHECKBOX))
-        if rc == 3:
+        if backend_absent(rc, out):
             print("SKIP: backend not available on this machine (viewer exit 3)")
             return SKIP
         if rc != 0:
@@ -181,9 +197,9 @@ def main(argv: list[str] | None = None) -> int:
     for ui in (0, 1):
         shot = work / f"ui{ui}.png"
         shot.unlink(missing_ok=True)
-        rc, _ = run(base + ["--frames", "30", "--size", "800x600", "--cvar", f"r.Viewer.ShowUI={ui}",
-                            "--screenshot", str(shot)])
-        if rc == 3:
+        rc, out = run(base + ["--frames", "30", "--size", "800x600", "--cvar", f"r.Viewer.ShowUI={ui}",
+                              "--screenshot", str(shot)])
+        if backend_absent(rc, out):
             print("SKIP: backend not available on this machine (viewer exit 3)")
             return SKIP
         if rc != 0:

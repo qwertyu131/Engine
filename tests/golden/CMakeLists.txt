@@ -107,10 +107,26 @@ if(ENG_RHI_VULKAN)
                            --cvar r.Bench.WarmupFrames=1 --out @WORK@/tri.png)
 endif()
 
-# GPU CLI entries: a backend absent on the machine (headless exit 3) is ctest Skipped, not Failed, as the
-# unit.rhi.* / viewer.* entries (cli_exit_code.cmake prints "expected exit 0, got 3").
+# GPU CLI entries: a backend absent on the machine is ctest Skipped, not Failed, as the unit.rhi.* / viewer.*
+# entries. Only the backend-absent text of device creation skips (cmake/TestSkip.cmake, plan F3 Task 1): any
+# other exit 3 on a present backend (e.g. "pipeline needs TIER 1, device is TIER 0") is a failure.
 foreach(t dump_caps_d3d11_fl10_0 dump_caps_d3d11_warp dump_caps_vulkan bench_gpu_d3d11 bench_gpu_vulkan)
     if(TEST headless.cli.${t})
-        set_tests_properties(headless.cli.${t} PROPERTIES SKIP_REGULAR_EXPRESSION "expected exit 0, got 3")
+        set_tests_properties(headless.cli.${t} PROPERTIES SKIP_REGULAR_EXPRESSION "${ENG_BACKEND_ABSENT_SKIP_REGEX}")
     endif()
 endforeach()
+
+# The --dump-caps JSON content (plan F3 Task 1): rhi_unit_tests --caps-json parses the file the dump_caps entry
+# wrote (tier / apiVersion / note present, field names = forEachCapsField). ASCII paths only: rhi_unit_tests
+# takes a narrow command line.
+if(TARGET rhi_unit_tests)
+    foreach(t dump_caps_vulkan dump_caps_d3d11_warp)
+        if(TEST headless.cli.${t})
+            set_tests_properties(headless.cli.${t} PROPERTIES FIXTURES_SETUP caps_json_${t})
+            add_test(NAME headless.dump_caps_json.${t}
+                     COMMAND rhi_unit_tests --caps-json=${work}/headless_${t}/caps.json --no-version=true)
+            set_tests_properties(headless.dump_caps_json.${t} PROPERTIES FIXTURES_REQUIRED caps_json_${t}
+                FAIL_REGULAR_EXPRESSION "test cases: +0 \\|")
+        endif()
+    endforeach()
+endif()

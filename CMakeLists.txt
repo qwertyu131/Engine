@@ -62,6 +62,7 @@ endif()
 
 if(ENG_BUILD_TESTS)
     enable_testing()
+    include(cmake/TestSkip.cmake) # ENG_BACKEND_ABSENT_SKIP_REGEX (GPU ctest entries)
     add_subdirectory(tests/unit)
     add_subdirectory(tests/golden)
     if(WIN32)

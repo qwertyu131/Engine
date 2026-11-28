@@ -60,6 +60,15 @@ void D3D11Device::drainMessages() {
     infoQueue_->ClearStoredMessages();
 }
 
+void D3D11Device::reportValidation(const std::string& message) {
+    const std::string text = "ERROR rhi " + message;
+    ++validationErrors_;
+    if (firstMessage_.empty()) {
+        firstMessage_ = text;
+    }
+    ENG_LOG_ERROR("d3d11 rhi validation: {}", message);
+}
+
 Error D3D11Device::validationError() const {
     return Error{kExitValidation, std::format("d3d11: {} debug-layer message(s) of severity WARNING or above; first: {}",
                                               validationErrors_, firstMessage_)};

@@ -32,7 +32,12 @@ void row(const char* name, const std::string& value) {
     ImGui::TableSetColumnIndex(0);
     ImGui::TextUnformatted(name);
     ImGui::TableSetColumnIndex(1);
+    // A value wider than the column (long adapter names) is clipped by the table: the full text as a tooltip.
+    const bool clipped = ImGui::CalcTextSize(value.c_str()).x > ImGui::GetContentRegionAvail().x;
     ImGui::TextUnformatted(value.c_str());
+    if (clipped && ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("%s", value.c_str());
+    }
 }
 
 void capsPanel(const rhi::DeviceCaps& caps) {
@@ -43,8 +48,9 @@ void capsPanel(const rhi::DeviceCaps& caps) {
     if (ImGui::BeginTable("caps", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY,
                           ImVec2(0.0f, 150.0f))) {
         ImGui::TableSetupScrollFreeze(0, 1);
-        ImGui::TableSetupColumn("field");
-        ImGui::TableSetupColumn("value");
+        // Field names fixed to their width, the value column takes the rest of the panel (plan F3 Task 1).
+        ImGui::TableSetupColumn("field", ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
         ImGui::TableHeadersRow();
         rhi::forEachCapsField(caps, [](std::string_view name, const rhi::CapsValue& v) {
             std::string value;

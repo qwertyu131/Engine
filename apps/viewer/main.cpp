@@ -243,7 +243,9 @@ int run(const std::vector<std::string>& args) {
     dd.adapterIndex = opts->adapter;
     auto devr = eng::rhi::createDevice(dd);
     if (!devr) {
-        std::cerr << "viewer: " << devr.error().message << "\n";
+        // "backend not available:" marks the absent-backend exit 3 (the only one ctest skips, plan F3 Task 1).
+        std::cerr << "viewer: " << (devr.error().exitCode == kExitNoBackend ? "backend not available: " : "")
+                  << devr.error().message << "\n";
         return devr.error().exitCode;
     }
     eng::rhi::IDevice& dev = **devr;
@@ -348,6 +350,8 @@ int run(const std::vector<std::string>& args) {
                 }
             }
             if (win.minimized() || ws.width == 0 || ws.height == 0) {
+                // Nothing to draw: sleep until a window message or 16 ms (plan F3 Task 1; was a busy spin).
+                win.waitEvents(16);
                 continue;
             }
             if (!(ws == scSize)) {

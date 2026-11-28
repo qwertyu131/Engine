@@ -63,11 +63,12 @@ std::unique_ptr<IDevice> makeDevice() {
     return std::move(*dev);
 }
 
-Image renderCube(IDevice& dev, Format target) {
+Image renderCube(IDevice& dev, Format target, CullMode cull = CullMode::None) {
     eng::scenes::CubeOptions o;
     o.width = 128;
     o.height = 128;
     o.target = target;
+    o.cull = cull;
     auto img = eng::scenes::renderTexturedCube(dev, shaderLibDir(), assetDir(), o);
     REQUIRE_MESSAGE(img.has_value(), (img ? std::string() : img.error().message));
     REQUIRE(img->width == 128);
@@ -98,6 +99,20 @@ TEST_CASE("builtin:textured-cube 128x128 UNORM target: sampling decodes sRGB (li
     checkProbe(img, 39, 68, {12, 102, 16, 255}, 3);
     checkProbe(img, 64, 38, {8, 26, 147, 255}, 3);
     checkProbe(img, 78, 72, {116, 16, 131, 255}, 3);
+    checkProbe(img, 2, 2, {51, 51, 51, 255}, 1);
+    CHECK(dev->validationErrorCount() == 0);
+}
+
+// Plan F3 Task 1 (F2 carry-over): the same probes with back-face culling. Faces are wound clockwise on
+// screen seen from outside (FrontFace::Clockwise); a winding / front-face convention error between the
+// backends culls the visible faces instead, and the probes then show the hidden faces' insides.
+TEST_CASE("builtin:textured-cube 128x128 sRGB target, CullMode::Back: the same face-centre probes") {
+    auto dev = makeDevice();
+    const Image img = renderCube(*dev, Format::RGBA8_SRGB, CullMode::Back);
+    checkProbe(img, 39, 68, {60, 170, 70, 255}, 3);   // -X
+    checkProbe(img, 64, 38, {50, 90, 200, 255}, 3);   // +Y
+    checkProbe(img, 78, 72, {180, 70, 190, 255}, 3);  // +Z
+    checkProbe(img, 83, 81, {180, 70, 190, 255}, 3);  // +Z over the hidden far edge
     checkProbe(img, 2, 2, {51, 51, 51, 255}, 1);
     CHECK(dev->validationErrorCount() == 0);
 }

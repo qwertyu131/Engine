@@ -125,6 +125,22 @@ if(ENG_RHI_VULKAN)
     endif()
 endif()
 
+# Required backends (plan F3 Task 1, cmake/RequireBackends.cmake): configure fails when one is not built.
+if(WIN32)
+    set(ENG_REQUIRE_RHI_BACKENDS "vulkan;d3d11" CACHE STRING "RHI backends this build must contain (configure fails otherwise)")
+else()
+    set(ENG_REQUIRE_RHI_BACKENDS "" CACHE STRING "RHI backends this build must contain (configure fails otherwise)")
+endif()
+set(ENG_BUILT_RHI_BACKENDS)
+if(ENG_RHI_VULKAN)
+    list(APPEND ENG_BUILT_RHI_BACKENDS vulkan)
+endif()
+if(ENG_RHI_D3D11)
+    list(APPEND ENG_BUILT_RHI_BACKENDS d3d11)
+endif()
+include("${CMAKE_CURRENT_LIST_DIR}/RequireBackends.cmake")
+eng_require_rhi_backends("${ENG_REQUIRE_RHI_BACKENDS}" "${ENG_BUILT_RHI_BACKENDS}")
+
 # --- UI (engine/ui, F2 Task 6) --------------------------------------------------------------
 # Dear ImGui v1.92.9b (tag commit f1cc2ae15e53a861a874c3034aae6798fde194ab, resolved with `git ls-remote`
 # 2026-11-28), MIT. Core files only (imgui*.cpp); no backend from imgui's backends/ directory: ImGui is

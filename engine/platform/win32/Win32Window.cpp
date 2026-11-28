@@ -107,6 +107,11 @@ public:
         updateSize();
     }
 
+    void waitEvents(uint32_t timeoutMs) override {
+        MsgWaitForMultipleObjects(0, nullptr, FALSE, timeoutMs, QS_ALLINPUT);
+        pollEvents();
+    }
+
     Size size() const override { return size_; }
     bool minimized() const override { return minimized_; }
     bool shouldClose() const override { return close_; }

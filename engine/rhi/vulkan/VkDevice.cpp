@@ -292,9 +292,9 @@ void VulkanDevice::queryCaps(const VkPhysicalDeviceProperties& props) {
     caps_.maxBindingsPerStage.texture = l.maxPerStageDescriptorSampledImages;
     caps_.maxBindingsPerStage.sampler = l.maxPerStageDescriptorSamplers;
     caps_.maxBindingsPerStage.storage = l.maxPerStageDescriptorStorageBuffers;
-    // Vulkan: a graphics queue family always supports compute when the device has one (spec 1.2 "queue
-    // family"); storage buffers are core; read-only storage in the vertex stage needs no feature.
-    caps_.computeShaders = true;
+    // computeShaders: the RHI's queue family (the first with VK_QUEUE_GRAPHICS_BIT) has VK_QUEUE_COMPUTE_BIT
+    // (plan F3 Task 1; set below with the queue family query). Storage buffers are core; read-only storage in
+    // the vertex stage needs no feature.
     caps_.storageBuffers = true;
     caps_.vertexStorageBuffers = true;
 
@@ -351,6 +351,7 @@ void VulkanDevice::queryCaps(const VkPhysicalDeviceProperties& props) {
     std::vector<VkQueueFamilyProperties> qf(qn);
     vkGetPhysicalDeviceQueueFamilyProperties(physical_, &qn, qf.data());
     caps_.timestampQueries = l.timestampPeriod > 0.0f && queueFamily_ < qn && qf[queueFamily_].timestampValidBits > 0;
+    caps_.computeShaders = queueFamily_ < qn && (qf[queueFamily_].queueFlags & VK_QUEUE_COMPUTE_BIT) != 0;
 }
 
 Result<void> VulkanDevice::createLogicalDevice() {

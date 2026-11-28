@@ -47,6 +47,9 @@ public:
 
     virtual void* nativeHandle() const = 0; // HWND on Windows
     virtual void pollEvents() = 0;          // handles every pending message, never blocks
+    // Blocks until a message arrives or timeoutMs passes, then handles every pending message (the viewer's
+    // minimised loop, plan F3 Task 1: no busy spin while nothing is drawn).
+    virtual void waitEvents(uint32_t timeoutMs) = 0;
     virtual Size size() const = 0;          // client area in physical pixels; 0 x 0 while minimised
     virtual bool minimized() const = 0;
     virtual bool shouldClose() const = 0;   // the user closed the window

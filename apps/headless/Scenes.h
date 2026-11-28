@@ -28,6 +28,9 @@ struct SceneDesc {
     rhi::Format colorFormat = rhi::Format::RGBA8_UNORM; // the format of the targets record() draws into
     uint32_t width = 256;  // initial target size (resize() changes it)
     uint32_t height = 256;
+    // builtin:textured-cube only (plan F3 Task 1): face culling; faces are wound clockwise on screen seen from
+    // outside (FrontFace::Clockwise). Default None (the depth-test case of plan F2 Task 3).
+    rhi::CullMode cubeCull = rhi::CullMode::None;
 };
 
 class Scene {
@@ -90,8 +93,9 @@ rhi::Result<rhi::Image> renderTriangle(rhi::IDevice& device, const std::filesyst
 //   faces   face i samples atlas tile i (+X, -X, +Y, -Y, +Z, -Z; 80 x 120 px tiles in a 3 x 2 grid with an
 //           8 px border), inset by 2 px; local (0, 0) = the face's top-left seen from outside (frames in
 //           scripts/make_f02_assets.py, which models the same scene independently for the test probes);
-//   depth   D32_FLOAT, test Less + write; culling off and the hidden faces drawn last, so the image is
-//           only right with a working depth test;
+//   depth   D32_FLOAT, test Less + write; culling off (default) and the hidden faces drawn last, so the image
+//           is only right with a working depth test; SceneDesc::cubeCull = Back culls the hidden faces instead
+//           (front face = clockwise on screen, plan F3 Task 1);
 //   binding space2 (material) = {faceTexture, faceSampler}, persistent; space3 (draw) = {Draw}, from
 //           IDevice::allocTransient each frame.
 // Clear: (51, 51, 51) in the read-back bytes for UNORM and sRGB targets (UNORM 0.2; sRGB: linear 0.0331).
@@ -101,6 +105,7 @@ struct CubeOptions {
     uint32_t width = 128;
     uint32_t height = 128;
     rhi::Format target = rhi::Format::RGBA8_SRGB; // RGBA8_SRGB or RGBA8_UNORM
+    rhi::CullMode cull = rhi::CullMode::None;     // SceneDesc::cubeCull
 };
 
 // assetDir = tests/assets (cube_faces.png is under f02/). renderSceneOffscreen wrapper.

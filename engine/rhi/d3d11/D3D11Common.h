@@ -28,7 +28,8 @@ struct Buffer {
     ComPtr<ID3D11Buffer> buffer;
     ComPtr<ID3D11ShaderResourceView> srv;  // Storage: raw (ByteAddressBuffer, the SPIRV-Cross form)
     ComPtr<ID3D11UnorderedAccessView> uav; // Storage on FL11+: raw
-    uint64_t size = 0;
+    uint64_t size = 0;       // BufferDesc::size
+    uint64_t allocBytes = 0; // D3D11_BUFFER_DESC::ByteWidth (uniform buffers: whole 256-byte blocks)
     BufferUsage usage = BufferUsage::None;
 };
 
@@ -159,6 +160,9 @@ public:
 
     // --- internal (backend files) ---
     void drainMessages();         // D3D11Validation.cpp: info queue -> log + counter
+    // An RHI-level validation error (D3D11Validation.cpp): logged and counted like a debug-layer ERROR, so
+    // submitAndWait / present return exit 4 with it (plan F3 Task 1: setBindGroup layout check).
+    void reportValidation(const std::string& message);
     Error validationError() const; // exit 4 with the first message
     Error hrError(const char* what, long hr); // exit 5 on device removal, 4 with validation messages, else 2
 

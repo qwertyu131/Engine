@@ -147,6 +147,10 @@ if(TARGET shaders)
         rhi/test_caps.cpp
         rhi/SceneProbes.h)
     target_link_libraries(rhi_unit_tests PRIVATE engine::rhi headless_core nlohmann_json::nlohmann_json doctest::doctest)
+    if(ENG_RHI_VULKAN)
+        # test_caps.cpp calls Vulkan through volk (the loaded entry points live in engine_rhi, VkLibs.cpp).
+        target_link_libraries(rhi_unit_tests PRIVATE eng_volk)
+    endif()
     target_compile_definitions(rhi_unit_tests PRIVATE ENG_TEST_SHADER_LIB_DIR="${ENG_SHADER_LIB_DIR}"
         ENG_TEST_ASSET_DIR="${PROJECT_SOURCE_DIR}/tests/assets")
     add_dependencies(rhi_unit_tests shaders)
@@ -169,6 +173,12 @@ if(TARGET shaders)
             FAIL_REGULAR_EXPRESSION "test cases: +0 \\|")
     endforeach()
     set_tests_properties(unit.rhi.shaderlib PROPERTIES FAIL_REGULAR_EXPRESSION "test cases: +0 \\|")
+    # ENG_REQUIRE_RHI_BACKENDS (plan F3 Task 1): every required backend has its ctest entry.
+    foreach(b IN LISTS ENG_REQUIRE_RHI_BACKENDS)
+        if(NOT TEST unit.rhi.${b})
+            message(FATAL_ERROR "ENG_REQUIRE_RHI_BACKENDS lists '${b}' but ctest entry unit.rhi.${b} is not registered")
+        endif()
+    endforeach()
     # Plan F2 Task 4: D3D11 (hardware + WARP) vs Vulkan image equality; needs every backend (Skipped otherwise).
     if(ENG_RHI_VULKAN AND ENG_RHI_D3D11)
         add_test(NAME unit.rhi.cross COMMAND rhi_unit_tests --rhi-backend=cross --no-version=true)

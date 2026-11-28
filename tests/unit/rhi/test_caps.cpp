@@ -4,6 +4,10 @@
 //   rhi.caps    backend-independent: the field list behind --dump-caps and the viewer panel, the JSON shape,
 //               the Vulkan required-feature rule (a device without it exits 3 with the feature named);
 //   rhi.device  every backend configuration: the measured caps are consistent with the backend / tier;
+//               Vulkan computeShaders = the chosen queue family's VK_QUEUE_COMPUTE_BIT (plan F3 Task 1);
+//   rhi.dumpcaps the JSON file `headless --dump-caps` wrote (rhi_unit_tests --caps-json=<file>, ctest
+//               headless.dump_caps_json.*, plan F3 Task 1): tier / apiVersion / note present, and the field
+//               names (nested objects flattened as "<object>.<member>") equal forEachCapsField, in order;
 //   rhi.t0      D3D11 capped at FL10_0 (ctest unit.rhi.d3d11-fl10_0 on the GPU and unit.rhi.d3d11-warp-fl10_0
 //               on WARP; DeviceDesc::d3d11FeatureLevelCap = 0xa000):
 //                 - tier 0, FL10_0 limits from the SDK constants, computeShaders = the device's own
@@ -28,6 +32,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <fstream>
 #include <set>
 #include <string>
 #include <vector>
@@ -37,6 +42,8 @@
 
 #if defined(ENG_RHI_HAS_VULKAN)
 #include "rhi/vulkan/VkFeatureCheck.h"
+
+#include <volk.h>
 #endif
 #if defined(ENG_RHI_HAS_D3D11)
 #include <d3d11.h>
@@ -219,6 +226,19 @@ TEST_CASE("DeviceCaps: measured values are consistent with the backend and tier"
         CHECK(c.storageBuffers);
         CHECK(c.vertexStorageBuffers);
         CHECK(c.maxBindingsPerStage.storage >= 4);
+#if defined(ENG_RHI_HAS_VULKAN)
+        // computeShaders is the RHI queue family's VK_QUEUE_COMPUTE_BIT (queried here independently).
+        const NativeHandles h = dev->nativeHandles();
+        auto* pd = static_cast<VkPhysicalDevice>(h.vkPhysicalDevice);
+        REQUIRE(pd != nullptr);
+        uint32_t qn = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(pd, &qn, nullptr);
+        std::vector<VkQueueFamilyProperties> qf(qn);
+        vkGetPhysicalDeviceQueueFamilyProperties(pd, &qn, qf.data());
+        REQUIRE(h.vkQueueFamily < qn);
+        CAPTURE(qf[h.vkQueueFamily].queueFlags);
+        CHECK(c.computeShaders == ((qf[h.vkQueueFamily].queueFlags & VK_QUEUE_COMPUTE_BIT) != 0));
+#endif
     } else {
         // D3D11 at FL11_x (the FL10_0 configurations run suite rhi.t0): D3D11_* SDK limits.
         CHECK(c.tier == 1);
@@ -338,3 +358,46 @@ TEST_CASE("FL10_0: builtin:pbr-spheres with dxbc T0, probes, validation clean; v
 
 } // TEST_SUITE
 #endif
+
+TEST_SUITE("rhi.dumpcaps") {
+
+TEST_CASE("headless --dump-caps JSON: tier, apiVersion, note present; field names = forEachCapsField") {
+    const std::string& file = eng::rhi::test::capsJsonPath();
+    REQUIRE_MESSAGE(!file.empty(), "run with --caps-json=<file written by headless --dump-caps>");
+    std::ifstream in(pathFromUtf8(file), std::ios::binary);
+    REQUIRE_MESSAGE(in.good(), "cannot open " << file);
+    const nlohmann::ordered_json j = nlohmann::ordered_json::parse(in, nullptr, /*allow_exceptions=*/false);
+    REQUIRE_MESSAGE(j.is_object(), "not a JSON object: " << file);
+    REQUIRE(j.contains("tier"));
+    CHECK(j.at("tier").is_number_integer());
+    REQUIRE(j.contains("apiVersion"));
+    CHECK(j.at("apiVersion").is_string());
+    CHECK_FALSE(j.at("apiVersion").get<std::string>().empty());
+    REQUIRE(j.contains("note"));
+    CHECK(j.at("note").is_string());
+    CHECK_FALSE(j.at("note").get<std::string>().empty());
+
+    std::vector<std::string> got;
+    for (const auto& [key, value] : j.items()) {
+        if (key == "note") {
+            continue;
+        }
+        // Nested objects (maxBindingsPerStage, formatSupport) are one field per member; a FormatCaps value
+        // (formatSupport.<FORMAT>) is itself an object but one field.
+        if (value.is_object()) {
+            for (const auto& [member, v] : value.items()) {
+                (void)v;
+                got.push_back(key + "." + member);
+            }
+            continue;
+        }
+        got.push_back(key);
+    }
+    DeviceCaps every;
+    for (const Format f : allFormats()) {
+        every.formatSupport.push_back({f, {}});
+    }
+    CHECK(got == fieldNames(every));
+}
+
+} // TEST_SUITE

@@ -368,7 +368,9 @@ int run(const std::vector<std::string>& args) {
         dd.d3d11FeatureLevelCap = opts->d3d11FeatureLevel;
         auto dev = eng::rhi::createDevice(dd);
         if (!dev) {
-            std::cerr << "headless: " << dev.error().message << "\n";
+            // "backend not available:" marks the absent-backend exit 3 (the only one ctest skips, plan F3 Task 1).
+            std::cerr << "headless: " << (dev.error().exitCode == kExitNoBackend ? "backend not available: " : "")
+                      << dev.error().message << "\n";
             return dev.error().exitCode;
         }
         device = std::move(*dev);
