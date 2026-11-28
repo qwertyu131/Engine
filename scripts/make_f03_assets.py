@@ -497,6 +497,25 @@ def fixtures() -> dict[str, bytes]:
         [{"bufferView": 3, "componentType": 5126, "count": 4, "type": "VEC3", "min": [4.0, 0.0, 0.0],
           "max": [4.0, 0.0, 0.0]}],
         {"primitive": {"targets": [{"POSITION": 3}]}, "mesh": {"weights": [0.5]}}, [{"mesh": 0}], [0], {})
+    # anim_quad.gltf (plan F3 Task 6, animations sampled at t = 0 as refgen): the quad's node rests at the origin;
+    # animation 0 moves it LINEAR from (2, 0, 0) at t = 1 s to (5, 0, 0) at t = 2 s, so t = 0 clamps to the first key
+    # (2, 0, 0); animation 1 also animates that node's translation ((-3, 0, 0)): not disjoint with animation 0, so it is
+    # not played (Sample-Viewer nonDisjointAnimations). The fit camera frames the rest pose (the origin).
+    anim = f32([(1.0,), (2.0,)]) + f32([(2.0, 0.0, 0.0), (5.0, 0.0, 0.0)]) + f32([(0.0,), (1.0,)]) + \
+        f32([(-3.0, 0.0, 0.0), (-3.0, 0.0, 0.0)])
+    files["rest/anim_quad.gltf"] = quad_doc(
+        anim, {}, [{"buffer": 0, "byteOffset": 0, "byteLength": 8}, {"buffer": 0, "byteOffset": 8, "byteLength": 24},
+                   {"buffer": 0, "byteOffset": 32, "byteLength": 8}, {"buffer": 0, "byteOffset": 40, "byteLength": 24}],
+        [{"bufferView": 3, "componentType": 5126, "count": 2, "type": "SCALAR", "min": [1.0], "max": [2.0]},
+         {"bufferView": 4, "componentType": 5126, "count": 2, "type": "VEC3"},
+         {"bufferView": 5, "componentType": 5126, "count": 2, "type": "SCALAR", "min": [0.0], "max": [1.0]},
+         {"bufferView": 6, "componentType": 5126, "count": 2, "type": "VEC3"}],
+        {}, [{"mesh": 0}], [0],
+        {"animations": [
+            {"channels": [{"sampler": 0, "target": {"node": 0, "path": "translation"}}],
+             "samplers": [{"input": 3, "output": 4, "interpolation": "LINEAR"}]},
+            {"channels": [{"sampler": 0, "target": {"node": 0, "path": "translation"}}],
+             "samplers": [{"input": 5, "output": 6, "interpolation": "STEP"}]}]})
 
     # --- colorspace/emissive_view.gltf (Review Focus 3 through the renderer's slot -> view table) ---------------------
     # Two quads, black base colour, metallic 0, roughness 1: quad A (x -1.1 .. -0.1) has emissiveFactor

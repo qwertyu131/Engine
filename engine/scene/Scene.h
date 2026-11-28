@@ -13,6 +13,10 @@
 //   extents      getSceneExtents / getExtentsFromAccessor (gltf_utils.js): per mesh primitive, the POSITION
 //                accessor min / max box transformed by the node's world matrix, re-boxed, then replaced by the cube
 //                centre +- |half diagonal| (a bounding sphere's box); skinning and morphing are ignored.
+//   animation  plan F3 Task 6 (refgen, settings.json "animation"): every animation not overlapping an earlier one
+//              (gltf.js nonDisjointAnimations) sampled at t = 0 (interpolator.js interpolate: t clamped to the first
+//              key) gives the drawn pose: world, joints and morph weights; the extents (fit camera) use the rest pose.
+//              Playback is F4.
 // Every node is reached once (the loader rejects cycles and multi-parent nodes).
 #include "Math.h"
 #include "asset/ModelData.h"
@@ -35,7 +39,7 @@ struct DrawNode {
 
 struct SceneInstance {
     int sceneIndex = 0;
-    std::vector<Mat4> world;     // every node of the model (nodes outside the scene: their own hierarchy)
+    std::vector<Mat4> world;     // every node of the model at t = 0 (nodes outside the scene: their own hierarchy)
     std::vector<DrawNode> draws; // mesh nodes of the scene, in depth-first scene order
     Vec3 extentMin{0, 0, 0}, extentMax{0, 0, 0};
     bool extentsValid = false; // false: no mesh with POSITION bounds (empty scene)

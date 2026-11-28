@@ -39,6 +39,7 @@ struct VSMain_out
     float2 out_var_TEXCOORD0 [[user(locn4)]];
     float2 out_var_TEXCOORD1 [[user(locn5)]];
     float4 out_var_COLOR0 [[user(locn6)]];
+    uint out_var_DRAWFLAGS [[user(locn7)]];
     float4 gl_Position [[position]];
 };
 
@@ -55,32 +56,33 @@ struct VSMain_in
 vertex VSMain_out VSMain(VSMain_in in [[stage_in]], constant type_Frame& Frame [[buffer(0)]], constant type_Object& Object [[buffer(1)]], const device type_StructuredBuffer_v4float& morphDeltas [[buffer(2)]], const device type_StructuredBuffer_float& morphTargetWeights [[buffer(3)]], uint gl_VertexIndex [[vertex_id]])
 {
     VSMain_out out = {};
-    float3 _74;
     float3 _77;
-    float3 _79;
-    _74 = float3(0.0);
+    float3 _80;
+    float3 _82;
     _77 = float3(0.0);
-    _79 = float3(0.0);
-    for (uint _81 = 0u; _81 < Object.morphInfo.x; )
+    _80 = float3(0.0);
+    _82 = float3(0.0);
+    for (uint _84 = 0u; _84 < Object.morphInfo.x; )
     {
-        uint _91 = ((_81 * Object.morphInfo.y) + gl_VertexIndex) * 3u;
-        _74 += (morphDeltas._m0[_91].xyz * morphTargetWeights._m0[_81]);
-        _77 += (morphDeltas._m0[_91 + 1u].xyz * morphTargetWeights._m0[_81]);
-        _79 += (morphDeltas._m0[_91 + 2u].xyz * morphTargetWeights._m0[_81]);
-        _81++;
+        uint _94 = ((_84 * Object.morphInfo.y) + gl_VertexIndex) * 3u;
+        _77 += (morphDeltas._m0[_94].xyz * morphTargetWeights._m0[_84]);
+        _80 += (morphDeltas._m0[_94 + 1u].xyz * morphTargetWeights._m0[_84]);
+        _82 += (morphDeltas._m0[_94 + 2u].xyz * morphTargetWeights._m0[_84]);
+        _84++;
         continue;
     }
-    float4 _120 = Object.world * float4(in.in_var_POSITION + _74, 1.0);
-    float3 _136 = fast::normalize((Object.normalMatrix * float4(fast::normalize(in.in_var_NORMAL + _77), 0.0)).xyz);
-    float3 _143 = fast::normalize((Object.world * float4(fast::normalize(in.in_var_TANGENT.xyz + _79), 0.0)).xyz);
-    out.gl_Position = Frame.viewProj * _120;
-    out.out_var_WORLD_POSITION = _120.xyz / float3(_120.w);
-    out.out_var_TANGENT = _143;
-    out.out_var_BINORMAL = cross(_136, _143) * in.in_var_TANGENT.w;
-    out.out_var_NORMAL = _136;
+    float4 _123 = Object.world * float4(in.in_var_POSITION + _77, 1.0);
+    float3 _139 = fast::normalize((Object.normalMatrix * float4(fast::normalize(in.in_var_NORMAL + _80), 0.0)).xyz);
+    float3 _146 = fast::normalize((Object.world * float4(fast::normalize(in.in_var_TANGENT.xyz + _82), 0.0)).xyz);
+    out.gl_Position = Frame.viewProj * _123;
+    out.out_var_WORLD_POSITION = _123.xyz / float3(_123.w);
+    out.out_var_TANGENT = _146;
+    out.out_var_BINORMAL = cross(_139, _146) * in.in_var_TANGENT.w;
+    out.out_var_NORMAL = _139;
     out.out_var_TEXCOORD0 = in.in_var_TEXCOORD0;
     out.out_var_TEXCOORD1 = in.in_var_TEXCOORD1;
     out.out_var_COLOR0 = in.in_var_COLOR0;
+    out.out_var_DRAWFLAGS = Object.morphInfo.w;
     return out;
 }
 

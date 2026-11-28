@@ -1,0 +1,1324 @@
+{
+  "generator": "scripts/gen_core_subset.py",
+  "comment": "Plan F3 Task 6 core reference subset (spec 7.3.2). Generated: do not edit, run the script.",
+  "sampleAssetsCommit": "e124e8d8d7330a5372bc2b4d00d39a4a9d7997ea",
+  "allowedExtensions": [
+    "EXT_meshopt_compression",
+    "EXT_texture_webp",
+    "KHR_draco_mesh_compression",
+    "KHR_lights_punctual",
+    "KHR_mesh_quantization",
+    "KHR_texture_basisu"
+  ],
+  "maxBytes": 67108864,
+  "models": [
+    {
+      "name": "AlphaBlendModeTest",
+      "case": "AlphaBlendModeTest",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "AnimatedCube",
+      "case": "AnimatedCube",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/AnimatedCube/glTF/AnimatedCube.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "AnimatedMorphCube",
+      "case": "AnimatedMorphCube",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/AnimatedMorphCube/glTF/AnimatedMorphCube.gltf",
+      "extensions": [],
+      "decoderVariants": [
+        {
+          "variant": "glTF-Quantized",
+          "file": "tests/assets/glTF-Sample-Assets/Models/AnimatedMorphCube/glTF-Quantized/AnimatedMorphCube.gltf",
+          "extensions": [
+            "KHR_mesh_quantization"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AnimatedTriangle",
+      "case": "AnimatedTriangle",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/AnimatedTriangle/glTF/AnimatedTriangle.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "AntiqueCamera",
+      "case": "AntiqueCamera",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/AntiqueCamera/glTF/AntiqueCamera.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "Avocado",
+      "case": "Avocado",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/Avocado/glTF/Avocado.gltf",
+      "extensions": [],
+      "decoderVariants": [
+        {
+          "variant": "glTF-Draco",
+          "file": "tests/assets/glTF-Sample-Assets/Models/Avocado/glTF-Draco/Avocado.gltf",
+          "extensions": [
+            "KHR_draco_mesh_compression"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BarramundiFish",
+      "case": "BarramundiFish",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/BarramundiFish/glTF/BarramundiFish.gltf",
+      "extensions": [],
+      "decoderVariants": [
+        {
+          "variant": "glTF-Draco",
+          "file": "tests/assets/glTF-Sample-Assets/Models/BarramundiFish/glTF-Draco/BarramundiFish.gltf",
+          "extensions": [
+            "KHR_draco_mesh_compression"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoomBox",
+      "case": "BoomBox",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/BoomBox/glTF/BoomBox.gltf",
+      "extensions": [],
+      "decoderVariants": [
+        {
+          "variant": "glTF-Draco",
+          "file": "tests/assets/glTF-Sample-Assets/Models/BoomBox/glTF-Draco/BoomBox.gltf",
+          "extensions": [
+            "KHR_draco_mesh_compression"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BoomBoxWithAxes",
+      "case": "BoomBoxWithAxes",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/BoomBoxWithAxes/glTF/BoomBoxWithAxes.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "Box",
+      "case": "Box",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/Box/glTF/Box.gltf",
+      "extensions": [],
+      "decoderVariants": [
+        {
+          "variant": "glTF-Draco",
+          "file": "tests/assets/glTF-Sample-Assets/Models/Box/glTF-Draco/Box.gltf",
+          "extensions": [
+            "KHR_draco_mesh_compression"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Box With Spaces",
+      "case": "Box_With_Spaces",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/Box With Spaces/glTF/Box With Spaces.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "BoxAnimated",
+      "case": "BoxAnimated",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/BoxAnimated/glTF/BoxAnimated.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "BoxInterleaved",
+      "case": "BoxInterleaved",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/BoxInterleaved/glTF/BoxInterleaved.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "BoxTextured",
+      "case": "BoxTextured",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/BoxTextured/glTF/BoxTextured.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "BoxTexturedNonPowerOfTwo",
+      "case": "BoxTexturedNonPowerOfTwo",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/BoxTexturedNonPowerOfTwo/glTF/BoxTexturedNonPowerOfTwo.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "BoxVertexColors",
+      "case": "BoxVertexColors",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/BoxVertexColors/glTF/BoxVertexColors.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "BrainStem",
+      "case": "BrainStem",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/BrainStem/glTF/BrainStem.gltf",
+      "extensions": [],
+      "decoderVariants": [
+        {
+          "variant": "glTF-Draco",
+          "file": "tests/assets/glTF-Sample-Assets/Models/BrainStem/glTF-Draco/BrainStem.gltf",
+          "extensions": [
+            "KHR_draco_mesh_compression"
+          ]
+        },
+        {
+          "variant": "glTF-Meshopt-EXT",
+          "file": "tests/assets/glTF-Sample-Assets/Models/BrainStem/glTF-Meshopt-EXT/BrainStem.gltf",
+          "extensions": [
+            "EXT_meshopt_compression",
+            "KHR_mesh_quantization"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cameras",
+      "case": "Cameras",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/Cameras/glTF/Cameras.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "CesiumMan",
+      "case": "CesiumMan",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/CesiumMan/glTF/CesiumMan.gltf",
+      "extensions": [],
+      "decoderVariants": [
+        {
+          "variant": "glTF-Draco",
+          "file": "tests/assets/glTF-Sample-Assets/Models/CesiumMan/glTF-Draco/CesiumMan.gltf",
+          "extensions": [
+            "KHR_draco_mesh_compression"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CesiumMilkTruck",
+      "case": "CesiumMilkTruck",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/CesiumMilkTruck/glTF/CesiumMilkTruck.gltf",
+      "extensions": [],
+      "decoderVariants": [
+        {
+          "variant": "glTF-Draco",
+          "file": "tests/assets/glTF-Sample-Assets/Models/CesiumMilkTruck/glTF-Draco/CesiumMilkTruck.gltf",
+          "extensions": [
+            "KHR_draco_mesh_compression"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CompareAlphaCoverage",
+      "case": "CompareAlphaCoverage",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/CompareAlphaCoverage/glTF/CompareAlphaCoverage.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "CompareAmbientOcclusion",
+      "case": "CompareAmbientOcclusion",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/CompareAmbientOcclusion/glTF/CompareAmbientOcclusion.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "CompareMetallic",
+      "case": "CompareMetallic",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/CompareMetallic/glTF/CompareMetallic.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "CompareNormal",
+      "case": "CompareNormal",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/CompareNormal/glTF/CompareNormal.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "CompareRoughness",
+      "case": "CompareRoughness",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/CompareRoughness/glTF/CompareRoughness.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "Corset",
+      "case": "Corset",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/Corset/glTF/Corset.gltf",
+      "extensions": [],
+      "decoderVariants": [
+        {
+          "variant": "glTF-Draco",
+          "file": "tests/assets/glTF-Sample-Assets/Models/Corset/glTF-Draco/Corset.gltf",
+          "extensions": [
+            "KHR_draco_mesh_compression"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cube",
+      "case": "Cube",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/Cube/glTF/Cube.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "DamagedHelmet",
+      "case": "DamagedHelmet",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/DamagedHelmet/glTF/DamagedHelmet.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "DirectionalLight",
+      "case": "DirectionalLight",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/DirectionalLight/glTF/DirectionalLight.gltf",
+      "extensions": [
+        "KHR_lights_punctual"
+      ],
+      "decoderVariants": []
+    },
+    {
+      "name": "Duck",
+      "case": "Duck",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/Duck/glTF/Duck.gltf",
+      "extensions": [],
+      "decoderVariants": [
+        {
+          "variant": "glTF-Draco",
+          "file": "tests/assets/glTF-Sample-Assets/Models/Duck/glTF-Draco/Duck.gltf",
+          "extensions": [
+            "KHR_draco_mesh_compression"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "EnvironmentTest",
+      "case": "EnvironmentTest",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/EnvironmentTest/glTF/EnvironmentTest.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "Fox",
+      "case": "Fox",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/Fox/glTF/Fox.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "InterpolationTest",
+      "case": "InterpolationTest",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/InterpolationTest/glTF/InterpolationTest.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "Lantern",
+      "case": "Lantern",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/Lantern/glTF/Lantern.gltf",
+      "extensions": [],
+      "decoderVariants": [
+        {
+          "variant": "glTF-Draco",
+          "file": "tests/assets/glTF-Sample-Assets/Models/Lantern/glTF-Draco/Lantern.gltf",
+          "extensions": [
+            "KHR_draco_mesh_compression"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "MeshPrimitiveModes",
+      "case": "MeshPrimitiveModes",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/MeshPrimitiveModes/glTF/MeshPrimitiveModes.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "MetalRoughSpheres",
+      "case": "MetalRoughSpheres",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/MetalRoughSpheres/glTF/MetalRoughSpheres.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "MetalRoughSpheresNoTextures",
+      "case": "MetalRoughSpheresNoTextures",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/MetalRoughSpheresNoTextures/glTF/MetalRoughSpheresNoTextures.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "MorphPrimitivesTest",
+      "case": "MorphPrimitivesTest",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/MorphPrimitivesTest/glTF/MorphPrimitivesTest.gltf",
+      "extensions": [],
+      "decoderVariants": [
+        {
+          "variant": "glTF-Draco",
+          "file": "tests/assets/glTF-Sample-Assets/Models/MorphPrimitivesTest/glTF-Draco/MorphPrimitivesTest.gltf",
+          "extensions": [
+            "KHR_draco_mesh_compression"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "MorphStressTest",
+      "case": "MorphStressTest",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/MorphStressTest/glTF/MorphStressTest.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "MultiUVTest",
+      "case": "MultiUVTest",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/MultiUVTest/glTF/MultiUVTest.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "MultipleScenes",
+      "case": "MultipleScenes",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/MultipleScenes/glTF/MultipleScenes.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "NegativeScaleTest",
+      "case": "NegativeScaleTest",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/NegativeScaleTest/glTF/NegativeScaleTest.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "NodePerformanceTest",
+      "case": "NodePerformanceTest",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/NodePerformanceTest/glTF/NodePerformanceTest.gltf",
+      "extensions": [
+        "KHR_lights_punctual"
+      ],
+      "decoderVariants": []
+    },
+    {
+      "name": "NormalTangentMirrorTest",
+      "case": "NormalTangentMirrorTest",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/NormalTangentMirrorTest/glTF/NormalTangentMirrorTest.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "NormalTangentTest",
+      "case": "NormalTangentTest",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/NormalTangentTest/glTF/NormalTangentTest.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "OrientationTest",
+      "case": "OrientationTest",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/OrientationTest/glTF/OrientationTest.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "PrimitiveModeNormalsTest",
+      "case": "PrimitiveModeNormalsTest",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/PrimitiveModeNormalsTest/glTF/PrimitiveModeNormalsTest.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "RecursiveSkeletons",
+      "case": "RecursiveSkeletons",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/RecursiveSkeletons/glTF/RecursiveSkeletons.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "RiggedFigure",
+      "case": "RiggedFigure",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/RiggedFigure/glTF/RiggedFigure.gltf",
+      "extensions": [],
+      "decoderVariants": [
+        {
+          "variant": "glTF-Draco",
+          "file": "tests/assets/glTF-Sample-Assets/Models/RiggedFigure/glTF-Draco/RiggedFigure.gltf",
+          "extensions": [
+            "KHR_draco_mesh_compression"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "RiggedSimple",
+      "case": "RiggedSimple",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/RiggedSimple/glTF/RiggedSimple.gltf",
+      "extensions": [],
+      "decoderVariants": [
+        {
+          "variant": "glTF-Draco",
+          "file": "tests/assets/glTF-Sample-Assets/Models/RiggedSimple/glTF-Draco/RiggedSimple.gltf",
+          "extensions": [
+            "KHR_draco_mesh_compression"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SciFiHelmet",
+      "case": "SciFiHelmet",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/SciFiHelmet/glTF/SciFiHelmet.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "SimpleMaterial",
+      "case": "SimpleMaterial",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/SimpleMaterial/glTF/SimpleMaterial.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "SimpleMeshes",
+      "case": "SimpleMeshes",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/SimpleMeshes/glTF/SimpleMeshes.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "SimpleMorph",
+      "case": "SimpleMorph",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/SimpleMorph/glTF/SimpleMorph.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "SimpleSkin",
+      "case": "SimpleSkin",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/SimpleSkin/glTF/SimpleSkin.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "SimpleSparseAccessor",
+      "case": "SimpleSparseAccessor",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/SimpleSparseAccessor/glTF/SimpleSparseAccessor.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "SimpleTexture",
+      "case": "SimpleTexture",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/SimpleTexture/glTF/SimpleTexture.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "Sponza",
+      "case": "Sponza",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "Suzanne",
+      "case": "Suzanne",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/Suzanne/glTF/Suzanne.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "TextureCoordinateTest",
+      "case": "TextureCoordinateTest",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/TextureCoordinateTest/glTF/TextureCoordinateTest.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "TextureEncodingTest",
+      "case": "TextureEncodingTest",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/TextureEncodingTest/glTF/TextureEncodingTest.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "TextureLinearInterpolationTest",
+      "case": "TextureLinearInterpolationTest",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/TextureLinearInterpolationTest/glTF/TextureLinearInterpolationTest.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "TextureSettingsTest",
+      "case": "TextureSettingsTest",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/TextureSettingsTest/glTF/TextureSettingsTest.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "Triangle",
+      "case": "Triangle",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/Triangle/glTF/Triangle.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "TriangleWithoutIndices",
+      "case": "TriangleWithoutIndices",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/TriangleWithoutIndices/glTF/TriangleWithoutIndices.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "Unicode❤♻Test",
+      "case": "Unicode__Test",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/Unicode❤♻Test/glTF/Unicode❤♻Test.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "VertexColorTest",
+      "case": "VertexColorTest",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/VertexColorTest/glTF/VertexColorTest.gltf",
+      "extensions": [],
+      "decoderVariants": []
+    },
+    {
+      "name": "VirtualCity",
+      "case": "VirtualCity",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/VirtualCity/glTF/VirtualCity.gltf",
+      "extensions": [],
+      "decoderVariants": [
+        {
+          "variant": "glTF-Draco",
+          "file": "tests/assets/glTF-Sample-Assets/Models/VirtualCity/glTF-Draco/VirtualCity.gltf",
+          "extensions": [
+            "KHR_draco_mesh_compression"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "WaterBottle",
+      "case": "WaterBottle",
+      "variant": "glTF",
+      "file": "tests/assets/glTF-Sample-Assets/Models/WaterBottle/glTF/WaterBottle.gltf",
+      "extensions": [],
+      "decoderVariants": [
+        {
+          "variant": "glTF-Draco",
+          "file": "tests/assets/glTF-Sample-Assets/Models/WaterBottle/glTF-Draco/WaterBottle.gltf",
+          "extensions": [
+            "KHR_draco_mesh_compression"
+          ]
+        }
+      ]
+    }
+  ],
+  "excluded": [
+    {
+      "name": "TwoSidedPlane",
+      "reason": "known Sample-Viewer limit: its fit camera (UserCamera.resetView looks down -Z) sees the XZ plane edge-on; refgen (tools/refgen/render.mjs) refuses it: 'model not visible: 0.000% of pixels differ from the environment-only frame' (build log of plan F3 Task 6), so there is no reference"
+    }
+  ],
+  "otherExtensions": [
+    {
+      "name": "ABeautifulGame",
+      "extensions": [
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "AnimatedColorsCube",
+      "extensions": [
+        "KHR_animation_pointer"
+      ]
+    },
+    {
+      "name": "AnimationPointerUVs",
+      "extensions": [
+        "KHR_animation_pointer",
+        "KHR_materials_anisotropy",
+        "KHR_materials_clearcoat",
+        "KHR_materials_diffuse_transmission",
+        "KHR_materials_iridescence",
+        "KHR_materials_sheen",
+        "KHR_materials_specular",
+        "KHR_materials_transmission",
+        "KHR_materials_unlit",
+        "KHR_materials_volume",
+        "KHR_texture_transform"
+      ]
+    },
+    {
+      "name": "AnisotropyBarnLamp",
+      "extensions": [
+        "KHR_materials_anisotropy",
+        "KHR_materials_clearcoat",
+        "KHR_materials_emissive_strength",
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "AnisotropyDiscTest",
+      "extensions": [
+        "KHR_materials_anisotropy"
+      ]
+    },
+    {
+      "name": "AnisotropyRotationTest",
+      "extensions": [
+        "KHR_materials_anisotropy"
+      ]
+    },
+    {
+      "name": "AnisotropyStrengthTest",
+      "extensions": [
+        "KHR_materials_anisotropy"
+      ]
+    },
+    {
+      "name": "AttenuationTest",
+      "extensions": [
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "CarConcept",
+      "extensions": [
+        "KHR_materials_clearcoat",
+        "KHR_materials_emissive_strength",
+        "KHR_materials_iridescence",
+        "KHR_materials_transmission",
+        "KHR_materials_variants",
+        "KHR_texture_transform"
+      ]
+    },
+    {
+      "name": "CarbonFibre",
+      "extensions": [
+        "KHR_materials_anisotropy"
+      ]
+    },
+    {
+      "name": "ChairDamaskPurplegold",
+      "extensions": [
+        "KHR_materials_sheen",
+        "KHR_materials_specular",
+        "KHR_texture_transform"
+      ]
+    },
+    {
+      "name": "ChronographWatch",
+      "extensions": [
+        "KHR_materials_transmission",
+        "KHR_materials_variants",
+        "KHR_texture_transform"
+      ]
+    },
+    {
+      "name": "ClearCoatCarPaint",
+      "extensions": [
+        "KHR_materials_clearcoat",
+        "KHR_texture_transform"
+      ]
+    },
+    {
+      "name": "ClearCoatTest",
+      "extensions": [
+        "KHR_materials_clearcoat"
+      ]
+    },
+    {
+      "name": "ClearcoatWicker",
+      "extensions": [
+        "KHR_materials_clearcoat"
+      ]
+    },
+    {
+      "name": "CommercialRefrigerator",
+      "extensions": [
+        "KHR_materials_clearcoat",
+        "KHR_materials_transmission"
+      ]
+    },
+    {
+      "name": "CompareAnisotropy",
+      "extensions": [
+        "KHR_materials_anisotropy",
+        "KHR_texture_transform"
+      ]
+    },
+    {
+      "name": "CompareBaseColor",
+      "extensions": [
+        "KHR_texture_transform"
+      ]
+    },
+    {
+      "name": "CompareClearcoat",
+      "extensions": [
+        "KHR_materials_clearcoat",
+        "KHR_materials_ior"
+      ]
+    },
+    {
+      "name": "CompareDispersion",
+      "extensions": [
+        "KHR_materials_dispersion",
+        "KHR_materials_ior",
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "CompareEmissiveStrength",
+      "extensions": [
+        "KHR_materials_emissive_strength"
+      ]
+    },
+    {
+      "name": "CompareIor",
+      "extensions": [
+        "KHR_materials_ior",
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "CompareIridescence",
+      "extensions": [
+        "KHR_materials_iridescence"
+      ]
+    },
+    {
+      "name": "CompareSheen",
+      "extensions": [
+        "KHR_materials_sheen"
+      ]
+    },
+    {
+      "name": "CompareSpecular",
+      "extensions": [
+        "KHR_materials_specular"
+      ]
+    },
+    {
+      "name": "CompareTransmission",
+      "extensions": [
+        "KHR_materials_transmission"
+      ]
+    },
+    {
+      "name": "CompareVolume",
+      "extensions": [
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "CubeVisibility",
+      "extensions": [
+        "KHR_animation_pointer",
+        "KHR_node_visibility"
+      ]
+    },
+    {
+      "name": "DiffuseTransmissionPlant",
+      "extensions": [
+        "KHR_materials_diffuse_transmission"
+      ]
+    },
+    {
+      "name": "DiffuseTransmissionTeacup",
+      "extensions": [
+        "KHR_materials_diffuse_transmission"
+      ]
+    },
+    {
+      "name": "DiffuseTransmissionTest",
+      "extensions": [
+        "KHR_materials_diffuse_transmission",
+        "KHR_materials_unlit"
+      ]
+    },
+    {
+      "name": "DispersionTest",
+      "extensions": [
+        "KHR_materials_dispersion",
+        "KHR_materials_ior",
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "DragonAttenuation",
+      "extensions": [
+        "KHR_materials_transmission",
+        "KHR_materials_variants",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "DragonDispersion",
+      "extensions": [
+        "KHR_materials_dispersion",
+        "KHR_materials_ior",
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "EmissiveStrengthTest",
+      "extensions": [
+        "KHR_materials_emissive_strength"
+      ]
+    },
+    {
+      "name": "FlightHelmet",
+      "extensions": [
+        "KHR_materials_transmission"
+      ]
+    },
+    {
+      "name": "GlamVelvetSofa",
+      "extensions": [
+        "KHR_materials_sheen",
+        "KHR_materials_specular",
+        "KHR_materials_variants",
+        "KHR_texture_transform"
+      ]
+    },
+    {
+      "name": "GlassBrokenWindow",
+      "extensions": [
+        "KHR_materials_transmission"
+      ]
+    },
+    {
+      "name": "GlassHurricaneCandleHolder",
+      "extensions": [
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "GlassVaseFlowers",
+      "extensions": [
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "IORTestGrid",
+      "extensions": [
+        "KHR_materials_ior",
+        "KHR_materials_specular",
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "IridescenceAbalone",
+      "extensions": [
+        "KHR_materials_iridescence"
+      ]
+    },
+    {
+      "name": "IridescenceDielectricSpheres",
+      "extensions": [
+        "KHR_materials_ior",
+        "KHR_materials_iridescence"
+      ]
+    },
+    {
+      "name": "IridescenceLamp",
+      "extensions": [
+        "KHR_materials_ior",
+        "KHR_materials_iridescence",
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "IridescenceMetallicSpheres",
+      "extensions": [
+        "KHR_materials_ior",
+        "KHR_materials_iridescence"
+      ]
+    },
+    {
+      "name": "IridescenceSuzanne",
+      "extensions": [
+        "KHR_materials_ior",
+        "KHR_materials_iridescence",
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "IridescentDishWithOlives",
+      "extensions": [
+        "KHR_materials_ior",
+        "KHR_materials_iridescence",
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "LightVisibility",
+      "extensions": [
+        "KHR_animation_pointer",
+        "KHR_node_visibility"
+      ]
+    },
+    {
+      "name": "LightsPunctualLamp",
+      "extensions": [
+        "KHR_materials_transmission"
+      ]
+    },
+    {
+      "name": "MandarinOrange",
+      "extensions": [
+        "KHR_materials_diffuse_transmission"
+      ]
+    },
+    {
+      "name": "MaterialsVariantsShoe",
+      "extensions": [
+        "KHR_materials_variants"
+      ]
+    },
+    {
+      "name": "MeshoptCubeTest",
+      "extensions": [
+        "KHR_meshopt_compression"
+      ]
+    },
+    {
+      "name": "MosquitoInAmber",
+      "extensions": [
+        "KHR_materials_ior",
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "NodeVisibilityTest",
+      "extensions": [
+        "KHR_node_visibility"
+      ]
+    },
+    {
+      "name": "PlaysetLightTest",
+      "extensions": [
+        "KHR_materials_emissive_strength"
+      ]
+    },
+    {
+      "name": "PointLightIntensityTest",
+      "extensions": [
+        "KHR_materials_unlit"
+      ]
+    },
+    {
+      "name": "PotOfCoals",
+      "extensions": [
+        "KHR_materials_clearcoat"
+      ]
+    },
+    {
+      "name": "PotOfCoalsAnimationPointer",
+      "extensions": [
+        "KHR_animation_pointer",
+        "KHR_materials_clearcoat",
+        "KHR_materials_specular",
+        "KHR_materials_transmission",
+        "KHR_materials_volume",
+        "KHR_texture_transform"
+      ]
+    },
+    {
+      "name": "ScatterAnemone",
+      "extensions": [
+        "KHR_materials_scatter",
+        "KHR_materials_transmission",
+        "KHR_materials_volume",
+        "KHR_texture_transform"
+      ]
+    },
+    {
+      "name": "ScatterPlant",
+      "extensions": [
+        "KHR_materials_emissive_strength",
+        "KHR_materials_scatter",
+        "KHR_materials_transmission"
+      ]
+    },
+    {
+      "name": "ScatterTest",
+      "extensions": [
+        "KHR_materials_scatter",
+        "KHR_materials_transmission"
+      ]
+    },
+    {
+      "name": "ScatteringSkull",
+      "extensions": [
+        "KHR_materials_dispersion",
+        "KHR_materials_ior",
+        "KHR_materials_scatter",
+        "KHR_materials_transmission",
+        "KHR_materials_volume",
+        "KHR_xmp_json_ld"
+      ]
+    },
+    {
+      "name": "SheenChair",
+      "extensions": [
+        "KHR_materials_sheen",
+        "KHR_materials_variants",
+        "KHR_texture_transform"
+      ]
+    },
+    {
+      "name": "SheenCloth",
+      "extensions": [
+        "KHR_materials_sheen",
+        "KHR_texture_transform"
+      ]
+    },
+    {
+      "name": "SheenTestGrid",
+      "extensions": [
+        "KHR_materials_sheen"
+      ]
+    },
+    {
+      "name": "SheenWoodLeatherSofa",
+      "extensions": [
+        "KHR_materials_sheen",
+        "KHR_materials_specular",
+        "KHR_texture_transform"
+      ]
+    },
+    {
+      "name": "SimpleInstancing",
+      "extensions": [
+        "EXT_mesh_gpu_instancing"
+      ]
+    },
+    {
+      "name": "SpecGlossVsMetalRough",
+      "extensions": [
+        "KHR_materials_pbrSpecularGlossiness"
+      ]
+    },
+    {
+      "name": "SpecularSilkPouf",
+      "extensions": [
+        "KHR_materials_sheen",
+        "KHR_materials_specular"
+      ]
+    },
+    {
+      "name": "SpecularTest",
+      "extensions": [
+        "KHR_materials_specular"
+      ]
+    },
+    {
+      "name": "StainedGlassLamp",
+      "extensions": [
+        "KHR_materials_clearcoat",
+        "KHR_materials_ior",
+        "KHR_materials_transmission",
+        "KHR_materials_variants",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "SunglassesKhronos",
+      "extensions": [
+        "KHR_materials_ior",
+        "KHR_materials_iridescence",
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "TextureTransformMultiTest",
+      "extensions": [
+        "KHR_materials_clearcoat",
+        "KHR_materials_unlit",
+        "KHR_texture_transform"
+      ]
+    },
+    {
+      "name": "TextureTransformTest",
+      "extensions": [
+        "KHR_texture_transform"
+      ]
+    },
+    {
+      "name": "ToyCar",
+      "extensions": [
+        "KHR_materials_clearcoat",
+        "KHR_materials_sheen",
+        "KHR_materials_transmission",
+        "KHR_texture_transform"
+      ]
+    },
+    {
+      "name": "TrafficCone",
+      "extensions": [
+        "KHR_materials_retroreflection",
+        "KHR_materials_specular",
+        "KHR_materials_unlit"
+      ]
+    },
+    {
+      "name": "TransmissionOrderTest",
+      "extensions": [
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "TransmissionRoughnessTest",
+      "extensions": [
+        "KHR_materials_ior",
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "TransmissionTest",
+      "extensions": [
+        "KHR_materials_transmission",
+        "KHR_xmp"
+      ]
+    },
+    {
+      "name": "TransmissionThinwallTestGrid",
+      "extensions": [
+        "KHR_materials_ior",
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "USDShaderBallForGltf",
+      "extensions": [
+        "KHR_materials_transmission",
+        "KHR_materials_volume"
+      ]
+    },
+    {
+      "name": "UnlitTest",
+      "extensions": [
+        "KHR_materials_unlit"
+      ]
+    },
+    {
+      "name": "XmpMetadataRoundedCube",
+      "extensions": [
+        "KHR_xmp_json_ld"
+      ]
+    }
+  ]
+}

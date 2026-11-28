@@ -264,6 +264,47 @@ class PngChannelsTest(unittest.TestCase):
         rg.load_manifest(write_cases(self.tmp, [render_case(pngChannels=3)]))
 
 
+class ExpectedFailTest(unittest.TestCase):
+    """Plan F3 Task 6: "expectedFail": "<reason>" marks a case that still fails; its FAIL becomes XFAIL (not a gate
+    failure); at most 10 % of the render cases may carry it, otherwise the gate fails."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="eng-rg-"))
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_expected_fail_needs_a_reason(self):
+        with self.assertRaisesRegex(rg.DriverError, "expectedFail"):
+            rg.load_manifest(write_cases(self.tmp, [render_case(expectedFail="")]))
+        with self.assertRaisesRegex(rg.DriverError, "expectedFail"):
+            rg.load_manifest(write_cases(self.tmp, [render_case(expectedFail=True)]))
+        rg.load_manifest(write_cases(self.tmp, [render_case(expectedFail="KHR_x not drawn")]))
+
+    def test_failing_expected_fail_case_is_xfail_and_not_counted(self):
+        results = {"cases": [{"name": "a", "status": "FAIL", "reason": "flip-above-threshold"},
+                             {"name": "b", "status": "FAIL", "reason": "flip-above-threshold"},
+                             {"name": "c", "status": "PASS"}]}
+        cases = [render_case("a", expectedFail="known: x"), render_case("b"), render_case("c", expectedFail="y")]
+        failed = rg.apply_expected_fail(results, cases)
+        st = {c["name"]: c for c in results["cases"]}
+        self.assertEqual(st["a"]["status"], "XFAIL")
+        self.assertIn("known: x", st["a"]["detail"])
+        self.assertEqual(st["b"]["status"], "FAIL")
+        self.assertEqual(st["c"]["status"], "PASS")
+        self.assertIn("expectedFail", st["c"]["detail"])  # an expected-fail case that passes is flagged
+        self.assertEqual(failed, 1)
+
+    def test_expected_fail_cap_is_10_percent_of_render_cases(self):
+        cases = [render_case(f"c{i}") for i in range(20)]
+        for c in cases[:2]:
+            c["expectedFail"] = "r"
+        self.assertTrue(rg.expected_fail_within_cap(cases)[2])
+        cases[2]["expectedFail"] = "r"
+        count, cap, ok = rg.expected_fail_within_cap(cases)
+        self.assertEqual((count, cap, ok), (3, 2, False))
+
+
 class ScenePathTest(unittest.TestCase):
     def test_file_scene_is_repo_relative_builtin_unchanged(self):
         self.assertEqual(rg.scene_arg({"scene": "builtin:triangle"}), "builtin:triangle")

@@ -360,6 +360,32 @@ Result<bool> buildPrimitive(const Context& c, const ModelData& model, size_t mes
             }
         }
     }
+    // gltf_utils.js getExtentsFromAccessor: accessor.min / max, gltfAccessor.dequantize when normalized.
+    {
+        const fastgltf::Accessor& acc = c.asset.accessors[*pos];
+        const auto read = [&](const fastgltf::AccessorBoundsArray& b, Vec3& v) {
+            if (b.size() < 3) {
+                return false;
+            }
+            for (size_t k = 0; k < 3; ++k) {
+                double x = b.isType<double>() ? b.data<double>()[k] : double(b.data<std::int64_t>()[k]);
+                if (acc.normalized) {
+                    switch (acc.componentType) {
+                    case fastgltf::ComponentType::Byte: x = std::max(x / 127.0, -1.0); break;
+                    case fastgltf::ComponentType::UnsignedByte: x = x / 255.0; break;
+                    case fastgltf::ComponentType::Short: x = std::max(x / 32767.0, -1.0); break;
+                    case fastgltf::ComponentType::UnsignedShort: x = x / 65535.0; break;
+                    default: break;
+                    }
+                }
+                v[k] = static_cast<float>(x);
+            }
+            return true;
+        };
+        if (acc.min && acc.max && read(*acc.min, out.accessorBounds.min) && read(*acc.max, out.accessorBounds.max)) {
+            out.accessorBounds.valid = true;
+        }
+    }
     // Material.
     const Material* mat = nullptr;
     if (in.materialIndex) {

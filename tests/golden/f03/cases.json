@@ -2,15 +2,2559 @@
   "phase": "f03",
   "comment": "Plan F3 Task 5: reference mode (r.ReferenceMode=1, spec K-B) vs the committed glTF-Sample-Viewer references tests/golden/ref/sample-viewer/<asset>.png (tools/refgen, settings.json). Scene = the file refgen rendered (settings.json models[].variant / file). pngChannels 3: the references are RGB (refgen; the Sample-Viewer canvas has alpha: false). Thresholds: plan F3 Task 5 gate mean FLIP <= 0.05; a case may only be lowered below that gate with a reason naming the formula difference found, never above 0.10 without a BLOCKED worklist entry.",
   "cases": [
-    {"name": "DamagedHelmet.vulkan", "backend": "vulkan", "scene": "tests/assets/glTF-Sample-Assets/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb", "width": 512, "height": 512, "cvars": ["r.ReferenceMode=1"], "pngChannels": 3, "ref": "../ref/sample-viewer/DamagedHelmet.png", "thresholdFlip": 0.05, "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"},
-    {"name": "DamagedHelmet.d3d11", "backend": "d3d11", "scene": "tests/assets/glTF-Sample-Assets/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb", "width": 512, "height": 512, "cvars": ["r.ReferenceMode=1"], "pngChannels": 3, "ref": "../ref/sample-viewer/DamagedHelmet.png", "thresholdFlip": 0.05, "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"},
-    {"name": "MetalRoughSpheres.vulkan", "backend": "vulkan", "scene": "tests/assets/glTF-Sample-Assets/Models/MetalRoughSpheres/glTF-Binary/MetalRoughSpheres.glb", "width": 512, "height": 512, "cvars": ["r.ReferenceMode=1"], "pngChannels": 3, "ref": "../ref/sample-viewer/MetalRoughSpheres.png", "thresholdFlip": 0.05, "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"},
-    {"name": "MetalRoughSpheres.d3d11", "backend": "d3d11", "scene": "tests/assets/glTF-Sample-Assets/Models/MetalRoughSpheres/glTF-Binary/MetalRoughSpheres.glb", "width": 512, "height": 512, "cvars": ["r.ReferenceMode=1"], "pngChannels": 3, "ref": "../ref/sample-viewer/MetalRoughSpheres.png", "thresholdFlip": 0.05, "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"},
-    {"name": "NormalTangentTest.vulkan", "backend": "vulkan", "scene": "tests/assets/glTF-Sample-Assets/Models/NormalTangentTest/glTF-Binary/NormalTangentTest.glb", "width": 512, "height": 512, "cvars": ["r.ReferenceMode=1"], "pngChannels": 3, "ref": "../ref/sample-viewer/NormalTangentTest.png", "thresholdFlip": 0.05, "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"},
-    {"name": "NormalTangentTest.d3d11", "backend": "d3d11", "scene": "tests/assets/glTF-Sample-Assets/Models/NormalTangentTest/glTF-Binary/NormalTangentTest.glb", "width": 512, "height": 512, "cvars": ["r.ReferenceMode=1"], "pngChannels": 3, "ref": "../ref/sample-viewer/NormalTangentTest.png", "thresholdFlip": 0.05, "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"},
-    {"name": "AlphaBlendModeTest.vulkan", "backend": "vulkan", "scene": "tests/assets/glTF-Sample-Assets/Models/AlphaBlendModeTest/glTF-Binary/AlphaBlendModeTest.glb", "width": 512, "height": 512, "cvars": ["r.ReferenceMode=1"], "pngChannels": 3, "ref": "../ref/sample-viewer/AlphaBlendModeTest.png", "thresholdFlip": 0.05, "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"},
-    {"name": "AlphaBlendModeTest.d3d11", "backend": "d3d11", "scene": "tests/assets/glTF-Sample-Assets/Models/AlphaBlendModeTest/glTF-Binary/AlphaBlendModeTest.glb", "width": 512, "height": 512, "cvars": ["r.ReferenceMode=1"], "pngChannels": 3, "ref": "../ref/sample-viewer/AlphaBlendModeTest.png", "thresholdFlip": 0.05, "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"},
-    {"name": "TextureCoordinateTest.vulkan", "backend": "vulkan", "scene": "tests/assets/glTF-Sample-Assets/Models/TextureCoordinateTest/glTF-Binary/TextureCoordinateTest.glb", "width": 512, "height": 512, "cvars": ["r.ReferenceMode=1"], "pngChannels": 3, "ref": "../ref/sample-viewer/TextureCoordinateTest.png", "thresholdFlip": 0.05, "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"},
-    {"name": "TextureCoordinateTest.d3d11", "backend": "d3d11", "scene": "tests/assets/glTF-Sample-Assets/Models/TextureCoordinateTest/glTF-Binary/TextureCoordinateTest.glb", "width": 512, "height": 512, "cvars": ["r.ReferenceMode=1"], "pngChannels": 3, "ref": "../ref/sample-viewer/TextureCoordinateTest.png", "thresholdFlip": 0.05, "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"}
+    {
+      "name": "DamagedHelmet.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/DamagedHelmet.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "DamagedHelmet.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/DamagedHelmet.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MetalRoughSpheres.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MetalRoughSpheres/glTF-Binary/MetalRoughSpheres.glb",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MetalRoughSpheres.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MetalRoughSpheres.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MetalRoughSpheres/glTF-Binary/MetalRoughSpheres.glb",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MetalRoughSpheres.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "NormalTangentTest.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/NormalTangentTest/glTF-Binary/NormalTangentTest.glb",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/NormalTangentTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "NormalTangentTest.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/NormalTangentTest/glTF-Binary/NormalTangentTest.glb",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/NormalTangentTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "AlphaBlendModeTest.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/AlphaBlendModeTest/glTF-Binary/AlphaBlendModeTest.glb",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/AlphaBlendModeTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "AlphaBlendModeTest.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/AlphaBlendModeTest/glTF-Binary/AlphaBlendModeTest.glb",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/AlphaBlendModeTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "TextureCoordinateTest.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/TextureCoordinateTest/glTF-Binary/TextureCoordinateTest.glb",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/TextureCoordinateTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "TextureCoordinateTest.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/TextureCoordinateTest/glTF-Binary/TextureCoordinateTest.glb",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/TextureCoordinateTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 5 gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "AlphaBlendModeTest.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/AlphaBlendModeTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "AlphaBlendModeTest.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/AlphaBlendModeTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "AnimatedCube.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/AnimatedCube/glTF/AnimatedCube.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/AnimatedCube.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "AnimatedCube.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/AnimatedCube/glTF/AnimatedCube.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/AnimatedCube.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "AnimatedMorphCube.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/AnimatedMorphCube/glTF/AnimatedMorphCube.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/AnimatedMorphCube.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "AnimatedMorphCube.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/AnimatedMorphCube/glTF/AnimatedMorphCube.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/AnimatedMorphCube.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "AnimatedMorphCube.glTF-Quantized.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/AnimatedMorphCube/glTF-Quantized/AnimatedMorphCube.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/AnimatedMorphCube.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "AnimatedMorphCube.glTF-Quantized.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/AnimatedMorphCube/glTF-Quantized/AnimatedMorphCube.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/AnimatedMorphCube.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "AnimatedTriangle.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/AnimatedTriangle/glTF/AnimatedTriangle.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/AnimatedTriangle.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "AnimatedTriangle.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/AnimatedTriangle/glTF/AnimatedTriangle.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/AnimatedTriangle.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "AntiqueCamera.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/AntiqueCamera/glTF/AntiqueCamera.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/AntiqueCamera.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "AntiqueCamera.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/AntiqueCamera/glTF/AntiqueCamera.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/AntiqueCamera.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Avocado.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Avocado/glTF/Avocado.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Avocado.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Avocado.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Avocado/glTF/Avocado.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Avocado.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Avocado.glTF-Draco.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Avocado/glTF-Draco/Avocado.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Avocado.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Avocado.glTF-Draco.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Avocado/glTF-Draco/Avocado.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Avocado.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BarramundiFish.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BarramundiFish/glTF/BarramundiFish.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BarramundiFish.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BarramundiFish.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BarramundiFish/glTF/BarramundiFish.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BarramundiFish.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BarramundiFish.glTF-Draco.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BarramundiFish/glTF-Draco/BarramundiFish.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BarramundiFish.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BarramundiFish.glTF-Draco.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BarramundiFish/glTF-Draco/BarramundiFish.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BarramundiFish.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BoomBox.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BoomBox/glTF/BoomBox.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BoomBox.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BoomBox.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BoomBox/glTF/BoomBox.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BoomBox.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BoomBox.glTF-Draco.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BoomBox/glTF-Draco/BoomBox.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BoomBox.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BoomBox.glTF-Draco.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BoomBox/glTF-Draco/BoomBox.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BoomBox.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BoomBoxWithAxes.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BoomBoxWithAxes/glTF/BoomBoxWithAxes.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BoomBoxWithAxes.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BoomBoxWithAxes.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BoomBoxWithAxes/glTF/BoomBoxWithAxes.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BoomBoxWithAxes.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Box.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Box/glTF/Box.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Box.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Box.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Box/glTF/Box.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Box.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Box.glTF-Draco.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Box/glTF-Draco/Box.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Box.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Box.glTF-Draco.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Box/glTF-Draco/Box.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Box.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Box_With_Spaces.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Box With Spaces/glTF/Box With Spaces.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Box With Spaces.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Box_With_Spaces.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Box With Spaces/glTF/Box With Spaces.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Box With Spaces.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BoxAnimated.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BoxAnimated/glTF/BoxAnimated.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BoxAnimated.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BoxAnimated.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BoxAnimated/glTF/BoxAnimated.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BoxAnimated.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BoxInterleaved.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BoxInterleaved/glTF/BoxInterleaved.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BoxInterleaved.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BoxInterleaved.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BoxInterleaved/glTF/BoxInterleaved.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BoxInterleaved.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BoxTextured.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BoxTextured/glTF/BoxTextured.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BoxTextured.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BoxTextured.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BoxTextured/glTF/BoxTextured.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BoxTextured.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BoxTexturedNonPowerOfTwo.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BoxTexturedNonPowerOfTwo/glTF/BoxTexturedNonPowerOfTwo.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BoxTexturedNonPowerOfTwo.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BoxTexturedNonPowerOfTwo.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BoxTexturedNonPowerOfTwo/glTF/BoxTexturedNonPowerOfTwo.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BoxTexturedNonPowerOfTwo.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BoxVertexColors.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BoxVertexColors/glTF/BoxVertexColors.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BoxVertexColors.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BoxVertexColors.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BoxVertexColors/glTF/BoxVertexColors.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BoxVertexColors.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BrainStem.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BrainStem/glTF/BrainStem.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BrainStem.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BrainStem.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BrainStem/glTF/BrainStem.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BrainStem.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BrainStem.glTF-Draco.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BrainStem/glTF-Draco/BrainStem.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BrainStem.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BrainStem.glTF-Draco.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BrainStem/glTF-Draco/BrainStem.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BrainStem.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "BrainStem.glTF-Meshopt-EXT.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BrainStem/glTF-Meshopt-EXT/BrainStem.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BrainStem.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)",
+      "expectedFail": "file-specific fit camera: this variant's POSITION accessors carry quantized min / max under dequantizing node transforms, so getExtentsFromAccessor (which the renderer ports) gives a larger box, (-1.62, -0.47, -1.36) .. (1.26, 2.27, 1.30) vs the plain glTF's (-1.26, -0.11, -0.99) .. (1.21, 2.27, 0.91) (computed from the JSON), and the reference is the plain file's framing; the model is drawn smaller and lower. Mean FLIP 0.129 (plan F3 Task 6 run); the plain BrainStem cases pass."
+    },
+    {
+      "name": "BrainStem.glTF-Meshopt-EXT.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/BrainStem/glTF-Meshopt-EXT/BrainStem.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/BrainStem.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)",
+      "expectedFail": "file-specific fit camera: this variant's POSITION accessors carry quantized min / max under dequantizing node transforms, so getExtentsFromAccessor (which the renderer ports) gives a larger box, (-1.62, -0.47, -1.36) .. (1.26, 2.27, 1.30) vs the plain glTF's (-1.26, -0.11, -0.99) .. (1.21, 2.27, 0.91) (computed from the JSON), and the reference is the plain file's framing; the model is drawn smaller and lower. Mean FLIP 0.129 (plan F3 Task 6 run); the plain BrainStem cases pass."
+    },
+    {
+      "name": "Cameras.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Cameras/glTF/Cameras.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Cameras.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Cameras.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Cameras/glTF/Cameras.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Cameras.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CesiumMan.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CesiumMan/glTF/CesiumMan.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CesiumMan.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CesiumMan.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CesiumMan/glTF/CesiumMan.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CesiumMan.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CesiumMan.glTF-Draco.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CesiumMan/glTF-Draco/CesiumMan.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CesiumMan.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CesiumMan.glTF-Draco.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CesiumMan/glTF-Draco/CesiumMan.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CesiumMan.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CesiumMilkTruck.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CesiumMilkTruck/glTF/CesiumMilkTruck.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CesiumMilkTruck.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CesiumMilkTruck.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CesiumMilkTruck/glTF/CesiumMilkTruck.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CesiumMilkTruck.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CesiumMilkTruck.glTF-Draco.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CesiumMilkTruck/glTF-Draco/CesiumMilkTruck.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CesiumMilkTruck.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CesiumMilkTruck.glTF-Draco.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CesiumMilkTruck/glTF-Draco/CesiumMilkTruck.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CesiumMilkTruck.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CompareAlphaCoverage.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CompareAlphaCoverage/glTF/CompareAlphaCoverage.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CompareAlphaCoverage.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CompareAlphaCoverage.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CompareAlphaCoverage/glTF/CompareAlphaCoverage.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CompareAlphaCoverage.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CompareAmbientOcclusion.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CompareAmbientOcclusion/glTF/CompareAmbientOcclusion.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CompareAmbientOcclusion.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CompareAmbientOcclusion.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CompareAmbientOcclusion/glTF/CompareAmbientOcclusion.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CompareAmbientOcclusion.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CompareMetallic.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CompareMetallic/glTF/CompareMetallic.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CompareMetallic.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CompareMetallic.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CompareMetallic/glTF/CompareMetallic.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CompareMetallic.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CompareNormal.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CompareNormal/glTF/CompareNormal.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CompareNormal.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CompareNormal.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CompareNormal/glTF/CompareNormal.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CompareNormal.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CompareRoughness.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CompareRoughness/glTF/CompareRoughness.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CompareRoughness.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "CompareRoughness.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/CompareRoughness/glTF/CompareRoughness.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/CompareRoughness.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Corset.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Corset/glTF/Corset.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Corset.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Corset.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Corset/glTF/Corset.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Corset.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Corset.glTF-Draco.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Corset/glTF-Draco/Corset.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Corset.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Corset.glTF-Draco.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Corset/glTF-Draco/Corset.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Corset.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Cube.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Cube/glTF/Cube.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Cube.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Cube.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Cube/glTF/Cube.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Cube.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "DamagedHelmet.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/DamagedHelmet/glTF/DamagedHelmet.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/DamagedHelmet.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "DamagedHelmet.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/DamagedHelmet/glTF/DamagedHelmet.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/DamagedHelmet.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "DirectionalLight.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/DirectionalLight/glTF/DirectionalLight.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/DirectionalLight.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "DirectionalLight.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/DirectionalLight/glTF/DirectionalLight.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/DirectionalLight.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Duck.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Duck/glTF/Duck.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Duck.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Duck.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Duck/glTF/Duck.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Duck.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Duck.glTF-Draco.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Duck/glTF-Draco/Duck.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Duck.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Duck.glTF-Draco.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Duck/glTF-Draco/Duck.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Duck.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "EnvironmentTest.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/EnvironmentTest/glTF/EnvironmentTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/EnvironmentTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "EnvironmentTest.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/EnvironmentTest/glTF/EnvironmentTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/EnvironmentTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Fox.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Fox/glTF/Fox.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Fox.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Fox.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Fox/glTF/Fox.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Fox.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "InterpolationTest.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/InterpolationTest/glTF/InterpolationTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/InterpolationTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "InterpolationTest.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/InterpolationTest/glTF/InterpolationTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/InterpolationTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Lantern.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Lantern/glTF/Lantern.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Lantern.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Lantern.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Lantern/glTF/Lantern.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Lantern.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Lantern.glTF-Draco.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Lantern/glTF-Draco/Lantern.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Lantern.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Lantern.glTF-Draco.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Lantern/glTF-Draco/Lantern.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Lantern.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MeshPrimitiveModes.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MeshPrimitiveModes/glTF/MeshPrimitiveModes.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MeshPrimitiveModes.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MeshPrimitiveModes.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MeshPrimitiveModes/glTF/MeshPrimitiveModes.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MeshPrimitiveModes.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MetalRoughSpheres.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MetalRoughSpheres/glTF/MetalRoughSpheres.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MetalRoughSpheres.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MetalRoughSpheres.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MetalRoughSpheres/glTF/MetalRoughSpheres.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MetalRoughSpheres.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MetalRoughSpheresNoTextures.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MetalRoughSpheresNoTextures/glTF/MetalRoughSpheresNoTextures.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MetalRoughSpheresNoTextures.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MetalRoughSpheresNoTextures.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MetalRoughSpheresNoTextures/glTF/MetalRoughSpheresNoTextures.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MetalRoughSpheresNoTextures.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MorphPrimitivesTest.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MorphPrimitivesTest/glTF/MorphPrimitivesTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MorphPrimitivesTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MorphPrimitivesTest.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MorphPrimitivesTest/glTF/MorphPrimitivesTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MorphPrimitivesTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MorphPrimitivesTest.glTF-Draco.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MorphPrimitivesTest/glTF-Draco/MorphPrimitivesTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MorphPrimitivesTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MorphPrimitivesTest.glTF-Draco.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MorphPrimitivesTest/glTF-Draco/MorphPrimitivesTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MorphPrimitivesTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MorphStressTest.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MorphStressTest/glTF/MorphStressTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MorphStressTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MorphStressTest.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MorphStressTest/glTF/MorphStressTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MorphStressTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MultiUVTest.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MultiUVTest/glTF/MultiUVTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MultiUVTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MultiUVTest.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MultiUVTest/glTF/MultiUVTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MultiUVTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MultipleScenes.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MultipleScenes/glTF/MultipleScenes.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MultipleScenes.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "MultipleScenes.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/MultipleScenes/glTF/MultipleScenes.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/MultipleScenes.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "NegativeScaleTest.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/NegativeScaleTest/glTF/NegativeScaleTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/NegativeScaleTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "NegativeScaleTest.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/NegativeScaleTest/glTF/NegativeScaleTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/NegativeScaleTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "NodePerformanceTest.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/NodePerformanceTest/glTF/NodePerformanceTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/NodePerformanceTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "NodePerformanceTest.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/NodePerformanceTest/glTF/NodePerformanceTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/NodePerformanceTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "NormalTangentMirrorTest.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/NormalTangentMirrorTest/glTF/NormalTangentMirrorTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/NormalTangentMirrorTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "NormalTangentMirrorTest.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/NormalTangentMirrorTest/glTF/NormalTangentMirrorTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/NormalTangentMirrorTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "NormalTangentTest.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/NormalTangentTest/glTF/NormalTangentTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/NormalTangentTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "NormalTangentTest.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/NormalTangentTest/glTF/NormalTangentTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/NormalTangentTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "OrientationTest.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/OrientationTest/glTF/OrientationTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/OrientationTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "OrientationTest.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/OrientationTest/glTF/OrientationTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/OrientationTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "PrimitiveModeNormalsTest.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/PrimitiveModeNormalsTest/glTF/PrimitiveModeNormalsTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/PrimitiveModeNormalsTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "PrimitiveModeNormalsTest.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/PrimitiveModeNormalsTest/glTF/PrimitiveModeNormalsTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/PrimitiveModeNormalsTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "RecursiveSkeletons.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/RecursiveSkeletons/glTF/RecursiveSkeletons.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/RecursiveSkeletons.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "RecursiveSkeletons.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/RecursiveSkeletons/glTF/RecursiveSkeletons.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/RecursiveSkeletons.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "RiggedFigure.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/RiggedFigure/glTF/RiggedFigure.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/RiggedFigure.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "RiggedFigure.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/RiggedFigure/glTF/RiggedFigure.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/RiggedFigure.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "RiggedFigure.glTF-Draco.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/RiggedFigure/glTF-Draco/RiggedFigure.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/RiggedFigure.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "RiggedFigure.glTF-Draco.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/RiggedFigure/glTF-Draco/RiggedFigure.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/RiggedFigure.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "RiggedSimple.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/RiggedSimple/glTF/RiggedSimple.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/RiggedSimple.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "RiggedSimple.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/RiggedSimple/glTF/RiggedSimple.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/RiggedSimple.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "RiggedSimple.glTF-Draco.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/RiggedSimple/glTF-Draco/RiggedSimple.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/RiggedSimple.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "RiggedSimple.glTF-Draco.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/RiggedSimple/glTF-Draco/RiggedSimple.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/RiggedSimple.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "SciFiHelmet.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/SciFiHelmet/glTF/SciFiHelmet.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/SciFiHelmet.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "SciFiHelmet.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/SciFiHelmet/glTF/SciFiHelmet.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/SciFiHelmet.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "SimpleMaterial.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/SimpleMaterial/glTF/SimpleMaterial.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/SimpleMaterial.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "SimpleMaterial.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/SimpleMaterial/glTF/SimpleMaterial.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/SimpleMaterial.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "SimpleMeshes.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/SimpleMeshes/glTF/SimpleMeshes.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/SimpleMeshes.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "SimpleMeshes.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/SimpleMeshes/glTF/SimpleMeshes.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/SimpleMeshes.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "SimpleMorph.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/SimpleMorph/glTF/SimpleMorph.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/SimpleMorph.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "SimpleMorph.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/SimpleMorph/glTF/SimpleMorph.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/SimpleMorph.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "SimpleSkin.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/SimpleSkin/glTF/SimpleSkin.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/SimpleSkin.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "SimpleSkin.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/SimpleSkin/glTF/SimpleSkin.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/SimpleSkin.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "SimpleSparseAccessor.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/SimpleSparseAccessor/glTF/SimpleSparseAccessor.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/SimpleSparseAccessor.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "SimpleSparseAccessor.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/SimpleSparseAccessor/glTF/SimpleSparseAccessor.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/SimpleSparseAccessor.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "SimpleTexture.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/SimpleTexture/glTF/SimpleTexture.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/SimpleTexture.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "SimpleTexture.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/SimpleTexture/glTF/SimpleTexture.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/SimpleTexture.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Sponza.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Sponza.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Sponza.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Sponza/glTF/Sponza.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Sponza.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Suzanne.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Suzanne/glTF/Suzanne.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Suzanne.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Suzanne.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Suzanne/glTF/Suzanne.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Suzanne.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "TextureCoordinateTest.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/TextureCoordinateTest/glTF/TextureCoordinateTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/TextureCoordinateTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "TextureCoordinateTest.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/TextureCoordinateTest/glTF/TextureCoordinateTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/TextureCoordinateTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "TextureEncodingTest.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/TextureEncodingTest/glTF/TextureEncodingTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/TextureEncodingTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "TextureEncodingTest.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/TextureEncodingTest/glTF/TextureEncodingTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/TextureEncodingTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "TextureLinearInterpolationTest.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/TextureLinearInterpolationTest/glTF/TextureLinearInterpolationTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/TextureLinearInterpolationTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "TextureLinearInterpolationTest.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/TextureLinearInterpolationTest/glTF/TextureLinearInterpolationTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/TextureLinearInterpolationTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "TextureSettingsTest.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/TextureSettingsTest/glTF/TextureSettingsTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/TextureSettingsTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "TextureSettingsTest.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/TextureSettingsTest/glTF/TextureSettingsTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/TextureSettingsTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Triangle.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Triangle/glTF/Triangle.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Triangle.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Triangle.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Triangle/glTF/Triangle.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Triangle.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "TriangleWithoutIndices.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/TriangleWithoutIndices/glTF/TriangleWithoutIndices.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/TriangleWithoutIndices.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "TriangleWithoutIndices.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/TriangleWithoutIndices/glTF/TriangleWithoutIndices.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/TriangleWithoutIndices.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Unicode__Test.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Unicode❤♻Test/glTF/Unicode❤♻Test.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Unicode❤♻Test.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "Unicode__Test.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/Unicode❤♻Test/glTF/Unicode❤♻Test.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/Unicode❤♻Test.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "VertexColorTest.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/VertexColorTest/glTF/VertexColorTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/VertexColorTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "VertexColorTest.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/VertexColorTest/glTF/VertexColorTest.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/VertexColorTest.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "VirtualCity.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/VirtualCity/glTF/VirtualCity.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/VirtualCity.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)",
+      "expectedFail": "Sample-Viewer limit (reference only): image 0 (001.jpg) is both baseColorTexture (sRGB) and occlusionTexture (linear) of the same materials; webgl.js setTexture uploads a glTF texture once, with the format of its first binding (gltfTex.initialized), and material.js initGl binds occlusion before baseColor, so the reference samples the base colour without the sRGB decode (washed-out yellow dome). The renderer decodes per slot (glTF 2.0, Review Focus 3): mean FLIP 0.115 vulkan / d3d11 (plan F3 Task 6 run). Not lowered into a threshold: above 0.10."
+    },
+    {
+      "name": "VirtualCity.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/VirtualCity/glTF/VirtualCity.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/VirtualCity.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)",
+      "expectedFail": "Sample-Viewer limit (reference only): image 0 (001.jpg) is both baseColorTexture (sRGB) and occlusionTexture (linear) of the same materials; webgl.js setTexture uploads a glTF texture once, with the format of its first binding (gltfTex.initialized), and material.js initGl binds occlusion before baseColor, so the reference samples the base colour without the sRGB decode (washed-out yellow dome). The renderer decodes per slot (glTF 2.0, Review Focus 3): mean FLIP 0.115 vulkan / d3d11 (plan F3 Task 6 run). Not lowered into a threshold: above 0.10."
+    },
+    {
+      "name": "VirtualCity.glTF-Draco.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/VirtualCity/glTF-Draco/VirtualCity.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/VirtualCity.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)",
+      "expectedFail": "Sample-Viewer limit (reference only): image 0 (001.jpg) is both baseColorTexture (sRGB) and occlusionTexture (linear) of the same materials; webgl.js setTexture uploads a glTF texture once, with the format of its first binding (gltfTex.initialized), and material.js initGl binds occlusion before baseColor, so the reference samples the base colour without the sRGB decode (washed-out yellow dome). The renderer decodes per slot (glTF 2.0, Review Focus 3): mean FLIP 0.115 vulkan / d3d11 (plan F3 Task 6 run). Not lowered into a threshold: above 0.10."
+    },
+    {
+      "name": "VirtualCity.glTF-Draco.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/VirtualCity/glTF-Draco/VirtualCity.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/VirtualCity.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)",
+      "expectedFail": "Sample-Viewer limit (reference only): image 0 (001.jpg) is both baseColorTexture (sRGB) and occlusionTexture (linear) of the same materials; webgl.js setTexture uploads a glTF texture once, with the format of its first binding (gltfTex.initialized), and material.js initGl binds occlusion before baseColor, so the reference samples the base colour without the sRGB decode (washed-out yellow dome). The renderer decodes per slot (glTF 2.0, Review Focus 3): mean FLIP 0.115 vulkan / d3d11 (plan F3 Task 6 run). Not lowered into a threshold: above 0.10."
+    },
+    {
+      "name": "WaterBottle.glTF.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/WaterBottle/glTF/WaterBottle.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/WaterBottle.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "WaterBottle.glTF.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/WaterBottle/glTF/WaterBottle.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/WaterBottle.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "WaterBottle.glTF-Draco.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/WaterBottle/glTF-Draco/WaterBottle.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/WaterBottle.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "WaterBottle.glTF-Draco.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/WaterBottle/glTF-Draco/WaterBottle.gltf",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer/WaterBottle.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
+    }
   ]
 }

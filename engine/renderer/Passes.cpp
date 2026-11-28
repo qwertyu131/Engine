@@ -252,6 +252,7 @@ Result<void> ModelRenderer::makeDrawResources() {
             ob.morphInfo[0] = std::min<uint32_t>(g.targetCount, static_cast<uint32_t>(dn.morphWeights.size()));
             ob.morphInfo[1] = g.vertexCount;
             ob.morphInfo[2] = g.tangentDeltas ? 1u : 0u;
+            ob.morphInfo[3] = (g.unlitNoNormal ? kObjectUnlit : 0u) | (g.ignoreNormalMap ? kObjectNoNormalMap : 0u);
             for (uint32_t t = 0; t < 8 && t < dn.morphWeights.size(); ++t) {
                 ob.morphWeights[t / 4][t % 4] = dn.morphWeights[t];
             }

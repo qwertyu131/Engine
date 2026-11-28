@@ -43,6 +43,7 @@ VSOutput VSMain(VSInput input)
     o.uv0 = input.uv0;
     o.uv1 = input.uv1;
     o.color = input.color;
+    o.drawFlags = morphInfo.w;
     return o;
 }
 
@@ -79,6 +80,12 @@ float4 PSMain(VSOutput input, bool frontFacing : SV_IsFrontFace) : SV_Target0
 #if FG_UNLIT
     // KHR_materials_unlit: base color only (still tonemapped, as Sample-Viewer).
     color = baseColor.rgb;
+    // MATERIAL_UNLIT ignores the NOT_TRIANGLE flags; drawFlags is still read (bit 31 is never set) so every permutation
+    // keeps the vertex stage's DRAWFLAGS output matched by a pixel-stage input (Vulkan interface check).
+    if ((input.drawFlags & 0x80000000u) != 0u)
+    {
+        discard;
+    }
 #else
     const float3 v = normalize(cameraPosition.xyz - input.worldPosition);
 
@@ -96,7 +103,7 @@ float4 PSMain(VSOutput input, bool frontFacing : SV_IsFrontFace) : SV_Target0
     const float3 normalSample =
         normalTexture.Sample(normalSampler, textureUV(input, TEX_NORMAL, texCoordSets.z)).rgb;
     float3 n = ng;
-    if (materialFlags.z != 0u)
+    if (materialFlags.z != 0u && (input.drawFlags & 2u) == 0u)
     {
         const float normalScale = pbrParams.z;
         const float3 ntex = normalize((normalSample * 2.0 - 1.0) * float3(normalScale, normalScale, 1.0));
@@ -135,6 +142,11 @@ float4 PSMain(VSOutput input, bool frontFacing : SV_IsFrontFace) : SV_Target0
         emissiveTexture.Sample(emissiveSampler, textureUV(input, TEX_EMISSIVE, texCoordSets2.x)).rgb;
     const float3 f_emissive = emissiveFactor.rgb * emissiveSample;
     color = f_emissive + color;
+    if ((input.drawFlags & 1u) != 0u)
+    {
+        // NOT_TRIANGLE && !HAS_NORMAL_VEC3 (pbr.frag): points / lines without normals are unlit.
+        color = f_emissive + baseColor.rgb;
+    }
 #endif
 
     if (alphaMode == 1u)

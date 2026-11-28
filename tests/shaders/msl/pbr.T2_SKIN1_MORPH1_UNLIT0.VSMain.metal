@@ -44,6 +44,7 @@ struct VSMain_out
     float2 out_var_TEXCOORD0 [[user(locn4)]];
     float2 out_var_TEXCOORD1 [[user(locn5)]];
     float4 out_var_COLOR0 [[user(locn6)]];
+    uint out_var_DRAWFLAGS [[user(locn7)]];
     float4 gl_Position [[position]];
 };
 
@@ -62,63 +63,64 @@ struct VSMain_in
 vertex VSMain_out VSMain(VSMain_in in [[stage_in]], constant type_Frame& Frame [[buffer(0)]], constant type_Object& Object [[buffer(1)]], const device type_StructuredBuffer_mat4v4float& jointMatrices [[buffer(2)]], const device type_StructuredBuffer_v4float& morphDeltas [[buffer(3)]], const device type_StructuredBuffer_float& morphTargetWeights [[buffer(4)]], uint gl_VertexIndex [[vertex_id]])
 {
     VSMain_out out = {};
-    float3 _90;
     float3 _93;
-    float3 _95;
-    _90 = float3(0.0);
+    float3 _96;
+    float3 _98;
     _93 = float3(0.0);
-    _95 = float3(0.0);
-    for (uint _97 = 0u; _97 < Object.morphInfo.x; )
+    _96 = float3(0.0);
+    _98 = float3(0.0);
+    for (uint _100 = 0u; _100 < Object.morphInfo.x; )
     {
-        uint _107 = ((_97 * Object.morphInfo.y) + gl_VertexIndex) * 3u;
-        _90 += (morphDeltas._m0[_107].xyz * morphTargetWeights._m0[_97]);
-        _93 += (morphDeltas._m0[_107 + 1u].xyz * morphTargetWeights._m0[_97]);
-        _95 += (morphDeltas._m0[_107 + 2u].xyz * morphTargetWeights._m0[_97]);
-        _97++;
+        uint _110 = ((_100 * Object.morphInfo.y) + gl_VertexIndex) * 3u;
+        _93 += (morphDeltas._m0[_110].xyz * morphTargetWeights._m0[_100]);
+        _96 += (morphDeltas._m0[_110 + 1u].xyz * morphTargetWeights._m0[_100]);
+        _98 += (morphDeltas._m0[_110 + 2u].xyz * morphTargetWeights._m0[_100]);
+        _100++;
         continue;
     }
-    uint _133 = in.in_var_BLENDINDICES0.x * 2u;
-    float4x4 _137 = jointMatrices._m0[_133] * in.in_var_BLENDWEIGHT0.x;
-    uint _139 = in.in_var_BLENDINDICES0.y * 2u;
-    float4x4 _143 = jointMatrices._m0[_139] * in.in_var_BLENDWEIGHT0.y;
-    uint _157 = in.in_var_BLENDINDICES0.z * 2u;
-    float4x4 _161 = jointMatrices._m0[_157] * in.in_var_BLENDWEIGHT0.z;
-    uint _171 = in.in_var_BLENDINDICES0.w * 2u;
-    float4x4 _175 = jointMatrices._m0[_171] * in.in_var_BLENDWEIGHT0.w;
-    bool _186 = dot(in.in_var_BLENDWEIGHT0, float4(1.0)) == 0.0;
-    float4x4 _189;
-    if (_186)
+    uint _136 = in.in_var_BLENDINDICES0.x * 2u;
+    float4x4 _140 = jointMatrices._m0[_136] * in.in_var_BLENDWEIGHT0.x;
+    uint _142 = in.in_var_BLENDINDICES0.y * 2u;
+    float4x4 _146 = jointMatrices._m0[_142] * in.in_var_BLENDWEIGHT0.y;
+    uint _160 = in.in_var_BLENDINDICES0.z * 2u;
+    float4x4 _164 = jointMatrices._m0[_160] * in.in_var_BLENDWEIGHT0.z;
+    uint _174 = in.in_var_BLENDINDICES0.w * 2u;
+    float4x4 _178 = jointMatrices._m0[_174] * in.in_var_BLENDWEIGHT0.w;
+    bool _189 = dot(in.in_var_BLENDWEIGHT0, float4(1.0)) == 0.0;
+    float4x4 _192;
+    if (_189)
     {
-        _189 = float4x4(float4(1.0, 0.0, 0.0, 0.0), float4(0.0, 1.0, 0.0, 0.0), float4(0.0, 0.0, 1.0, 0.0), float4(0.0, 0.0, 0.0, 1.0));
+        _192 = float4x4(float4(1.0, 0.0, 0.0, 0.0), float4(0.0, 1.0, 0.0, 0.0), float4(0.0, 0.0, 1.0, 0.0), float4(0.0, 0.0, 0.0, 1.0));
     }
     else
     {
-        _189 = float4x4(((float4(_137[0][0], _137[1][0], _137[2][0], _137[3][0]) + float4(_143[0][0], _143[1][0], _143[2][0], _143[3][0])) + float4(_161[0][0], _161[1][0], _161[2][0], _161[3][0])) + float4(_175[0][0], _175[1][0], _175[2][0], _175[3][0]), ((float4(_137[0][1], _137[1][1], _137[2][1], _137[3][1]) + float4(_143[0][1], _143[1][1], _143[2][1], _143[3][1])) + float4(_161[0][1], _161[1][1], _161[2][1], _161[3][1])) + float4(_175[0][1], _175[1][1], _175[2][1], _175[3][1]), ((float4(_137[0][2], _137[1][2], _137[2][2], _137[3][2]) + float4(_143[0][2], _143[1][2], _143[2][2], _143[3][2])) + float4(_161[0][2], _161[1][2], _161[2][2], _161[3][2])) + float4(_175[0][2], _175[1][2], _175[2][2], _175[3][2]), ((float4(_137[0][3], _137[1][3], _137[2][3], _137[3][3]) + float4(_143[0][3], _143[1][3], _143[2][3], _143[3][3])) + float4(_161[0][3], _161[1][3], _161[2][3], _161[3][3])) + float4(_175[0][3], _175[1][3], _175[2][3], _175[3][3]));
+        _192 = float4x4(((float4(_140[0][0], _140[1][0], _140[2][0], _140[3][0]) + float4(_146[0][0], _146[1][0], _146[2][0], _146[3][0])) + float4(_164[0][0], _164[1][0], _164[2][0], _164[3][0])) + float4(_178[0][0], _178[1][0], _178[2][0], _178[3][0]), ((float4(_140[0][1], _140[1][1], _140[2][1], _140[3][1]) + float4(_146[0][1], _146[1][1], _146[2][1], _146[3][1])) + float4(_164[0][1], _164[1][1], _164[2][1], _164[3][1])) + float4(_178[0][1], _178[1][1], _178[2][1], _178[3][1]), ((float4(_140[0][2], _140[1][2], _140[2][2], _140[3][2]) + float4(_146[0][2], _146[1][2], _146[2][2], _146[3][2])) + float4(_164[0][2], _164[1][2], _164[2][2], _164[3][2])) + float4(_178[0][2], _178[1][2], _178[2][2], _178[3][2]), ((float4(_140[0][3], _140[1][3], _140[2][3], _140[3][3]) + float4(_146[0][3], _146[1][3], _146[2][3], _146[3][3])) + float4(_164[0][3], _164[1][3], _164[2][3], _164[3][3])) + float4(_178[0][3], _178[1][3], _178[2][3], _178[3][3]));
     }
-    float4x4 _193 = jointMatrices._m0[_133 + 1u] * in.in_var_BLENDWEIGHT0.x;
-    float4x4 _197 = jointMatrices._m0[_139 + 1u] * in.in_var_BLENDWEIGHT0.y;
-    float4x4 _213 = jointMatrices._m0[_157 + 1u] * in.in_var_BLENDWEIGHT0.z;
-    float4x4 _225 = jointMatrices._m0[_171 + 1u] * in.in_var_BLENDWEIGHT0.w;
-    float4x4 _237;
-    if (_186)
+    float4x4 _196 = jointMatrices._m0[_136 + 1u] * in.in_var_BLENDWEIGHT0.x;
+    float4x4 _200 = jointMatrices._m0[_142 + 1u] * in.in_var_BLENDWEIGHT0.y;
+    float4x4 _216 = jointMatrices._m0[_160 + 1u] * in.in_var_BLENDWEIGHT0.z;
+    float4x4 _228 = jointMatrices._m0[_174 + 1u] * in.in_var_BLENDWEIGHT0.w;
+    float4x4 _240;
+    if (_189)
     {
-        _237 = float4x4(float4(1.0, 0.0, 0.0, 0.0), float4(0.0, 1.0, 0.0, 0.0), float4(0.0, 0.0, 1.0, 0.0), float4(0.0, 0.0, 0.0, 1.0));
+        _240 = float4x4(float4(1.0, 0.0, 0.0, 0.0), float4(0.0, 1.0, 0.0, 0.0), float4(0.0, 0.0, 1.0, 0.0), float4(0.0, 0.0, 0.0, 1.0));
     }
     else
     {
-        _237 = float4x4(((float4(_193[0][0], _193[1][0], _193[2][0], _193[3][0]) + float4(_197[0][0], _197[1][0], _197[2][0], _197[3][0])) + float4(_213[0][0], _213[1][0], _213[2][0], _213[3][0])) + float4(_225[0][0], _225[1][0], _225[2][0], _225[3][0]), ((float4(_193[0][1], _193[1][1], _193[2][1], _193[3][1]) + float4(_197[0][1], _197[1][1], _197[2][1], _197[3][1])) + float4(_213[0][1], _213[1][1], _213[2][1], _213[3][1])) + float4(_225[0][1], _225[1][1], _225[2][1], _225[3][1]), ((float4(_193[0][2], _193[1][2], _193[2][2], _193[3][2]) + float4(_197[0][2], _197[1][2], _197[2][2], _197[3][2])) + float4(_213[0][2], _213[1][2], _213[2][2], _213[3][2])) + float4(_225[0][2], _225[1][2], _225[2][2], _225[3][2]), ((float4(_193[0][3], _193[1][3], _193[2][3], _193[3][3]) + float4(_197[0][3], _197[1][3], _197[2][3], _197[3][3])) + float4(_213[0][3], _213[1][3], _213[2][3], _213[3][3])) + float4(_225[0][3], _225[1][3], _225[2][3], _225[3][3]));
+        _240 = float4x4(((float4(_196[0][0], _196[1][0], _196[2][0], _196[3][0]) + float4(_200[0][0], _200[1][0], _200[2][0], _200[3][0])) + float4(_216[0][0], _216[1][0], _216[2][0], _216[3][0])) + float4(_228[0][0], _228[1][0], _228[2][0], _228[3][0]), ((float4(_196[0][1], _196[1][1], _196[2][1], _196[3][1]) + float4(_200[0][1], _200[1][1], _200[2][1], _200[3][1])) + float4(_216[0][1], _216[1][1], _216[2][1], _216[3][1])) + float4(_228[0][1], _228[1][1], _228[2][1], _228[3][1]), ((float4(_196[0][2], _196[1][2], _196[2][2], _196[3][2]) + float4(_200[0][2], _200[1][2], _200[2][2], _200[3][2])) + float4(_216[0][2], _216[1][2], _216[2][2], _216[3][2])) + float4(_228[0][2], _228[1][2], _228[2][2], _228[3][2]), ((float4(_196[0][3], _196[1][3], _196[2][3], _196[3][3]) + float4(_200[0][3], _200[1][3], _200[2][3], _200[3][3])) + float4(_216[0][3], _216[1][3], _216[2][3], _216[3][3])) + float4(_228[0][3], _228[1][3], _228[2][3], _228[3][3]));
     }
-    float4 _259 = Object.world * (float4(in.in_var_POSITION + _90, 1.0) * _189);
-    float3 _275 = fast::normalize((Object.normalMatrix * float4(fast::normalize((in.in_var_NORMAL + _93) * float3x3(_237[0].xyz, _237[1].xyz, _237[2].xyz)), 0.0)).xyz);
-    float3 _282 = fast::normalize((Object.world * float4(fast::normalize((in.in_var_TANGENT.xyz + _95) * float3x3(_189[0].xyz, _189[1].xyz, _189[2].xyz)), 0.0)).xyz);
-    out.gl_Position = Frame.viewProj * _259;
-    out.out_var_WORLD_POSITION = _259.xyz / float3(_259.w);
-    out.out_var_TANGENT = _282;
-    out.out_var_BINORMAL = cross(_275, _282) * in.in_var_TANGENT.w;
-    out.out_var_NORMAL = _275;
+    float4 _262 = Object.world * (float4(in.in_var_POSITION + _93, 1.0) * _192);
+    float3 _278 = fast::normalize((Object.normalMatrix * float4(fast::normalize((in.in_var_NORMAL + _96) * float3x3(_240[0].xyz, _240[1].xyz, _240[2].xyz)), 0.0)).xyz);
+    float3 _285 = fast::normalize((Object.world * float4(fast::normalize((in.in_var_TANGENT.xyz + _98) * float3x3(_192[0].xyz, _192[1].xyz, _192[2].xyz)), 0.0)).xyz);
+    out.gl_Position = Frame.viewProj * _262;
+    out.out_var_WORLD_POSITION = _262.xyz / float3(_262.w);
+    out.out_var_TANGENT = _285;
+    out.out_var_BINORMAL = cross(_278, _285) * in.in_var_TANGENT.w;
+    out.out_var_NORMAL = _278;
     out.out_var_TEXCOORD0 = in.in_var_TEXCOORD0;
     out.out_var_TEXCOORD1 = in.in_var_TEXCOORD1;
     out.out_var_COLOR0 = in.in_var_COLOR0;
+    out.out_var_DRAWFLAGS = Object.morphInfo.w;
     return out;
 }
 

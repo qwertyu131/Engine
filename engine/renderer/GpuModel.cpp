@@ -239,6 +239,10 @@ Result<void> GpuModel::init(const asset::ModelData& model, std::vector<asset::Di
             g.material = p.material;
             g.bounds = p.bounds;
             g.triangles = p.topology == asset::Topology::TriangleList;
+            const bool notTriangle = p.topology == asset::Topology::PointList ||
+                                     p.topology == asset::Topology::LineList || p.topology == asset::Topology::LineStrip;
+            g.unlitNoNormal = notTriangle && p.normal.empty();
+            g.ignoreNormalMap = notTriangle && !p.normal.empty() && p.tangent.empty();
             g.topology = p.topology == asset::Topology::PointList  ? PrimitiveTopology::PointList
                          : p.topology == asset::Topology::LineList ? PrimitiveTopology::LineList
                                                                    : PrimitiveTopology::TriangleList;

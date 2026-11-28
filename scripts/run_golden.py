@@ -12,6 +12,9 @@ Render case (rendered by headless, compared against a reference PNG):
     "width": int, "height": int,
     "cvars": ["name=value", ...],      # optional, headless --cvar (CommandLine source)
     "bench": int,                      # optional, headless --bench N -> frameTimeMs = frame_ms_avg
+    "expectedFail": str,               # optional (plan F3 Task 6): the reason a case still fails; its FAIL is reported
+                                       #   XFAIL and does not fail the run; at most 10 % of the render cases may
+                                       #   carry it (EXPECTED_FAIL_CAP), otherwise the run fails
     "pngChannels": 3 | 4,              # optional, headless --png-channels (3: an RGB render for an RGB reference,
                                        #   e.g. the Sample-Viewer references, whose canvas has no alpha)
     "ref": str,                        # reference PNG, relative to the manifest directory
@@ -59,6 +62,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 EXIT_ERROR = 2
 CASE_NAME = re.compile(r"^[A-Za-z0-9_.-]+$")
+EXPECTED_FAIL_CAP = 0.10  # plan F3 Task 6: expected-fail cases <= 10 % of the render cases
 FRAME_MS_AVG = re.compile(r"frame_ms_avg=([0-9.eE+-]+)")
 
 
@@ -164,6 +168,8 @@ def load_manifest(path: Path) -> dict:
         bench = c.get("bench")
         if bench is not None and (not _int(bench) or bench < 1):
             raise DriverError(f"case '{name}': 'bench' must be a positive integer")
+        if "expectedFail" in c and (not isinstance(c["expectedFail"], str) or not c["expectedFail"].strip()):
+            raise DriverError(f"case '{name}': 'expectedFail' must be a non-empty reason string")
         if "pngChannels" in c and c["pngChannels"] not in (3, 4):
             raise DriverError(f"case '{name}': 'pngChannels' must be 3 or 4")
         if "out" in c and (not isinstance(c["out"], str) or not c["out"].lower().endswith(".png")):
@@ -181,6 +187,31 @@ def load_manifest(path: Path) -> dict:
             if c[key] not in renders:
                 raise DriverError(f"case '{c['name']}': {key} '{c[key]}' is not a render case")
     return data
+
+
+def apply_expected_fail(results: dict, cases: list[dict]) -> int:
+    """FAIL of an expectedFail case -> XFAIL (detail names the reason); an expectedFail case that passes is flagged in
+    its detail. Returns the number of cases that are neither PASS nor XFAIL."""
+    reasons = {c["name"]: c["expectedFail"] for c in cases if c.get("expectedFail")}
+    for case in results.get("cases", []):
+        why = reasons.get(case.get("name"))
+        if why is None:
+            continue
+        if case.get("status") != "PASS":
+            case["status"] = "XFAIL"
+            case["detail"] = (case.get("detail") + "; " if case.get("detail") else "") + f"expected fail: {why}"
+        else:
+            case["detail"] = (case.get("detail") + "; " if case.get("detail") else "") + \
+                f"passes although marked expectedFail ({why})"
+    return sum(1 for c in results.get("cases", []) if c.get("status") not in ("PASS", "XFAIL"))
+
+
+def expected_fail_within_cap(cases: list[dict]) -> tuple[int, int, bool]:
+    """(expected-fail render cases, the cap = floor(10 % of the render cases), within the cap)."""
+    renders = [c for c in cases if "compareWith" not in c]
+    count = sum(1 for c in renders if c.get("expectedFail"))
+    cap = int(len(renders) * EXPECTED_FAIL_CAP + 1e-9)
+    return count, cap, count <= cap
 
 
 def case_output(case: dict, out_dir: Path) -> Path:
@@ -408,7 +439,8 @@ def run(args: argparse.Namespace) -> int:
     except (OSError, ValueError) as e:
         print(f"run_golden: cannot read {results}: {e}", file=sys.stderr)
         return EXIT_ERROR
-    failed = merge_case_info(res, extra)
+    merge_case_info(res, extra)
+    failed = apply_expected_fail(res, cases)
     results.write_text(json.dumps(res, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     for c in res.get("cases", []):
         for p in c.get("probes", []):
@@ -419,7 +451,13 @@ def run(args: argparse.Namespace) -> int:
                                                if "channelGreater" in p else
                                                f", expected {p.get('rgba')} +-{p.get('tol')}"), file=sys.stderr)
     rc = 1 if failed else 0
-    if golden_rc == 1:
+    if golden_rc == 1 and failed:
+        rc = 1
+    xf_count, xf_cap, xf_ok = expected_fail_within_cap(cases)
+    if xf_count:
+        print(f"run_golden: {xf_count} expected-fail case(s), cap {xf_cap} (10 % of the render cases)")
+    if not xf_ok:
+        print(f"run_golden: {xf_count} expected-fail cases exceed the cap of {xf_cap}", file=sys.stderr)
         rc = 1
 
     report = out_dir / "report.html"

@@ -50,6 +50,9 @@ struct VSOutput
     float2 uv0 : TEXCOORD0;
     float2 uv1 : TEXCOORD1;
     float4 color : COLOR0;
+    // Object.morphInfo.w passed on by the vertex stage (bit 0 unlit points / lines, bit 1 no normal texture), so the
+    // pixel stage reads no space-3 cbuffer and the space-3 layout stays the same in every permutation.
+    nointerpolation uint drawFlags : DRAWFLAGS;
 };
 
 #endif // VERTEX_HLSLI

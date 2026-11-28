@@ -447,6 +447,29 @@ TEST_CASE("rest pose: a skin and a morph target move the quad +2 in x (tests/ass
     }
 }
 
+TEST_CASE("animations are sampled at t = 0, the fit camera frames the rest pose (tests/assets/f03/rest/anim_quad)") {
+    // Plan F3 Task 6 (refgen: every animation not overlapping an earlier one, at t = 0): the quad rests at the origin,
+    // animation 0 puts it at (2, 0, 0) at t = 0 (its first key at t = 1 s, clamped), animation 1 (same target) is not
+    // played. The fit camera looks at the rest pose: target (0, 0, 0).
+    Fixture f = open(u8(ENG_TEST_ASSET_DIR) / "f03" / "rest" / "anim_quad.gltf");
+    CHECK(std::abs(f.camera.target[0]) < 1e-5f);
+    eng::Camera c;
+    c.position = {1.0f, 0.0f, 6.0f};
+    c.target = {1.0f, 0.0f, 0.0f};
+    c.yfov = 0.785398163f;
+    c.znear = 0.1f;
+    c.zfar = 100.0f;
+    f.r->setCamera(c);
+    const eng::Image img = render(f);
+    const M4 vp = viewProj(c, 1.0);
+    const auto moved = project(vp, {2.0, 0.0, 0.0}), origin = project(vp, {0.0, 0.0, 0.0}),
+               other = project(vp, {-3.0, 0.0, 0.0});
+    CHECK_FALSE(isBackground(pixel(img, moved[0], moved[1])));
+    CHECK(isBackground(pixel(img, origin[0], origin[1])));
+    CHECK(isBackground(pixel(img, other[0], other[1])));
+    done(f);
+}
+
 TEST_CASE("Review Focus 3 in the renderer: the emissive texture's view decodes sRGB before filtering") {
     // f03/colorspace/emissive_view.gltf: quad A emits emissiveFactor (0, srgbToLinear(188 / 255) / 2, 0); quad B emits
     // its 2 x 1 texture (0, 0, 0) - (0, 188, 0) sampled midway with emissiveFactor 1. Same black base, same normal: both

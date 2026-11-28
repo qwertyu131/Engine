@@ -37,10 +37,12 @@ struct MaterialCB {
     uint32_t texCoordSets2[4]; // emissive
     float uvTransform[10][4];
 };
+inline constexpr uint32_t kObjectUnlit = 1u;       // ObjectCB::morphInfo[3] bits (shaders/common/bindings.hlsli)
+inline constexpr uint32_t kObjectNoNormalMap = 2u;
 struct ObjectCB {
     float world[16];
     float normalMatrix[16];
-    uint32_t morphInfo[4]; // active targets, vertex count, has tangent deltas
+    uint32_t morphInfo[4]; // active targets, vertex count, has tangent deltas, w = kObjectUnlit | kObjectNoNormalMap
     float morphWeights[2][4];
 };
 struct FrameCB {
@@ -82,6 +84,10 @@ struct GpuPrimitive {
     bool skinned = false;          // JOINTS_0 + WEIGHTS_0 present
     uint32_t targetCount = 0;      // morph targets (T0: <= 8 uploaded)
     bool tangentDeltas = false;
+    // POINTS / LINES (Sample-Renderer renderer.js NOT_TRIANGLE): without NORMAL drawn unlit (emissive + base colour),
+    // with NORMAL but no TANGENT the normal texture is ignored.
+    bool unlitNoNormal = false;
+    bool ignoreNormalMap = false;
     int material = -1;             // -1 = the glTF default material
     asset::Bounds bounds;
 };

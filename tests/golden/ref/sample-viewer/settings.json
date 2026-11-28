@@ -8,8 +8,8 @@
   },
   "browser": {
     "puppeteer": "25.17.0",
-    "version": "firefox/160.0.1",
-    "launchMode": "firefox-headed-offscreen",
+    "version": "firefox/161.0",
+    "launchMode": "firefox-headless",
     "webgl": {
       "renderer": "ANGLE (NVIDIA, NVIDIA GeForce GTX 980 Direct3D11 vs_5_0 ps_5_0), or similar",
       "vendor": "Google Inc. (NVIDIA)",
@@ -20,12 +20,6 @@
   "launchAttempts": [
     {
       "mode": "firefox-headless",
-      "ok": false,
-      "error": "Failed to launch the browser process:  Code: 0\n\nstderr:\n*** You are running in headless mode.\n\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n",
-      "pageErrors": []
-    },
-    {
-      "mode": "firefox-headed-offscreen",
       "ok": true
     }
   ],
@@ -90,6 +84,506 @@
   },
   "models": [
     {
+      "name": "AlphaBlendModeTest",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "AlphaBlendModeTest.glb",
+      "png": "AlphaBlendModeTest.png",
+      "pngSha256": "c0e5f8647a2f461ed158004b995fd08cb20d319214dba7b6181e72475192b87f",
+      "pixelStdDev": 33.956,
+      "modelCoverage": 0.243,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 9,
+        "faceCount": 61,
+        "opaqueMaterialsCount": 5,
+        "transparentMaterialsCount": 1
+      }
+    },
+    {
+      "name": "AnimatedCube",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "AnimatedCube.gltf",
+      "png": "AnimatedCube.png",
+      "pngSha256": "6d2d2e2b07cc09fb0a592e6c355776cc5b17efda0e423f0acf3db8c4de10e5cf",
+      "pixelStdDev": 24.389,
+      "modelCoverage": 0.5743,
+      "animationIndices": [
+        0
+      ],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 12,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "AnimatedMorphCube",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "AnimatedMorphCube.glb",
+      "png": "AnimatedMorphCube.png",
+      "pngSha256": "406ce4d865485c7c31f7c3ade3642ab3da03ab0d042fe2a117825236b5be64f2",
+      "pixelStdDev": 21.876,
+      "modelCoverage": 0.4803,
+      "animationIndices": [
+        0
+      ],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 12,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "AnimatedTriangle",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "AnimatedTriangle.gltf",
+      "png": "AnimatedTriangle.png",
+      "pngSha256": "76c639d5d039af16d21d2b23227d053d601cacf166ec66322079270ad210a041",
+      "pixelStdDev": 30.898,
+      "modelCoverage": 0.2506,
+      "animationIndices": [
+        0
+      ],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 1,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "AntiqueCamera",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "AntiqueCamera.glb",
+      "png": "AntiqueCamera.png",
+      "pngSha256": "5fbe4a1d583d9562877ee7b74b0cca507b761be8cc499bffe43d990db4e68acb",
+      "pixelStdDev": 37.834,
+      "modelCoverage": 0.0996,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 2,
+        "faceCount": 20066,
+        "opaqueMaterialsCount": 2,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "Avocado",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "Avocado.glb",
+      "png": "Avocado.png",
+      "pngSha256": "3a7ba3dbcd654a0e91cf1b8ebf8fe091d752de0a13f1b04136e05b05642691f4",
+      "pixelStdDev": 40.225,
+      "modelCoverage": 0.3335,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 682,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "BarramundiFish",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "BarramundiFish.glb",
+      "png": "BarramundiFish.png",
+      "pngSha256": "84807807757dcee0934bdf353ce414785ff4991f708ebb002cfc3d663bc94b43",
+      "pixelStdDev": 30.248,
+      "modelCoverage": 0.0419,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 3864,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "BoomBox",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "BoomBox.glb",
+      "png": "BoomBox.png",
+      "pngSha256": "f9385b93fc0554383f06f81a4c70fbc124a772e1df32116d2e8cccf0482d68ef",
+      "pixelStdDev": 48.1,
+      "modelCoverage": 0.2366,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 6036,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "BoomBoxWithAxes",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "BoomBoxWithAxes.gltf",
+      "png": "BoomBoxWithAxes.png",
+      "pngSha256": "22e241543b918d506015f4401ef426487c4f06ab90a74ad5acd2038c90441f38",
+      "pixelStdDev": 43.847,
+      "modelCoverage": 0.1845,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 5,
+        "faceCount": 16688,
+        "opaqueMaterialsCount": 2,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "Box",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "Box.glb",
+      "png": "Box.png",
+      "pngSha256": "ca108622de7b46ab9e1a18c344fae2830ce228119107526a6e5295d5b0831abd",
+      "pixelStdDev": 73.537,
+      "modelCoverage": 0.5802,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 12,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "Box With Spaces",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "Box With Spaces.gltf",
+      "png": "Box With Spaces.png",
+      "pngSha256": "6a3ef37c3312b3a56a4b0d30334091999e4ac334dcf1632cdf48bb0324cf3175",
+      "pixelStdDev": 59.365,
+      "modelCoverage": 0.5802,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 12,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "BoxAnimated",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "BoxAnimated.glb",
+      "png": "BoxAnimated.png",
+      "pngSha256": "d7a4ba941d4e712c924fd9cc7d0e9232098c87f2c2980ee76e76942689f5b3d9",
+      "pixelStdDev": 31.889,
+      "modelCoverage": 0.5743,
+      "animationIndices": [
+        0
+      ],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 2,
+        "faceCount": 254,
+        "opaqueMaterialsCount": 2,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "BoxInterleaved",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "BoxInterleaved.glb",
+      "png": "BoxInterleaved.png",
+      "pngSha256": "264566b675843e32c610555afe549c4709b947ef0e70d7f4fa5868e9a9c8b5b2",
+      "pixelStdDev": 72.717,
+      "modelCoverage": 0.5802,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 12,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "BoxTextured",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "BoxTextured.glb",
+      "png": "BoxTextured.png",
+      "pngSha256": "496dc932d81b87670bdb6795af2b8e1676035fe5a1efffa9efe02e7a949964ed",
+      "pixelStdDev": 46.572,
+      "modelCoverage": 0.5255,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 12,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "BoxTexturedNonPowerOfTwo",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "BoxTexturedNonPowerOfTwo.glb",
+      "png": "BoxTexturedNonPowerOfTwo.png",
+      "pngSha256": "678bd2b571816368df32c92454ad8c3e215c623e7b46b9469d9900bb395f967e",
+      "pixelStdDev": 46.55,
+      "modelCoverage": 0.5255,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 12,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "BoxVertexColors",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "BoxVertexColors.glb",
+      "png": "BoxVertexColors.png",
+      "pngSha256": "cf65667c186ed3efaad2c8df635d6fe6997e4998153a0a530d0734fb816b68a9",
+      "pixelStdDev": 56.977,
+      "modelCoverage": 0.5802,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 12,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "BrainStem",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "BrainStem.glb",
+      "png": "BrainStem.png",
+      "pngSha256": "884a668e3b55e79fb570bff2ff5a6a6cccc692096968c6717b8e5c7fee5f10ad",
+      "pixelStdDev": 32.45,
+      "modelCoverage": 0.1664,
+      "animationIndices": [
+        0
+      ],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 61666,
+        "opaqueMaterialsCount": 59,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "Cameras",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "Cameras.gltf",
+      "png": "Cameras.png",
+      "pngSha256": "bd4e471e0eeaf10fab8a5f89cac43f33dc39080df0f74efdf331f6cfd0d1f3cd",
+      "pixelStdDev": 48.517,
+      "modelCoverage": 0.3877,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 2,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "CesiumMan",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "CesiumMan.glb",
+      "png": "CesiumMan.png",
+      "pngSha256": "3cb803d757d45747b4a7e341be6ccafc9661c6e715699001ec282e76ced51f73",
+      "pixelStdDev": 31.232,
+      "modelCoverage": 0.1005,
+      "animationIndices": [
+        0
+      ],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 4672,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "CesiumMilkTruck",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "CesiumMilkTruck.glb",
+      "png": "CesiumMilkTruck.png",
+      "pngSha256": "d65c2d511881726ed5060298648f4fa2bd1453528a9cb3829c23d1f7f42fbaa2",
+      "pixelStdDev": 48.733,
+      "modelCoverage": 0.2481,
+      "animationIndices": [
+        0
+      ],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 3,
+        "faceCount": 3624,
+        "opaqueMaterialsCount": 4,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "CompareAlphaCoverage",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "CompareAlphaCoverage.glb",
+      "png": "CompareAlphaCoverage.png",
+      "pngSha256": "01b84605d89f4cd02e2d960255dc2b387a5673017514da499b180f6fea3a26dd",
+      "pixelStdDev": 33.288,
+      "modelCoverage": 0.1803,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 6,
+        "faceCount": 54,
+        "opaqueMaterialsCount": 3,
+        "transparentMaterialsCount": 1
+      }
+    },
+    {
+      "name": "CompareAmbientOcclusion",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "CompareAmbientOcclusion.glb",
+      "png": "CompareAmbientOcclusion.png",
+      "pngSha256": "8b67caa09bb920e912d233411a6661526ed8a28d02e74264deb14c49aae89f56",
+      "pixelStdDev": 40.298,
+      "modelCoverage": 0.2041,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 6,
+        "faceCount": 124862,
+        "opaqueMaterialsCount": 5,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "CompareMetallic",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "CompareMetallic.glb",
+      "png": "CompareMetallic.png",
+      "pngSha256": "f483957e44dd9d2274eda27a295f7c1656658aad991451b993476720296e9be2",
+      "pixelStdDev": 38.679,
+      "modelCoverage": 0.2024,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 2,
+        "faceCount": 2560,
+        "opaqueMaterialsCount": 2,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "CompareNormal",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "CompareNormal.glb",
+      "png": "CompareNormal.png",
+      "pngSha256": "8160dfaf880e30e077599731637a8df3c6a4829c0ca6e5631d58d39721afcdb6",
+      "pixelStdDev": 29.511,
+      "modelCoverage": 0.1924,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 2,
+        "faceCount": 6144,
+        "opaqueMaterialsCount": 2,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "CompareRoughness",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "CompareRoughness.glb",
+      "png": "CompareRoughness.png",
+      "pngSha256": "6b74a8d8939a94d33a68e787ac7e915aba992961f3c65506a427ce42b652e509",
+      "pixelStdDev": 49.475,
+      "modelCoverage": 0.2021,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 2,
+        "faceCount": 2560,
+        "opaqueMaterialsCount": 2,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "Corset",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "Corset.glb",
+      "png": "Corset.png",
+      "pngSha256": "d8e67ab228d31133a8be86b7f37c14a31074c69e4a7676f79fd273e2bc4525f9",
+      "pixelStdDev": 49.723,
+      "modelCoverage": 0.2375,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 18324,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "Cube",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "Cube.gltf",
+      "png": "Cube.png",
+      "pngSha256": "c86b713cab6ea4672cea59e8f441809c9aa866068b427cad023826512dbd3b7f",
+      "pixelStdDev": 24.389,
+      "modelCoverage": 0.5743,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 12,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
       "name": "DamagedHelmet",
       "status": "OK",
       "variant": "glTF-Binary",
@@ -103,6 +597,144 @@
       "sceneStats": {
         "meshCount": 1,
         "faceCount": 15452,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "DirectionalLight",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "DirectionalLight.glb",
+      "png": "DirectionalLight.png",
+      "pngSha256": "a2aa318cfb55053d67b3ef89b823d1c869435ee72953306c3f864bfeda08ca51",
+      "pixelStdDev": 28.612,
+      "modelCoverage": 0.1116,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 3,
+        "faceCount": 31800,
+        "opaqueMaterialsCount": 3,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "Duck",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "Duck.glb",
+      "png": "Duck.png",
+      "pngSha256": "ca0313ebb930b9bbe9dbb9a04f89dad15ceae281e3049df4b0102e83411da403",
+      "pixelStdDev": 51.684,
+      "modelCoverage": 0.2867,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 4212,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "EnvironmentTest",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "EnvironmentTest.gltf",
+      "png": "EnvironmentTest.png",
+      "pngSha256": "a249b342338a8f684eba0e01d99ceb59a620a35f13aa8f12e548480e179e42fa",
+      "pixelStdDev": 33.679,
+      "modelCoverage": 0.0681,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 3,
+        "faceCount": 25344,
+        "opaqueMaterialsCount": 3,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "Fox",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "Fox.glb",
+      "png": "Fox.png",
+      "pngSha256": "c50519166eb7d517bf44075533cbd0b05ee52f993e0a23ca65d1f7fb5c70ea62",
+      "pixelStdDev": 30.605,
+      "modelCoverage": 0.0767,
+      "animationIndices": [
+        0
+      ],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 576,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "InterpolationTest",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "InterpolationTest.glb",
+      "png": "InterpolationTest.png",
+      "pngSha256": "2a45c1606788c9f447b5342a04465e6278115d96145290740108dfe13974fdcb",
+      "pixelStdDev": 30.172,
+      "modelCoverage": 0.1965,
+      "animationIndices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 10,
+        "faceCount": 110,
+        "opaqueMaterialsCount": 2,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "Lantern",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "Lantern.glb",
+      "png": "Lantern.png",
+      "pngSha256": "63e4d6d7682e71921f76e93fa340cf70e10cd98ba5204cc58ed3a36d7c861493",
+      "pixelStdDev": 33.829,
+      "modelCoverage": 0.1043,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 3,
+        "faceCount": 5394,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "MeshPrimitiveModes",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "MeshPrimitiveModes.gltf",
+      "png": "MeshPrimitiveModes.png",
+      "pngSha256": "416abdbf165302ba719d30819522843a6d40313f405dc2d991de1ffdac8be5fb",
+      "pixelStdDev": 26.36,
+      "modelCoverage": 0.115,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 7,
+        "faceCount": 42,
         "opaqueMaterialsCount": 1,
         "transparentMaterialsCount": 0
       }
@@ -126,6 +758,152 @@
       }
     },
     {
+      "name": "MetalRoughSpheresNoTextures",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "MetalRoughSpheresNoTextures.glb",
+      "png": "MetalRoughSpheresNoTextures.png",
+      "pngSha256": "603e3ab71c13a3e3990a4bf5a36de281b25199b9afacc95d719d271ef61baabe",
+      "pixelStdDev": 43.437,
+      "modelCoverage": 0.5524,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 102,
+        "faceCount": 1040409,
+        "opaqueMaterialsCount": 99,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "MorphPrimitivesTest",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "MorphPrimitivesTest.glb",
+      "png": "MorphPrimitivesTest.png",
+      "pngSha256": "d31ab46070c930841c6b2f16115a40b722503c3e2e80adc38d6170e93303e841",
+      "pixelStdDev": 34.677,
+      "modelCoverage": 0.0558,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 32,
+        "opaqueMaterialsCount": 2,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "MorphStressTest",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "MorphStressTest.glb",
+      "png": "MorphStressTest.png",
+      "pngSha256": "3187a41fbcafbb20758f46cbeebb70a0b211237882dcb5183585c8fc1dbf2a1a",
+      "pixelStdDev": 32.593,
+      "modelCoverage": 0.1013,
+      "animationIndices": [
+        0
+      ],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 2412,
+        "opaqueMaterialsCount": 2,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "MultipleScenes",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "MultipleScenes.gltf",
+      "png": "MultipleScenes.png",
+      "pngSha256": "b5ec85ca531e0b4e917873ee09c46f39cde1c3977bc7840809a252cd50e71318",
+      "pixelStdDev": 36.474,
+      "modelCoverage": 0.4999,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 2,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "MultiUVTest",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "MultiUVTest.glb",
+      "png": "MultiUVTest.png",
+      "pngSha256": "bf9d58fc1b1698d63594f74a53b555cce674448bcb5f690c9a4de9feaf217e99",
+      "pixelStdDev": 50.327,
+      "modelCoverage": 0.5802,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 12,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "NegativeScaleTest",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "NegativeScaleTest.glb",
+      "png": "NegativeScaleTest.png",
+      "pngSha256": "60d4a24e895f7db9d9128fe5943f3d7127439bb7b6f4d05c97815b50c5fef55a",
+      "pixelStdDev": 49.409,
+      "modelCoverage": 0.4956,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 11,
+        "faceCount": 7724,
+        "opaqueMaterialsCount": 6,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "NodePerformanceTest",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "NodePerformanceTest.glb",
+      "png": "NodePerformanceTest.png",
+      "pngSha256": "3f14922861b317d65e344cc8b9afe05fc02fb3a0b051a67d3aa539d3d4a35d20",
+      "pixelStdDev": 42.012,
+      "modelCoverage": 0.13,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 10000,
+        "faceCount": 268268,
+        "opaqueMaterialsCount": 10000,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "NormalTangentMirrorTest",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "NormalTangentMirrorTest.glb",
+      "png": "NormalTangentMirrorTest.png",
+      "pngSha256": "3a625373214a229737a26f41ad486ae6072211706cbd940c2f3a842183b93671",
+      "pixelStdDev": 34.527,
+      "modelCoverage": 0.2953,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 5240,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
       "name": "NormalTangentTest",
       "status": "OK",
       "variant": "glTF-Binary",
@@ -144,21 +922,265 @@
       }
     },
     {
-      "name": "AlphaBlendModeTest",
+      "name": "OrientationTest",
       "status": "OK",
       "variant": "glTF-Binary",
-      "file": "AlphaBlendModeTest.glb",
-      "png": "AlphaBlendModeTest.png",
-      "pngSha256": "c0e5f8647a2f461ed158004b995fd08cb20d319214dba7b6181e72475192b87f",
-      "pixelStdDev": 33.956,
-      "modelCoverage": 0.243,
+      "file": "OrientationTest.glb",
+      "png": "OrientationTest.png",
+      "pngSha256": "7a67bc90524912d9fc8418c797be1b896fe8288c5be4c4eb78a3d20e98b8fdc9",
+      "pixelStdDev": 45.087,
+      "modelCoverage": 0.5621,
       "animationIndices": [],
       "deterministicRerender": true,
       "sceneStats": {
-        "meshCount": 9,
-        "faceCount": 61,
-        "opaqueMaterialsCount": 5,
-        "transparentMaterialsCount": 1
+        "meshCount": 13,
+        "faceCount": 524,
+        "opaqueMaterialsCount": 7,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "PrimitiveModeNormalsTest",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "PrimitiveModeNormalsTest.gltf",
+      "png": "PrimitiveModeNormalsTest.png",
+      "pngSha256": "59d07c7d517eb882b96aaa778e168d23d4e987998861579b925c15eb5997d649",
+      "pixelStdDev": 50.449,
+      "modelCoverage": 0.2777,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 25,
+        "faceCount": 1051130,
+        "opaqueMaterialsCount": 3,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "RecursiveSkeletons",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "RecursiveSkeletons.glb",
+      "png": "RecursiveSkeletons.png",
+      "pngSha256": "5c9217b68275efc1b0beec6f0878dba4582d0630fbb5530a05d13909e7389577",
+      "pixelStdDev": 35.221,
+      "modelCoverage": 0.5197,
+      "animationIndices": [
+        0
+      ],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 84,
+        "faceCount": 6384,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "RiggedFigure",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "RiggedFigure.glb",
+      "png": "RiggedFigure.png",
+      "pngSha256": "d522bf0fe2ae6b2f25021a08c740aa69a97c4da200e0b1f322277c68a9530206",
+      "pixelStdDev": 27.762,
+      "modelCoverage": 0.1044,
+      "animationIndices": [
+        0
+      ],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 256,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "RiggedSimple",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "RiggedSimple.glb",
+      "png": "RiggedSimple.png",
+      "pngSha256": "5271ad34b09fbac58dd7972befded78778f78f8f20d435225062816cb9327c0e",
+      "pixelStdDev": 27.424,
+      "modelCoverage": 0.1284,
+      "animationIndices": [
+        0
+      ],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 188,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "SciFiHelmet",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "SciFiHelmet.gltf",
+      "png": "SciFiHelmet.png",
+      "pngSha256": "78742afb17a9d3be867cb2182485ab81251ec96e2874f492c0f09ae48d63f683",
+      "pixelStdDev": 49.07,
+      "modelCoverage": 0.2138,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 23358,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "SimpleMaterial",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "SimpleMaterial.gltf",
+      "png": "SimpleMaterial.png",
+      "pngSha256": "15addd60b0572d271adb31b763d7274496a6422b6b4c40fd3b7411eef103127b",
+      "pixelStdDev": 28.902,
+      "modelCoverage": 0.2506,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 1,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "SimpleMeshes",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "SimpleMeshes.gltf",
+      "png": "SimpleMeshes.png",
+      "pngSha256": "0d366eb3522cac2b5d8dd30f837e6fd7e8075a13e13de872823b350e0ca3e128",
+      "pixelStdDev": 31.763,
+      "modelCoverage": 0.1723,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 2,
+        "faceCount": 2,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "SimpleMorph",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "SimpleMorph.gltf",
+      "png": "SimpleMorph.png",
+      "pngSha256": "f5bbdbf791be8f01bbc49b8e1893df74b5f94c4c1103461ad4cb2412fd1d904d",
+      "pixelStdDev": 32.331,
+      "modelCoverage": 0.2009,
+      "animationIndices": [
+        0
+      ],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 1,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "SimpleSkin",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "SimpleSkin.gltf",
+      "png": "SimpleSkin.png",
+      "pngSha256": "f30e93e67c7d22690596a18b0f4c27b557fc562063e087e9a250fcd37632f4e4",
+      "pixelStdDev": 35.977,
+      "modelCoverage": 0.4018,
+      "animationIndices": [
+        0
+      ],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 8,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "SimpleSparseAccessor",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "SimpleSparseAccessor.gltf",
+      "png": "SimpleSparseAccessor.png",
+      "pngSha256": "7a0d798950fcb8d617098b449589e85b7bdb3f9004b0a581b16209059ae9710a",
+      "pixelStdDev": 31.507,
+      "modelCoverage": 0.2324,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 12,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "SimpleTexture",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "SimpleTexture.gltf",
+      "png": "SimpleTexture.png",
+      "pngSha256": "7e82625b36e524fcd3ca2491270eab7d5ec7cb3ed2a5b1b514e42d539296ecb0",
+      "pixelStdDev": 60.744,
+      "modelCoverage": 0.4994,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 2,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "Sponza",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "Sponza.gltf",
+      "png": "Sponza.png",
+      "pngSha256": "96c81c5b1aaed59fcfa421a49d93d085372e1c222e263b8889895cbb03326e58",
+      "pixelStdDev": 39.366,
+      "modelCoverage": 0.3013,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 262267,
+        "opaqueMaterialsCount": 25,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "Suzanne",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "Suzanne.gltf",
+      "png": "Suzanne.png",
+      "pngSha256": "a3b0d944b50311bb6b1113245d60a5e7f879beb36cda6db3becb345edbd4a4bc",
+      "pixelStdDev": 47.645,
+      "modelCoverage": 0.1942,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 3936,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
       }
     },
     {
@@ -176,6 +1198,177 @@
         "meshCount": 5,
         "faceCount": 10,
         "opaqueMaterialsCount": 5,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "TextureEncodingTest",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "TextureEncodingTest.glb",
+      "png": "TextureEncodingTest.png",
+      "pngSha256": "5bb4202d633ff5ae1a4f9076202cfbc18e1923eb5a0100b7ec4d47a19e2e5732",
+      "pixelStdDev": 49.461,
+      "modelCoverage": 0.1797,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 14,
+        "faceCount": 3844,
+        "opaqueMaterialsCount": 14,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "TextureLinearInterpolationTest",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "TextureLinearInterpolationTest.glb",
+      "png": "TextureLinearInterpolationTest.png",
+      "pngSha256": "a9881d76b16ae0f8f4c0898fe4d744a71870820159170d328b9810ec9b262c8e",
+      "pixelStdDev": 59.693,
+      "modelCoverage": 0.2505,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 3,
+        "faceCount": 642,
+        "opaqueMaterialsCount": 3,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "TextureSettingsTest",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "TextureSettingsTest.glb",
+      "png": "TextureSettingsTest.png",
+      "pngSha256": "669529fe4bb0747753eadd38c2472e927c7bf8efed08b984d364bda614ffc62a",
+      "pixelStdDev": 49.756,
+      "modelCoverage": 0.5012,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 10,
+        "faceCount": 72,
+        "opaqueMaterialsCount": 10,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "Triangle",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "Triangle.gltf",
+      "png": "Triangle.png",
+      "pngSha256": "76c639d5d039af16d21d2b23227d053d601cacf166ec66322079270ad210a041",
+      "pixelStdDev": 30.898,
+      "modelCoverage": 0.2506,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 1,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "TriangleWithoutIndices",
+      "status": "OK",
+      "variant": "glTF",
+      "file": "TriangleWithoutIndices.gltf",
+      "png": "TriangleWithoutIndices.png",
+      "pngSha256": "76c639d5d039af16d21d2b23227d053d601cacf166ec66322079270ad210a041",
+      "pixelStdDev": 30.898,
+      "modelCoverage": 0.2506,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 1,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "TwoSidedPlane",
+      "status": "FAIL",
+      "problems": [
+        "model not visible: 0.000% of pixels differ from the environment-only frame (< 1%)"
+      ]
+    },
+    {
+      "name": "Unicode❤♻Test",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "Unicode❤♻Test.glb",
+      "png": "Unicode❤♻Test.png",
+      "pngSha256": "a120e9bb6c88034838bee56129d1a116a2a3f0485c557fe771a500c97fb432c2",
+      "pixelStdDev": 56.266,
+      "modelCoverage": 0.4999,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 2,
+        "opaqueMaterialsCount": 1,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "VertexColorTest",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "VertexColorTest.glb",
+      "png": "VertexColorTest.png",
+      "pngSha256": "107aba2d08c0520075b0d1e64932bd21837b0f8ae22ee2ae65e6df46d4208c23",
+      "pixelStdDev": 67.824,
+      "modelCoverage": 0.4993,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 2,
+        "faceCount": 36,
+        "opaqueMaterialsCount": 2,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "VirtualCity",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "VirtualCity.glb",
+      "png": "VirtualCity.png",
+      "pngSha256": "4fb4e285ba667398a67f40b1f896dd15afc5d0feb710ddc4589f4f357c95ea1e",
+      "pixelStdDev": 44.025,
+      "modelCoverage": 0.2739,
+      "animationIndices": [
+        0
+      ],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 135,
+        "faceCount": 8383,
+        "opaqueMaterialsCount": 167,
+        "transparentMaterialsCount": 0
+      }
+    },
+    {
+      "name": "WaterBottle",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "WaterBottle.glb",
+      "png": "WaterBottle.png",
+      "pngSha256": "13763952fcd7ec32e3cdfd1a8676ca76fe74b587292672726db36fe79e9ec6df",
+      "pixelStdDev": 48.2,
+      "modelCoverage": 0.288,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 1,
+        "faceCount": 4510,
+        "opaqueMaterialsCount": 1,
         "transparentMaterialsCount": 0
       }
     }

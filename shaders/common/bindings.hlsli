@@ -93,7 +93,9 @@ cbuffer Object : register(b0, space3)
 {
     float4x4 world;
     float4x4 normalMatrix; // inverse-transpose of world
-    uint4 morphInfo;       // x = active morph target count, y = vertex count (T1/T2 delta indexing), z = has tangent deltas
+    uint4 morphInfo;       // x = active morph target count, y = vertex count (T1/T2 delta indexing), z = has tangent deltas,
+                           // w = bit 0: points / lines without NORMAL, unlit; bit 1: points / lines without TANGENT, no
+                           // normal texture (Sample-Renderer NOT_TRIANGLE)
     float4 morphWeights[2]; // T0: weights of the <= 8 active targets
 };
 

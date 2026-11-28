@@ -56,6 +56,7 @@ section { background: var(--card); border: 1px solid var(--border); border-radiu
 .badge { font-weight: 700; padding: 1px 8px; border-radius: 999px; font-size: 12px; }
 .badge.PASS { color: var(--pass); background: var(--pass-bg); }
 .badge.FAIL { color: var(--fail); background: var(--fail-bg); }
+.badge.XFAIL { color: #8a5a00; background: #fff1d6; }
 dl { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 0 0 8px; }
 dl div { display: flex; gap: 6px; }
 dt { color: var(--muted); }
@@ -158,7 +159,7 @@ def render_case(case: dict, base: Path) -> str:
     if not isinstance(case, dict):
         raise ReportError("every entry in 'cases' must be an object")
     name = case.get("name", "?")
-    status = "PASS" if case.get("status") == "PASS" else "FAIL"
+    status = case.get("status") if case.get("status") in ("PASS", "XFAIL") else "FAIL"
     reason = case.get("reason", "")
     detail = case.get("detail") or ""
     metrics = [
@@ -232,7 +233,8 @@ def build_html(results: dict, base: Path) -> str:
     cases = results["cases"]
     body = "".join(render_case(c, base) for c in cases)
     passed = sum(1 for c in cases if isinstance(c, dict) and c.get("status") == "PASS")
-    failed = len(cases) - passed
+    xfailed = sum(1 for c in cases if isinstance(c, dict) and c.get("status") == "XFAIL")
+    failed = len(cases) - passed - xfailed
     date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     title = f"Golden report {phase}"
     return (
@@ -242,7 +244,7 @@ def build_html(results: dict, base: Path) -> str:
         f"<header><h1>Golden report &middot; {esc(phase)}</h1>"
         f"<span class=\"meta\">{esc(date)}</span>"
         f"<span class=\"totals\"><b>{len(cases)}</b> cases &middot; <b>{passed}</b> PASS &middot; "
-        f"<b>{failed}</b> FAIL</span>"
+        f"<b>{xfailed}</b> XFAIL &middot; <b>{failed}</b> FAIL</span>"
         "<span class=\"filters\"><button type=\"button\" data-filter=\"all\" aria-pressed=\"true\">All</button> "
         "<button type=\"button\" data-filter=\"fail\" aria-pressed=\"false\">Fail</button></span></header>"
         f"<main>{body}</main>"

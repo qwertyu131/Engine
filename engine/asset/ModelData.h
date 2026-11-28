@@ -51,6 +51,9 @@ struct Primitive {
     std::vector<MorphTarget> targets;
     int material = -1; // -1 = the glTF default material
     Bounds bounds;     // of `position`
+    // The POSITION accessor's min / max from the JSON (dequantized when normalized), as glTF-Sample-Renderer's
+    // getExtentsFromAccessor reads them for the fit camera (plan F3 Task 6); invalid when the accessor has none.
+    Bounds accessorBounds;
     // What the loader generated (Review Focus 4): flat normals (no NORMAL), MikkTSpace tangents (no TANGENT with a
     // normal map), a 0..n-1 index list (no indices), a zero UV set (a texture's TEXCOORD_n missing).
     bool generatedNormals = false;

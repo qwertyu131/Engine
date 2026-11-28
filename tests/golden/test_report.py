@@ -114,6 +114,19 @@ class ReportTest(unittest.TestCase):
         self.assertEqual(html.count('class="placeholder"'), 1)
         self.assertIn("unreadable", html)
 
+    def test_xfail_case_has_its_own_badge_and_count(self) -> None:
+        # plan F3 Task 6: an expected-fail case (run_golden status XFAIL) is shown as XFAIL, not as PASS or FAIL.
+        a = self.pass_case(name="known")
+        a.update({"status": "XFAIL", "reason": "flip-above-threshold", "detail": "expected fail: KHR_x"})
+        self.write_results([a, self.pass_case()])
+        proc = run_report(self.results, self.out)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        html = self.out.read_text(encoding="utf-8")
+        self.assertIn('data-status="XFAIL"', html)
+        self.assertIn('class="badge XFAIL"', html)
+        self.assertIn("<b>1</b> XFAIL", html)
+        self.assertIn("<b>0</b> FAIL", html)
+
     def test_probes_and_backend_pair(self) -> None:
         # plan F2 Task 5: the report shows each case's backend (or backend pair) and its probe table.
         a = self.pass_case(name="tri.vulkan")
