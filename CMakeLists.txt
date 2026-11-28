@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.28)
 project(Engine
     VERSION 0.0.1
     DESCRIPTION "Cross-platform native glTF 2.0 renderer"
-    LANGUAGES CXX)
+    LANGUAGES C CXX) # C: MikkTSpace (engine/asset, plan F3 Task 2)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -15,6 +15,23 @@ if(WIN32)
     option(ENG_BUILD_SHADERC "Build the offline shader compiler tools/shaderc" ON)
 else()
     option(ENG_BUILD_SHADERC "Build the offline shader compiler tools/shaderc" OFF)
+endif()
+
+# AddressSanitizer build (plan F3 Task 2 Review Focus 1: the malformed-file tests run under it). Applied to every
+# target, dependencies included, before any is declared (mixed ASan / non-ASan objects do not link on MSVC). MSVC:
+# /fsanitize=address is incompatible with /RTC1 (CMake's Debug default), which is removed here.
+option(ENG_ASAN "Build with AddressSanitizer (MSVC /fsanitize=address)" OFF)
+if(ENG_ASAN)
+    if(MSVC)
+        add_compile_options(/fsanitize=address /Zi)
+        add_link_options(/INCREMENTAL:NO /DEBUG)
+        foreach(v CMAKE_CXX_FLAGS_DEBUG CMAKE_C_FLAGS_DEBUG)
+            string(REPLACE "/RTC1" "" ${v} "${${v}}")
+        endforeach()
+    else()
+        add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address)
+    endif()
 endif()
 
 include(cmake/Dependencies.cmake)

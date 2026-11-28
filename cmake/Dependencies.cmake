@@ -163,3 +163,139 @@ if(NOT TARGET eng_imgui)
         target_compile_options(eng_imgui PRIVATE /W0 /utf-8)
     endif()
 endif()
+
+# --- asset (engine/asset, F3 Task 2) --------------------------------------------------------------
+# fastgltf v1.0.1 (tag commit 87cfbceeeda127ccc9092694279437b700046119, 2026-11-07, resolved with `git ls-remote`
+# 2026-11-28), MIT. Its own simdjson / simdutf downloads are turned off: both are declared here with the release
+# files and SHA256 that fastgltf v1.0.1's cmake/dependencies.cmake pins (same versions, same hashes):
+#   simdjson v5.1.0 (tag commit 89f93b2ec52089f43eb3eeefce97eaa50610cc17) single-header release, Apache-2.0 / MIT;
+#   simdutf  v9.3.3 (tag commit 52ac5fb6cb3a32768502e6eefa6bd2fa6f5e5b53) single-header release, Apache-2.0 / MIT,
+#            base64 feature only (the defines fastgltf uses).
+FetchContent_Declare(simdjson_h
+    URL      https://github.com/simdjson/simdjson/releases/download/v5.1.0/simdjson.h
+    URL_HASH SHA256=ca53ddca5f927b993ded4225b8fd85f18f9374e70e4f2d56376f42d661ff010a
+    DOWNLOAD_NO_EXTRACT TRUE
+    SOURCE_SUBDIR _no_cmake_)
+FetchContent_Declare(simdjson_cpp
+    URL      https://github.com/simdjson/simdjson/releases/download/v5.1.0/simdjson.cpp
+    URL_HASH SHA256=0652d8dd436b210a8840267cbd0bb4c1908f6551790e7dcd543412ba54b002c9
+    DOWNLOAD_NO_EXTRACT TRUE
+    SOURCE_SUBDIR _no_cmake_)
+FetchContent_Declare(simdutf_h
+    URL      https://github.com/simdutf/simdutf/releases/download/v9.3.3/simdutf.h
+    URL_HASH SHA256=90d39faf26030d18a6caec00b34a09ca4855804e7c2a9d59bf93d5d506347486
+    DOWNLOAD_NO_EXTRACT TRUE
+    SOURCE_SUBDIR _no_cmake_)
+FetchContent_Declare(simdutf_cpp
+    URL      https://github.com/simdutf/simdutf/releases/download/v9.3.3/simdutf.cpp
+    URL_HASH SHA256=566033aa28edfaaa12aff8dfcfc720bc0dea0af1c0a0462bbd903c4cba1814b7
+    DOWNLOAD_NO_EXTRACT TRUE
+    SOURCE_SUBDIR _no_cmake_)
+# MikkTSpace (mmikk/MikkTSpace master, commit 3e895b49d05ea07e4c2133156cfa94369e19e409, the repo has no tags),
+# zlib-style licence (header of mikktspace.h). C source.
+FetchContent_Declare(mikktspace_c
+    URL      https://raw.githubusercontent.com/mmikk/MikkTSpace/3e895b49d05ea07e4c2133156cfa94369e19e409/mikktspace.c
+    URL_HASH SHA256=de87e74107df766ce68108801262bd8d53899414236b59810509a8fc2a51e288
+    DOWNLOAD_NO_EXTRACT TRUE
+    SOURCE_SUBDIR _no_cmake_)
+FetchContent_Declare(mikktspace_h
+    URL      https://raw.githubusercontent.com/mmikk/MikkTSpace/3e895b49d05ea07e4c2133156cfa94369e19e409/mikktspace.h
+    URL_HASH SHA256=17fc433894f24c73753d548086cc4d8c5c0379f4a6edfb98b5da243e4f0bc3d0
+    DOWNLOAD_NO_EXTRACT TRUE
+    SOURCE_SUBDIR _no_cmake_)
+FetchContent_MakeAvailable(simdjson_h simdjson_cpp simdutf_h simdutf_cpp mikktspace_c mikktspace_h)
+if(NOT TARGET simdjson::simdjson)
+    add_library(eng_simdjson STATIC "${simdjson_cpp_SOURCE_DIR}/simdjson.cpp")
+    target_include_directories(eng_simdjson SYSTEM PUBLIC "${simdjson_h_SOURCE_DIR}")
+    target_compile_features(eng_simdjson PUBLIC cxx_std_20)
+    add_library(simdjson::simdjson ALIAS eng_simdjson)
+    add_library(eng_simdutf STATIC "${simdutf_cpp_SOURCE_DIR}/simdutf.cpp")
+    target_include_directories(eng_simdutf SYSTEM PUBLIC "${simdutf_h_SOURCE_DIR}")
+    target_compile_features(eng_simdutf PUBLIC cxx_std_20)
+    target_compile_definitions(eng_simdutf PUBLIC SIMDUTF_FEATURE_BASE64=1 SIMDUTF_FEATURE_DETECT_ENCODING=0
+        SIMDUTF_FEATURE_ASCII=0 SIMDUTF_FEATURE_LATIN1=0 SIMDUTF_FEATURE_UTF8=0 SIMDUTF_FEATURE_UTF16=0
+        SIMDUTF_FEATURE_UTF32=0)
+    add_library(simdutf::simdutf ALIAS eng_simdutf)
+    if(MSVC)
+        target_compile_options(eng_simdjson PRIVATE /W0 /utf-8)
+        target_compile_options(eng_simdutf PRIVATE /W0 /utf-8)
+    endif()
+endif()
+set(FASTGLTF_DOWNLOAD_SIMDJSON OFF CACHE BOOL "" FORCE)
+set(FASTGLTF_DOWNLOAD_SIMDUTF OFF CACHE BOOL "" FORCE)
+set(FASTGLTF_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+set(FASTGLTF_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
+set(FASTGLTF_ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(FASTGLTF_ENABLE_DOCS OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(fastgltf
+    GIT_REPOSITORY https://github.com/spnda/fastgltf.git
+    GIT_TAG        87cfbceeeda127ccc9092694279437b700046119 # v1.0.1
+    SYSTEM)
+FetchContent_MakeAvailable(fastgltf)
+if(NOT TARGET eng_mikktspace)
+    add_library(eng_mikktspace STATIC "${mikktspace_c_SOURCE_DIR}/mikktspace.c")
+    target_include_directories(eng_mikktspace SYSTEM PUBLIC "${mikktspace_h_SOURCE_DIR}")
+    if(MSVC)
+        target_compile_options(eng_mikktspace PRIVATE /W0)
+    endif()
+endif()
+
+# libjpeg-turbo 3.1.4 (tag commit e352b02f794f701407b39af08576035ba3360d60, resolved with `git ls-remote`
+# 2026-11-28), IJG / BSD-3-Clause / zlib licences. JPEG decoder of engine/asset (plan F3 Task 2): stb_image (pinned
+# above, its current master) rejects two progressive JPEGs of glTF-Sample-Assets ABeautifulGame ("bad huffman code")
+# that GDI+ / WIC decode and the glTF-Validator accepts; libjpeg-turbo is also Firefox's decoder (the Sample-Viewer
+# references are rendered in Firefox). TurboJPEG API, static, SIMD off (no NASM). Its CMake refuses add_subdirectory(),
+# so it is an ExternalProject built per configuration; the ASan flags are passed through (it parses hostile bytes).
+include(ExternalProject)
+set(ENG_LJT_PREFIX "${CMAKE_BINARY_DIR}/_deps/libjpeg_turbo")
+set(_ljt_c_flags "${CMAKE_C_FLAGS}")
+set(_ljt_c_flags_debug "${CMAKE_C_FLAGS_DEBUG}")
+set(_ljt_c_flags_release "${CMAKE_C_FLAGS_RELEASE}")
+if(ENG_ASAN)
+    if(MSVC)
+        string(APPEND _ljt_c_flags " /fsanitize=address /Zi")
+    else()
+        string(APPEND _ljt_c_flags " -fsanitize=address -fno-omit-frame-pointer")
+    endif()
+endif()
+set(_ljt_args
+    -DENABLE_SHARED=OFF -DENABLE_STATIC=ON -DWITH_SIMD=OFF -DWITH_TURBOJPEG=ON -DWITH_TOOLS=OFF -DWITH_TESTS=OFF
+    -DWITH_CRT_DLL=ON -DWITH_JAVA=OFF "-DCMAKE_C_FLAGS=${_ljt_c_flags}" "-DCMAKE_C_FLAGS_DEBUG=${_ljt_c_flags_debug}"
+    "-DCMAKE_C_FLAGS_RELEASE=${_ljt_c_flags_release}" -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
+if(CMAKE_CONFIGURATION_TYPES)
+    set(_ljt_build ${CMAKE_COMMAND} --build <BINARY_DIR> --config $<CONFIG> --target turbojpeg-static)
+else()
+    list(APPEND _ljt_args "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}" "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}")
+    set(_ljt_build ${CMAKE_COMMAND} --build <BINARY_DIR> --target turbojpeg-static)
+endif()
+if(MSVC)
+    set(_ljt_lib "${ENG_LJT_PREFIX}/build/$<CONFIG>/turbojpeg-static.lib")
+    set(_ljt_byproducts "${ENG_LJT_PREFIX}/build/Debug/turbojpeg-static.lib"
+                        "${ENG_LJT_PREFIX}/build/Release/turbojpeg-static.lib"
+                        "${ENG_LJT_PREFIX}/build/RelWithDebInfo/turbojpeg-static.lib"
+                        "${ENG_LJT_PREFIX}/build/MinSizeRel/turbojpeg-static.lib")
+else()
+    set(_ljt_lib "${ENG_LJT_PREFIX}/build/libturbojpeg.a")
+    set(_ljt_byproducts "${_ljt_lib}")
+endif()
+ExternalProject_Add(eng_libjpeg_turbo_ep
+    GIT_REPOSITORY https://github.com/libjpeg-turbo/libjpeg-turbo.git
+    GIT_TAG        e352b02f794f701407b39af08576035ba3360d60 # 3.1.4
+    GIT_SHALLOW    FALSE
+    PREFIX         "${ENG_LJT_PREFIX}"
+    SOURCE_DIR     "${ENG_LJT_PREFIX}/source"
+    BINARY_DIR     "${ENG_LJT_PREFIX}/build"
+    STAMP_DIR      "${ENG_LJT_PREFIX}/stamp"
+    TMP_DIR        "${ENG_LJT_PREFIX}/tmp"
+    CMAKE_ARGS     ${_ljt_args}
+    BUILD_COMMAND  ${_ljt_build}
+    INSTALL_COMMAND ""
+    UPDATE_COMMAND ""
+    BUILD_BYPRODUCTS ${_ljt_byproducts})
+file(MAKE_DIRECTORY "${ENG_LJT_PREFIX}/source/src")
+if(NOT TARGET eng_turbojpeg)
+    add_library(eng_turbojpeg INTERFACE)
+    target_include_directories(eng_turbojpeg SYSTEM INTERFACE "${ENG_LJT_PREFIX}/source/src")
+    target_link_libraries(eng_turbojpeg INTERFACE "${_ljt_lib}")
+    add_dependencies(eng_turbojpeg eng_libjpeg_turbo_ep)
+endif()

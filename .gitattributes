@@ -1,3 +1,5 @@
 * text=auto
 *.png binary
 tests/shaders/msl/*.metal -text
+# F3 loader fixtures: byte-exact (bad files, data URIs); never normalise line endings.
+tests/assets/f03/** -text

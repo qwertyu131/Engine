@@ -22,6 +22,45 @@ endforeach()
 # Catch-all: every case in the binary (guards against cases outside a listed suite).
 add_test(NAME unit.all COMMAND engine_unit_tests --no-version=true)
 
+# --- asset (F3 Task 2) -------------------------------------------------------------------------------
+# glTF loader tests: Sample-Assets (tests/assets/glTF-Sample-Assets, scripts/fetch_assets.py), the F3 fixtures
+# (tests/assets/f03, scripts/make_f03_assets.py) and the pinned glTF-Validator for the conformance suite. A missing
+# asset checkout or validator is a failure with a fetch hint, never a skip.
+file(READ "${PROJECT_SOURCE_DIR}/tests/assets/assets.lock.json" _eng_assets_lock)
+string(JSON ENG_GLTF_VALIDATOR_VERSION GET "${_eng_assets_lock}" "gltf-validator" "version")
+if(WIN32)
+    set(ENG_GLTF_VALIDATOR "${PROJECT_SOURCE_DIR}/tests/assets/tools/gltf_validator-${ENG_GLTF_VALIDATOR_VERSION}-win64/gltf_validator.exe")
+else()
+    set(ENG_GLTF_VALIDATOR "${PROJECT_SOURCE_DIR}/tests/assets/tools/gltf_validator-${ENG_GLTF_VALIDATOR_VERSION}-linux64/gltf_validator")
+endif()
+add_executable(asset_unit_tests
+    asset/test_main.cpp
+    asset/AssetTestEnv.h
+    asset/test_loader.cpp
+    asset/test_bad_files.cpp
+    asset/test_conformance.cpp)
+target_link_libraries(asset_unit_tests PRIVATE engine::asset nlohmann_json::nlohmann_json doctest::doctest)
+target_compile_definitions(asset_unit_tests PRIVATE
+    ENG_TEST_F03_ASSETS="${PROJECT_SOURCE_DIR}/tests/assets/f03"
+    ENG_TEST_SAMPLE_MODELS="${PROJECT_SOURCE_DIR}/tests/assets/glTF-Sample-Assets/Models"
+    ENG_TEST_GLTF_VALIDATOR="${ENG_GLTF_VALIDATOR}"
+    ENG_TEST_CONFORMANCE_OUT="${PROJECT_SOURCE_DIR}/build/f03/conformance.json")
+if(MSVC)
+    target_compile_options(asset_unit_tests PRIVATE /W4 /WX /permissive- /utf-8 /external:W0)
+endif()
+foreach(suite loader missing paths bad conformance)
+    add_test(NAME unit.asset.${suite} COMMAND asset_unit_tests --test-suite=asset.${suite} --no-version=true)
+    set_tests_properties(unit.asset.${suite} PROPERTIES FAIL_REGULAR_EXPRESSION "test cases: +0 \\|")
+endforeach()
+set_tests_properties(unit.asset.conformance PROPERTIES TIMEOUT 1200)
+if(ENG_ASAN AND MSVC)
+    # The MSVC ASan runtime DLL (clang_rt.asan_dynamic-x86_64.dll) sits next to cl.exe.
+    get_filename_component(_eng_cl_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    foreach(suite loader missing paths bad conformance)
+        set_tests_properties(unit.asset.${suite} PROPERTIES ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${_eng_cl_dir}")
+    endforeach()
+endif()
+
 # --- shaderc (F1) ------------------------------------------------------------------------------
 # Separate binary: it needs the offline toolchain. Missing tool -> exit 77 -> ctest "Skipped" with
 # the reason printed (see tests/unit/shaderc/test_main.cpp).

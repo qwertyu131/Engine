@@ -7,6 +7,8 @@
 //     VK_KHR_maintenance1 / core 1.1);
 //   - texture UV (0, 0) = first row in memory;
 //   - readback images are RGBA8, rows top-down.
+#include "core/Result.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -53,13 +55,11 @@ std::span<const Format> allFormats(); // every Format except Unknown, in declara
 // --- errors ---------------------------------------------------------------------------------------
 
 // exitCode per plan F2 Global Constraints: 2 = usage / IO error, 3 = backend not available,
-// 4 = validation error, 5 = device lost / GPU error.
-struct Error {
-    int exitCode = 2;
-    std::string message;
-};
-template <class T>
-using Result = std::expected<T, Error>;
+// 4 = validation error, 5 = device lost / GPU error. The engine-wide type (core/Result.h, plan F3 Task 2).
+// Using-declarations (not new aliases): eng::rhi::Result and eng::Result name the same template, so code in a namespace
+// that sees both (e.g. `using namespace rhi;` inside namespace eng) is not ambiguous.
+using ::eng::Error;
+using ::eng::Result;
 
 inline constexpr int kExitUsage = 2;
 inline constexpr int kExitNoBackend = 3;

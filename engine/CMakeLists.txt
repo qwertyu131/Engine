@@ -31,6 +31,9 @@ endif()
 # RHI (plan F2 Task 2): separate target, C++23 (std::expected in the pinned interface).
 add_subdirectory(rhi)
 
+# glTF loader (plan F3 Task 2): separate target, C++23, no GPU types.
+add_subdirectory(asset)
+
 # Window + UI (plan F2 Task 6).
 add_subdirectory(platform)
 add_subdirectory(ui)
