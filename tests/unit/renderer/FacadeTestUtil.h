@@ -36,6 +36,7 @@ struct Fixture {
     std::unique_ptr<eng::Renderer> r;
     eng::SceneHandle scene;
     eng::Camera camera;
+    eng::AssetHandle asset;
 };
 
 inline Fixture open(const std::filesystem::path& file) {
@@ -50,6 +51,7 @@ inline Fixture open(const std::filesystem::path& file) {
     REQUIRE(f.r->settings().set("r.Background.Color", "1,0,1"));
     auto a = f.r->loadAsset(file);
     REQUIRE_MESSAGE(a.has_value(), (a ? std::string() : a.error().message));
+    f.asset = *a;
     auto s = f.r->instantiate(*a);
     REQUIRE_MESSAGE(s.has_value(), (s ? std::string() : s.error().message));
     f.scene = *s;

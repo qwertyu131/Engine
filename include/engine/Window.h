@@ -22,6 +22,7 @@ struct WindowDesc {
 enum class Key : uint8_t {
     None, Tab, Left, Right, Up, Down, PageUp, PageDown, Home, End, Insert, Delete, Backspace, Space, Enter, Escape,
     A, C, V, X, Y, Z, F12, Ctrl, Shift, Alt,
+    F, // plan F3 Task 8: the viewer's fit-camera key (appended: the earlier values keep their numbers)
 };
 
 struct InputEvent {
@@ -55,6 +56,9 @@ public:
     virtual bool shouldClose() const = 0;   // the user closed the window
     virtual float dpiScale() const = 0;
     virtual std::vector<InputEvent> takeEvents() = 0; // input since the last call
+    // Files dropped onto the window since the last call (UTF-8 paths, plan F3 Task 8: the viewer's drag-and-drop;
+    // Win32 WM_DROPFILES, the window accepts drops from creation).
+    virtual std::vector<std::string> takeDroppedFiles() = 0;
 
     // Programmatic control (viewer --script resize). The OS may clamp the size; size() tells the result.
     virtual void setClientSize(uint32_t width, uint32_t height) = 0;

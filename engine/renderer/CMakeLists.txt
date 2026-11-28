@@ -27,7 +27,7 @@ add_library(engine_renderer STATIC
     builtin/SceneUtil.h
     builtin/CubeScene.cpp
     builtin/Ibl.h
-    builtin/Ibl.cpp
+    builtin/BuiltinIbl.cpp
     builtin/PbrSpheresScene.cpp)
 add_library(engine::renderer ALIAS engine_renderer)
 # Config/DefaultScalability.ini (sg.* table, plan F3 Task 7) embedded as a string: no run-time file lookup.
@@ -58,7 +58,7 @@ add_library(engine_facade STATIC
 add_library(engine::facade ALIAS engine_facade)
 target_compile_features(engine_facade PUBLIC cxx_std_23)
 target_include_directories(engine_facade PUBLIC "${PROJECT_SOURCE_DIR}/include")
-target_link_libraries(engine_facade PUBLIC eng_imgui PRIVATE engine_renderer engine_ui)
+target_link_libraries(engine_facade PUBLIC eng_imgui PRIVATE engine_renderer engine_ui nlohmann_json::nlohmann_json)
 if(TARGET engine_platform)
     target_link_libraries(engine_facade PRIVATE engine_platform)
 endif()

@@ -16,7 +16,7 @@ if(ENG_RHI_D3D11)
     list(APPEND eng_viewer_backends d3d11)
 endif()
 foreach(b IN LISTS eng_viewer_backends)
-    foreach(check frames resize ui click)
+    foreach(check frames resize ui click glb)
         add_test(NAME viewer.${check}.${b}
                  COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/run_viewer.py"
                          --viewer "${eng_viewer_exe}" --backend ${b} --check ${check}
@@ -25,3 +25,18 @@ foreach(b IN LISTS eng_viewer_backends)
         set_tests_properties(viewer.${check}.${b} PROPERTIES TIMEOUT 150 RUN_SERIAL TRUE SKIP_RETURN_CODE 77)
     endforeach()
 endforeach()
+# Plan F3 Task 8: drag-and-drop of a .glb onto the window (WM_DROPFILES posted by run_viewer.py), one backend.
+if(eng_viewer_backends)
+    list(GET eng_viewer_backends 0 eng_dragdrop_backend)
+    add_test(NAME viewer.dragdrop
+             COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/run_viewer.py"
+                     --viewer "${eng_viewer_exe}" --backend ${eng_dragdrop_backend} --check dragdrop
+                     --work "${CMAKE_CURRENT_BINARY_DIR}/dragdrop")
+    set_tests_properties(viewer.dragdrop PROPERTIES TIMEOUT 150 RUN_SERIAL TRUE SKIP_RETURN_CODE 77)
+    # The orbit camera (left drag rotates, F fits again), driven by posted Win32 mouse / key messages.
+    add_test(NAME viewer.orbit
+             COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/run_viewer.py"
+                     --viewer "${eng_viewer_exe}" --backend ${eng_dragdrop_backend} --check orbit
+                     --work "${CMAKE_CURRENT_BINARY_DIR}/orbit")
+    set_tests_properties(viewer.orbit PROPERTIES TIMEOUT 400 RUN_SERIAL TRUE SKIP_RETURN_CODE 77)
+endif()

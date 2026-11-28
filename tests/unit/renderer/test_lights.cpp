@@ -210,4 +210,60 @@ TEST_CASE("reference mode draws punctual lights only with r.ReferenceMode.Punctu
     done(f);
 }
 
+TEST_CASE("skinned and morphed casters render through the shadow pipelines (SKIN / MORPH permutations)") {
+    // f03/rest quads displaced +2 in x by a skin joint / a morph target (test_facade.cpp); a spot light from the front
+    // makes every caster go through the shadow pass's SKIN1 / MORPH1 depth pipelines (T0: the Skin cbuffer and the
+    // morph vertex stream). The quad stays at its displaced place, nothing at the origin, validation 0.
+    for (const char* name : {"skin_quad", "morph_quad"}) {
+        const std::string quad = name;
+        CAPTURE(quad);
+        Fixture f = open(u8(ENG_TEST_ASSET_DIR) / "f03" / "rest" / (quad + ".gltf"));
+        eng::LightInfo spot;
+        spot.type = eng::LightType::Spot;
+        spot.position = {2.0f, 0.0f, 3.0f};
+        spot.direction = {0.0f, 0.0f, -1.0f};
+        spot.outerConeAngle = 0.8f;
+        spot.intensity = 20.0f;
+        REQUIRE(f.r->addLight(f.scene, spot).has_value());
+        eng::LightInfo point;
+        point.type = eng::LightType::Point;
+        point.position = {2.0f, 1.0f, 2.0f};
+        point.intensity = 5.0f;
+        REQUIRE(f.r->addLight(f.scene, point).has_value());
+        // The fit camera frames the undeformed quad; this camera sees the origin and x = 2 (as test_facade.cpp).
+        f.camera.position = {1.0f, 0.0f, 6.0f};
+        f.camera.target = {1.0f, 0.0f, 0.0f};
+        f.camera.yfov = 0.785398163f;
+        f.camera.znear = 0.1f;
+        f.camera.zfar = 100.0f;
+        f.r->setCamera(f.camera);
+        const eng::Image img = render(f);
+        const M4 vp = viewProj(f.camera, 1.0);
+        const auto moved = project(vp, {2.0, 0.0, 0.0}), origin = project(vp, {0.0, 0.0, 0.0});
+        CHECK_FALSE(isBackground(pixel(img, moved[0], moved[1])));
+        CHECK(isBackground(pixel(img, origin[0], origin[1])));
+        done(f);
+    }
+}
+
+TEST_CASE("the asset info lists each extension used as loaded or ignored with the reason") {
+    Fixture f = open(sample("LightsPunctualLamp", "glTF-Binary"));
+    const eng::AssetInfo* info = f.r->assetInfo(f.asset);
+    REQUIRE(info != nullptr);
+    REQUIRE(info->extensions.size() == info->extensionsUsed.size());
+    bool lights = false, transmission = false;
+    for (const eng::ExtensionStatus& e : info->extensions) {
+        MESSAGE(e.name << ": " << std::string(e.loaded ? "loaded" : "ignored") << " (" << e.note << ")");
+        if (e.name == "KHR_lights_punctual") {
+            lights = e.loaded;
+        }
+        if (e.name == "KHR_materials_transmission") {
+            transmission = !e.loaded && e.note.find("F6") != std::string::npos;
+        }
+    }
+    CHECK(lights);
+    CHECK(transmission);
+    done(f);
+}
+
 } // TEST_SUITE

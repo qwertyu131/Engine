@@ -4,6 +4,7 @@
 //            [--width N=256] [--height N=256] [--cvar name=value]... [--bench <frames>]
 //            [--warp] [--adapter <index>] [--shader-dir <dir>] [--asset-dir <dir>]
 //            [--d3d11-feature-level 10_0|10_1|11_0|11_1] [--dump-caps <json>] [--png-channels 3|4]
+//            [--light <spec>]...
 //
 // Backends:
 //   cpu     F0: `--scene builtin:test-pattern` (deterministic CPU pattern, see TestPattern.h).
@@ -21,6 +22,10 @@
 // --dump-caps  writes the device's DeviceCaps as JSON (rhi::capsToJson, with a "note" on where the values
 //          come from) and prints `caps: <backend> tier <n> (<apiVersion>, <adapter>) -> <json>`. With
 //          --dump-caps, --scene and --out are optional (both or neither): without them nothing is rendered.
+// --light  (plan F3 Task 8: the Sponza bench) adds a punctual light to the glTF scene (Renderer::addLight), world
+//          space: "type=directional|point|spot:pos=x,y,z:dir=x,y,z:color=r,g,b:intensity=I:range=R:inner=deg:outer=deg:
+//          name=text" (items separated by ':', so the spec passes through shells and CMake lists unquoted) (every key but type optional: pos 0,0,0, dir 0,0,-1, colour 1,1,1, intensity 1, range 0 =
+//          infinite, cones 0 / 45 deg). A malformed spec is a usage error.
 // --cvar   applied with CVarSource::CommandLine, in order. An unknown cvar or a rejected value is
 //          a usage error (a test gate must not silently run with a typo'd setting).
 // --bench  renders r.Bench.WarmupFrames untimed frames, then N timed frames, and prints
@@ -43,6 +48,7 @@
 #include <engine/Renderer.h>
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <chrono>
 #include <cmath>
@@ -76,6 +82,8 @@ void printUsage(std::ostream& os) {
           "           [--width N=256] [--height N=256] [--cvar name=value]... [--bench <frames>]\n"
           "           [--warp] [--adapter <index>] [--shader-dir <dir>] [--asset-dir <dir>]\n"
           "           [--d3d11-feature-level 10_0|10_1|11_0|11_1] [--dump-caps <json>] [--png-channels 3|4]\n"
+          "           [--light type=directional|point|spot:pos=x,y,z:dir=x,y,z:color=r,g,b:intensity=I:range=R:"
+          "inner=deg:outer=deg]...\n"
           "  headless --backend <gpu> --dump-caps <json> [--warp] [--adapter <index>] [--d3d11-feature-level ...]\n"
           "backends in this build: cpu";
     for (const eng::rhi::Backend b : eng::Renderer::compiledBackends()) {
@@ -103,7 +111,113 @@ struct Options {
     int d3d11FeatureLevel = 0; // 0 = highest; 0xa000 = 10_0 ...
     std::string featureLevelName;
     std::string dumpCaps;
+    std::vector<eng::LightInfo> lights; // --light
 };
+
+// "x,y,z" -> 3 finite floats.
+std::optional<std::array<float, 3>> parseVec3(const std::string& s) {
+    std::array<float, 3> v{};
+    size_t pos = 0;
+    for (int k = 0; k < 3; ++k) {
+        const size_t end = k < 2 ? s.find(',', pos) : s.size();
+        if (end == std::string::npos) {
+            return std::nullopt;
+        }
+        const char* b = s.data() + pos;
+        const char* e = s.data() + end;
+        const auto [p, ec] = std::from_chars(b, e, v[k]);
+        if (ec != std::errc() || p != e || !std::isfinite(v[k])) {
+            return std::nullopt;
+        }
+        pos = end + 1;
+    }
+    return v;
+}
+
+std::optional<float> parseFloat(const std::string& s) {
+    float f = 0.0f;
+    const auto [p, ec] = std::from_chars(s.data(), s.data() + s.size(), f);
+    if (ec != std::errc() || p != s.data() + s.size() || !std::isfinite(f)) {
+        return std::nullopt;
+    }
+    return f;
+}
+
+// --light spec (see the header comment); nullopt (after printing why) when malformed.
+std::optional<eng::LightInfo> parseLight(const std::string& spec) {
+    eng::LightInfo l;
+    l.name = "headless --light";
+    bool haveType = false;
+    size_t pos = 0;
+    while (pos <= spec.size()) {
+        const size_t end = std::min(spec.find(':', pos), spec.size());
+        const std::string item = spec.substr(pos, end - pos);
+        pos = end + 1;
+        if (item.empty()) {
+            if (end >= spec.size()) {
+                break;
+            }
+            continue;
+        }
+        const size_t eq = item.find('=');
+        if (eq == std::string::npos) {
+            std::cerr << "headless: --light item '" << item << "' is not key=value\n";
+            return std::nullopt;
+        }
+        const std::string k = item.substr(0, eq), v = item.substr(eq + 1);
+        bool ok = true;
+        if (k == "type") {
+            haveType = true;
+            if (v == "directional") {
+                l.type = eng::LightType::Directional;
+            } else if (v == "point") {
+                l.type = eng::LightType::Point;
+            } else if (v == "spot") {
+                l.type = eng::LightType::Spot;
+            } else {
+                ok = false;
+            }
+        } else if (k == "pos" || k == "dir" || k == "color") {
+            auto x = parseVec3(v);
+            ok = x.has_value();
+            if (ok) {
+                (k == "pos" ? l.position : k == "dir" ? l.direction : l.color) = *x;
+            }
+        } else if (k == "intensity" || k == "range" || k == "inner" || k == "outer") {
+            auto x = parseFloat(v);
+            ok = x.has_value();
+            if (ok) {
+                constexpr float kDeg = 3.14159265358979f / 180.0f;
+                if (k == "intensity") {
+                    l.intensity = *x;
+                } else if (k == "range") {
+                    l.range = *x;
+                } else if (k == "inner") {
+                    l.innerConeAngle = *x * kDeg;
+                } else {
+                    l.outerConeAngle = *x * kDeg;
+                }
+            }
+        } else if (k == "name") {
+            l.name = v;
+        } else {
+            std::cerr << "headless: --light: unknown key '" << k << "'\n";
+            return std::nullopt;
+        }
+        if (!ok) {
+            std::cerr << "headless: --light: bad value '" << v << "' for " << k << "\n";
+            return std::nullopt;
+        }
+        if (end >= spec.size()) {
+            break;
+        }
+    }
+    if (!haveType) {
+        std::cerr << "headless: --light needs type=directional|point|spot\n";
+        return std::nullopt;
+    }
+    return l;
+}
 
 // "10_0" -> 0xa000 ... "11_1" -> 0xb100; 0 for anything else.
 int parseFeatureLevel(const std::string& s) {
@@ -189,6 +303,12 @@ std::optional<Options> parseArgs(const std::vector<std::string>& args) {
             o.dumpCaps = val;
         } else if (key == "--cvar") {
             o.cvars.push_back(val);
+        } else if (key == "--light") {
+            auto l = parseLight(val);
+            if (!l) {
+                return std::nullopt;
+            }
+            o.lights.push_back(*l);
         } else if (key == "--png-channels") {
             if (val != "3" && val != "4") {
                 std::cerr << "headless: --png-channels must be 3 or 4 (got '" << val << "')\n";
@@ -319,6 +439,10 @@ int run(const std::vector<std::string>& args) {
         std::cerr << "backend '" << opts->backend << "' not available in this build\n";
         return kExitNoBackend;
     }
+    if (!gpu && !opts->lights.empty()) {
+        std::cerr << "headless: --light needs a GPU backend and a glTF scene\n";
+        return kExitError;
+    }
     if (!gpu && (opts->warp || opts->adapter >= 0 || !opts->dumpCaps.empty())) {
         std::cerr << "headless: --warp / --adapter / --dump-caps need a GPU backend\n";
         return kExitError;
@@ -411,6 +535,16 @@ int run(const std::vector<std::string>& args) {
             return scene.error().exitCode;
         }
         renderer->setCamera(renderer->fitCamera(*scene, float(opts->width) / float(opts->height)));
+        for (const eng::LightInfo& l : opts->lights) {
+            if (auto li = renderer->addLight(*scene, l); !li) {
+                std::cerr << "headless: --light: " << li.error().message << "\n";
+                return li.error().exitCode;
+            }
+        }
+        if (!opts->lights.empty()) {
+            std::cerr << "[info] " << opts->lights.size() << " light(s) added; the scene has "
+                      << renderer->lights(*scene).size() << "\n";
+        }
     }
 
     int gpuError = kExitOk;

@@ -6,6 +6,8 @@
 
 #include <windows.h>
 
+#include <shellapi.h>
+
 #include <string>
 #include <utility>
 
@@ -23,6 +25,16 @@ std::wstring widen(const std::string& s) {
     std::wstring w(static_cast<size_t>(n), L'\0');
     MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), w.data(), n);
     return w;
+}
+
+std::string narrow(const std::wstring& w) {
+    if (w.empty()) {
+        return {};
+    }
+    const int n = WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr);
+    std::string s(static_cast<size_t>(n), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), s.data(), n, nullptr, nullptr);
+    return s;
 }
 
 Key mapKey(WPARAM vk) {
@@ -49,6 +61,7 @@ Key mapKey(WPARAM vk) {
     case 'Y': return Key::Y;
     case 'Z': return Key::Z;
     case VK_F12: return Key::F12;
+    case 'F': return Key::F;
     case VK_CONTROL: return Key::Ctrl;
     case VK_SHIFT: return Key::Shift;
     case VK_MENU: return Key::Alt;
@@ -88,6 +101,11 @@ public:
             return std::unexpected(rhi::Error{rhi::kExitUsage, "window: CreateWindowExW failed (" +
                                                                    std::to_string(GetLastError()) + ")"});
         }
+        // Drag-and-drop of files (WM_DROPFILES, plan F3 Task 8). The message filter lets a drop through from a
+        // process of another integrity level (WM_COPYGLOBALDATA carries the HDROP's memory).
+        DragAcceptFiles(hwnd_, TRUE);
+        ChangeWindowMessageFilterEx(hwnd_, WM_DROPFILES, MSGFLT_ALLOW, nullptr);
+        ChangeWindowMessageFilterEx(hwnd_, 0x0049 /* WM_COPYGLOBALDATA */, MSGFLT_ALLOW, nullptr);
         // The window may have opened on a monitor with another DPI: size the client area there.
         setClientSize(desc.width, desc.height);
         ShowWindow(hwnd_, SW_SHOWNORMAL);
@@ -117,6 +135,7 @@ public:
     bool shouldClose() const override { return close_; }
     float dpiScale() const override { return static_cast<float>(GetDpiForWindow(hwnd_)) / 96.0f; }
     std::vector<InputEvent> takeEvents() override { return std::exchange(events_, {}); }
+    std::vector<std::string> takeDroppedFiles() override { return std::exchange(dropped_, {}); }
 
     void setClientSize(uint32_t width, uint32_t height) override {
         if (IsIconic(hwnd_)) {
@@ -234,6 +253,20 @@ private:
             }
             return 0;
         }
+        case WM_DROPFILES: {
+            auto* drop = reinterpret_cast<HDROP>(wp);
+            const UINT n = DragQueryFileW(drop, 0xFFFFFFFF, nullptr, 0);
+            for (UINT i = 0; i < n; ++i) {
+                const UINT len = DragQueryFileW(drop, i, nullptr, 0);
+                std::wstring w(static_cast<size_t>(len) + 1, L'\0');
+                if (DragQueryFileW(drop, i, w.data(), len + 1) == len) {
+                    w.resize(len);
+                    dropped_.push_back(narrow(w));
+                }
+            }
+            DragFinish(drop);
+            return 0;
+        }
         case WM_SETFOCUS: case WM_KILLFOCUS: {
             InputEvent e;
             e.type = InputEvent::Type::Focus;
@@ -258,6 +291,7 @@ private:
     }
 
     HWND hwnd_ = nullptr;
+    std::vector<std::string> dropped_;
     Size size_;
     bool minimized_ = false;
     bool close_ = false;

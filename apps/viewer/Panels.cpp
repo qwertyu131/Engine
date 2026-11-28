@@ -146,7 +146,106 @@ void cvarPanel() {
     ImGui::End();
 }
 
+void assetPanel(const Renderer& renderer, AssetHandle asset, SceneHandle scene, float x) {
+    ImGui::SetNextWindowPos(ImVec2(x, 10.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(330.0f, 240.0f), ImGuiCond_Always);
+    ImGui::Begin("Asset", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+    const AssetInfo* info = renderer.assetInfo(asset);
+    if (!info) {
+        ImGui::TextUnformatted("(no asset)");
+        ImGui::End();
+        return;
+    }
+    ImGui::TextWrapped("%s", info->source.c_str());
+    if (!info->builtin) {
+        const SceneInfo si = renderer.sceneInfo(scene);
+        ImGui::Text("scenes %u (default %d), draws %u", info->sceneCount, info->defaultScene, si.drawCount);
+    }
+    if (info->extensions.empty()) {
+        ImGui::TextUnformatted("extensions used: none");
+    } else if (ImGui::BeginTable("ext", 3, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY,
+                                 ImVec2(0.0f, 150.0f))) {
+        ImGui::TableSetupScrollFreeze(0, 1);
+        ImGui::TableSetupColumn("extension", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("status", ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableSetupColumn("why", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableHeadersRow();
+        for (const ExtensionStatus& e : info->extensions) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextUnformatted(e.name.c_str());
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("%s", e.name.c_str());
+            }
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextUnformatted(e.loaded ? "loaded" : "ignored");
+            ImGui::TableSetColumnIndex(2);
+            ImGui::TextUnformatted(e.note.c_str());
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("%s", e.note.c_str());
+            }
+        }
+        ImGui::EndTable();
+    }
+    ImGui::End();
+}
+
+void cvarSlider(const char* name, int lo, int hi) {
+    CVar* c = CVarRegistry::get().find(name);
+    if (!c) {
+        return;
+    }
+    int v = c->getInt();
+    if (ImGui::SliderInt(name, &v, lo, hi)) {
+        c->set(static_cast<int32_t>(v), CVarSource::Console);
+    }
+}
+
+void cvarCheckbox(const char* name) {
+    CVar* c = CVarRegistry::get().find(name);
+    if (!c) {
+        return;
+    }
+    bool b = c->getBool();
+    if (ImGui::Checkbox(name, &b)) {
+        c->set(b, CVarSource::Console);
+    }
+}
+
+void lightsPanel(Renderer& renderer, SceneHandle scene, float x) {
+    ImGui::SetNextWindowPos(ImVec2(x, 260.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(330.0f, 220.0f), ImGuiCond_Always);
+    ImGui::Begin("Lights", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+    cvarSlider("sg.ShadowQuality", 0, 4);
+    cvarSlider("sg.LightingQuality", 0, 4);
+    cvarCheckbox("r.ReferenceMode");
+    cvarCheckbox("r.ReferenceMode.Punctual");
+    ImGui::Separator();
+    const std::vector<LightInfo> lights = renderer.lights(scene);
+    if (lights.empty()) {
+        ImGui::TextUnformatted("no punctual lights");
+    }
+    for (uint32_t i = 0; i < lights.size(); ++i) {
+        const LightInfo& l = lights[i];
+        const char* type = l.type == LightType::Directional ? "directional" : l.type == LightType::Spot ? "spot" : "point";
+        char label[160];
+        std::snprintf(label, sizeof(label), "%u %s (%s, %.3g)%s##light%u", i, l.name.empty() ? "light" : l.name.c_str(),
+                      type, l.intensity, l.fromAsset ? "" : " [added]", i);
+        bool on = l.enabled;
+        if (ImGui::Checkbox(label, &on)) {
+            renderer.setLightEnabled(scene, i, on);
+        }
+    }
+    ImGui::End();
+}
+
 } // namespace
+
+void drawScenePanels(Renderer& renderer, AssetHandle asset, SceneHandle scene, float windowWidth) {
+    const float x = std::max(350.0f, windowWidth - 340.0f);
+    assetPanel(renderer, asset, scene, x);
+    lightsPanel(renderer, scene, x);
+}
 
 void drawPanels(const rhi::DeviceCaps& caps, const FrameStats& stats) {
     capsPanel(caps);

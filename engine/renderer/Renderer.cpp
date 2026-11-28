@@ -3,6 +3,7 @@
 
 #include "Passes.h"
 #include "RenderSettings.h"
+#include "asset/Extensions.h"
 #include "asset/GltfLoader.h"
 #include "builtin/Scenes.h"
 #include "core/Log.h"
@@ -362,6 +363,17 @@ Result<AssetHandle> Renderer::loadAsset(const std::filesystem::path& path) {
         a.info.sceneCount = static_cast<uint32_t>(model->scenes.size());
         a.info.defaultScene = model->defaultScene;
         a.info.extensionsUsed = model->extensionsUsed;
+        for (const std::string& name : model->extensionsUsed) {
+            const asset::ExtensionInfo e = asset::extensionInfo(name);
+            ExtensionStatus st;
+            st.name = name;
+            st.loaded = e.status == asset::ExtensionInfo::Status::Supported;
+            st.note = e.status == asset::ExtensionInfo::Status::Supported ? std::string(e.purpose)
+                      : e.status == asset::ExtensionInfo::Status::LaterPhase
+                          ? std::format("{}, supported from {}", e.purpose, e.phase)
+                          : std::string("unknown extension, ignored");
+            a.info.extensions.push_back(std::move(st));
+        }
         a.model = std::make_unique<asset::ModelData>(std::move(*model));
     }
     const uint32_t id = m.nextAsset++;
@@ -625,6 +637,36 @@ SceneInfo Renderer::sceneInfo(SceneHandle handle) const {
     info.extentMin = s.extentMin;
     info.extentMax = s.extentMax;
     return info;
+}
+
+void Renderer::destroyScene(SceneHandle handle) {
+    Impl& m = *impl_;
+    auto it = m.scenes.find(handle.id);
+    if (it == m.scenes.end()) {
+        return;
+    }
+    (void)m.dev->submitAndWait(); // frames in flight may still use its buffers / groups
+    m.scenes.erase(it);
+    if (m.active == handle.id) {
+        m.active = 0;
+    }
+}
+
+void Renderer::releaseAsset(AssetHandle handle) {
+    Impl& m = *impl_;
+    if (!m.assets.count(handle.id)) {
+        return;
+    }
+    std::vector<uint32_t> owned;
+    for (const auto& [id, s] : m.scenes) {
+        if (s.asset == handle.id) {
+            owned.push_back(id);
+        }
+    }
+    for (const uint32_t id : owned) {
+        destroyScene(SceneHandle{id});
+    }
+    m.assets.erase(handle.id);
 }
 
 std::vector<LightInfo> Renderer::lights(SceneHandle handle) const {

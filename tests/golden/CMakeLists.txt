@@ -112,10 +112,22 @@ if(ENG_RHI_VULKAN)
                            --cvar r.Bench.WarmupFrames=1 --out @WORK@/tri.png)
 endif()
 
+# headless --light (plan F3 Task 8: the Sponza bench's lights): a malformed spec is a usage error before any device
+# exists; a good one adds a light to the glTF scene (the asset's one + 1).
+headless_cli_test(light_bad 2 EXPECT_IN_OUTPUT "bad value 'lamp' for type"
+                  ARGS --backend cpu ${tp} --light type=lamp --out @WORK@/tp.png)
+headless_cli_test(light_no_type 2 EXPECT_IN_OUTPUT "--light needs type=directional|point|spot"
+                  ARGS --backend cpu ${tp} --light pos=0,0,1 --out @WORK@/tp.png)
+if(ENG_RHI_D3D11)
+    headless_cli_test(light_gpu_d3d11 0 EXPECT_IN_OUTPUT "1 light(s) added; the scene has 2" EXPECT_FILE @WORK@/l.png
+                      ARGS --backend d3d11 --scene ${PROJECT_SOURCE_DIR}/tests/assets/f03/lights/directional.gltf
+                           --width 64 --height 64 --light type=point:pos=0,0,2:intensity=5:name=extra --out @WORK@/l.png)
+endif()
+
 # GPU CLI entries: a backend absent on the machine is ctest Skipped, not Failed, as the unit.rhi.* / viewer.*
 # entries. Only the backend-absent text of device creation skips (cmake/TestSkip.cmake, plan F3 Task 1): any
 # other exit 3 on a present backend (e.g. "pipeline needs TIER 1, device is TIER 0") is a failure.
-foreach(t dump_caps_d3d11_fl10_0 dump_caps_d3d11_warp dump_caps_vulkan bench_gpu_d3d11 bench_gpu_vulkan)
+foreach(t dump_caps_d3d11_fl10_0 dump_caps_d3d11_warp dump_caps_vulkan bench_gpu_d3d11 bench_gpu_vulkan light_gpu_d3d11)
     if(TEST headless.cli.${t})
         set_tests_properties(headless.cli.${t} PROPERTIES SKIP_REGULAR_EXPRESSION "${ENG_BACKEND_ABSENT_SKIP_REGEX}")
     endif()

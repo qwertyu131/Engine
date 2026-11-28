@@ -18,6 +18,19 @@ Checks:
             final screenshot's probe (200, 18) shows the background like a ShowUI=0 run. The messages are
             posted after the viewer logs its first presented frame (the panels exist then). The checkbox position
             is the layout at 100 % display scaling (the panels are at fixed pixel positions).
+    glb     plan F3 Task 8: `viewer <DamagedHelmet.glb>` (positional file) `--frames 120 --size 800x600` with
+            r.Background=Color (blue): exits 0 with "validation messages: 0"; the screenshot's centre (400, 300) is the
+            helmet (not the background colour) and the corner (790, 590) is the glTF scene's background colour.
+    dragdrop plan F3 Task 8: the viewer starts on its default built-in scene; after its first presented frame a
+            WM_DROPFILES message carrying DamagedHelmet.glb (an HDROP built here: DROPFILES + a UTF-16 file list,
+            GlobalAlloc'ed, posted to the eng.Window) is posted; the viewer must log "viewer: dropped" and end on the
+            dropped asset: corner = the glTF background colour (the built-in cube scene's is (51, 51, 51)), centre
+            = the helmet.
+    orbit   plan F3 Task 8: the orbit camera end to end: two `viewer <DamagedHelmet.glb>` runs, the second with a
+            left-button drag posted between the panels ((400, 450) -> (520, 450)) and then the F key; then a third with
+            only the drag; then a right-button drag (pan) and 6 wheel notches out (zoom). Drag, pan and zoom must each
+            change the image against the undragged run (centre pixel; zoom: (400, 160), the centre stays on the target);
+            F (fit) must bring the centre back (within 3).
 A viewer that exits 3 AND logs "backend not available:" (device creation failed: the backend is absent on this
 machine) gives exit 77 = ctest Skipped. Any other exit 3 (e.g. a tier rejection on a present backend) is a
 failure (plan F3 Task 1).
@@ -87,6 +100,100 @@ def post_click(x: int, y: int) -> bool:
     return True
 
 
+def find_viewer_window():
+    import ctypes
+    import time
+    user32 = ctypes.windll.user32
+    user32.FindWindowW.restype = ctypes.c_void_p
+    for _ in range(100):  # up to ~10 s for the window to appear
+        hwnd = user32.FindWindowW("eng.Window", None)
+        if hwnd:
+            return hwnd
+        time.sleep(0.1)
+    return None
+
+
+def post_drop(path: Path) -> bool:
+    """Posts WM_DROPFILES with an HDROP naming `path` to the viewer window. Windows only."""
+    import ctypes
+    import struct as st
+    import time
+    kernel32 = ctypes.windll.kernel32
+    user32 = ctypes.windll.user32
+    kernel32.GlobalAlloc.restype = ctypes.c_void_p
+    kernel32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
+    kernel32.GlobalLock.restype = ctypes.c_void_p
+    kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+    kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+    user32.PostMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t]
+    hwnd = find_viewer_window()
+    if not hwnd:
+        print("drop: viewer window not found")
+        return False
+    # DROPFILES {DWORD pFiles; POINT pt; BOOL fNC; BOOL fWide} = 20 bytes, then the double-NUL-terminated UTF-16 list.
+    files = (str(path.resolve()) + "\0\0").encode("utf-16-le")
+    body = st.pack("<IiiII", 20, 10, 10, 0, 1) + files
+    GMEM_MOVEABLE, GMEM_ZEROINIT = 0x0002, 0x0040
+    h = kernel32.GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, len(body))
+    ptr = kernel32.GlobalLock(h)
+    if not h or not ptr:
+        print("drop: GlobalAlloc / GlobalLock failed")
+        return False
+    ctypes.memmove(ptr, body, len(body))
+    kernel32.GlobalUnlock(h)
+    WM_DROPFILES = 0x0233
+    if not user32.PostMessageW(hwnd, WM_DROPFILES, h, 0):
+        print("drop: PostMessageW failed")
+        return False
+    print(f"drop: posted WM_DROPFILES {path}", flush=True)
+    time.sleep(0.2)
+    return True
+
+
+def post_drag(x0: int, y0: int, x1: int, y1: int, fit: bool, right: bool = False, wheel: int = 0) -> bool:
+    """Posts a left- (or right-) button drag (down at (x0, y0), moves to (x1, y1), up), optionally the F key, or (with
+    `wheel` notches and no movement) WM_MOUSEWHEEL at (x0, y0). Windows only."""
+    import ctypes
+    import time
+    user32 = ctypes.windll.user32
+    user32.PostMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t]
+    hwnd = find_viewer_window()
+    if not hwnd:
+        print("drag: viewer window not found")
+        return False
+    time.sleep(0.3)
+    WM_MOUSEMOVE, WM_LBUTTONDOWN, WM_LBUTTONUP, MK_LBUTTON = 0x0200, 0x0201, 0x0202, 0x0001
+    WM_RBUTTONDOWN, WM_RBUTTONUP, MK_RBUTTON, WM_MOUSEWHEEL = 0x0204, 0x0205, 0x0002, 0x020A
+    WM_KEYDOWN, WM_KEYUP = 0x0100, 0x0101
+    if right:
+        WM_LBUTTONDOWN, WM_LBUTTONUP, MK_LBUTTON = WM_RBUTTONDOWN, WM_RBUTTONUP, MK_RBUTTON
+
+    def lp(x: int, y: int) -> int:
+        return (y << 16) | (x & 0xFFFF)
+
+    user32.PostMessageW(hwnd, WM_MOUSEMOVE, 0, lp(x0, y0))
+    time.sleep(0.1)
+    if wheel:
+        # wParam high word = signed wheel delta (120 per notch); lParam = screen coordinates (not used by the viewer)
+        user32.PostMessageW(hwnd, WM_MOUSEWHEEL, ((wheel * 120) & 0xFFFF) << 16, lp(x0, y0))
+        time.sleep(0.2)
+        print(f"wheel: posted {wheel} notch(es) at ({x0}, {y0})", flush=True)
+        return True
+    user32.PostMessageW(hwnd, WM_LBUTTONDOWN, MK_LBUTTON, lp(x0, y0))
+    time.sleep(0.1)
+    for i in range(1, 7):
+        user32.PostMessageW(hwnd, WM_MOUSEMOVE, MK_LBUTTON, lp(x0 + (x1 - x0) * i // 6, y0 + (y1 - y0) * i // 6))
+        time.sleep(0.05)
+    user32.PostMessageW(hwnd, WM_LBUTTONUP, 0, lp(x1, y1))
+    time.sleep(0.2)
+    if fit:
+        user32.PostMessageW(hwnd, WM_KEYDOWN, ord("F"), 0)
+        time.sleep(0.05)
+        user32.PostMessageW(hwnd, WM_KEYUP, ord("F"), 0)
+    print(f"drag: posted ({x0}, {y0}) -> ({x1}, {y1}){' + F' if fit else ''}", flush=True)
+    return True
+
+
 def run(cmd: list[str], during=None) -> tuple[int | None, str]:
     """Runs the viewer; `during` is called once the viewer logged its first presented frame."""
     import threading
@@ -131,7 +238,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--viewer", required=True)
     ap.add_argument("--backend", required=True)
-    ap.add_argument("--check", required=True, choices=["frames", "resize", "ui", "click"])
+    ap.add_argument("--check", required=True, choices=["frames", "resize", "ui", "click", "glb", "dragdrop", "orbit"])
     ap.add_argument("--work", required=True)
     a = ap.parse_args(argv)
     work = Path(a.work)
@@ -156,6 +263,77 @@ def main(argv: list[str] | None = None) -> int:
         print(f"cube centre (400, 300) = {got}")
         if all(abs(got[c] - BACKGROUND[c]) <= 3 for c in range(3)):
             print("FAIL: the cube centre shows the background")
+            return 1
+        return 0
+
+    if a.check == "orbit":
+        helmet = REPO / "tests" / "assets" / "glTF-Sample-Assets" / "Models" / "DamagedHelmet" / "glTF-Binary" / \
+            "DamagedHelmet.glb"
+        centres, tops = {}, {}
+        for name, during in (("still", None), ("drag", lambda: post_drag(400, 450, 520, 450, False)),
+                             ("dragfit", lambda: post_drag(400, 450, 520, 450, True)),
+                             ("pan", lambda: post_drag(400, 450, 520, 450, False, right=True)),
+                             ("zoom", lambda: post_drag(400, 450, 400, 450, False, wheel=-6))):
+            shot = work / f"orbit_{name}.png"
+            shot.unlink(missing_ok=True)
+            rc, out = run(base + [str(helmet), "--frames", "240", "--size", "800x600", "--screenshot", str(shot),
+                                  "--cvar", "r.Background=Color", "--cvar", "r.Background.Color=0,0,1"], during=during)
+            if backend_absent(rc, out):
+                print("SKIP: backend not available on this machine (viewer exit 3)")
+                return SKIP
+            if rc != 0 or "validation messages: 0" not in out:
+                print(f"FAIL: {name}: exit {rc}")
+                return 1
+            centres[name] = pixel(shot, 400, 300)
+            tops[name] = pixel(shot, 400, 160)  # the helmet's top edge region: zooming out leaves the background
+            print(f"orbit {name}: centre (400, 300) = {centres[name]}, (400, 160) = {tops[name]}")
+        diff = sum(abs(centres["drag"][c] - centres["still"][c]) for c in range(3))
+        if diff < 30:
+            print("FAIL: the drag did not rotate the camera (centre unchanged)")
+            return 1
+        if any(abs(centres["dragfit"][c] - centres["still"][c]) > 3 for c in range(3)):
+            print("FAIL: F did not restore the fit camera")
+            return 1
+        # zoom keeps the orbit target at the centre: its effect is checked off-centre
+        for name, what, px in (("pan", "the right drag did not pan", centres), ("zoom", "the wheel did not zoom", tops)):
+            if sum(abs(px[name][c] - px["still"][c]) for c in range(3)) < 30:
+                print(f"FAIL: {what} (centre unchanged)")
+                return 1
+        return 0
+
+    if a.check in ("glb", "dragdrop"):
+        helmet = REPO / "tests" / "assets" / "glTF-Sample-Assets" / "Models" / "DamagedHelmet" / "glTF-Binary" / \
+            "DamagedHelmet.glb"
+        if not helmet.is_file():
+            print(f"FAIL: {helmet} missing (run scripts/fetch_assets.py)")
+            return 1
+        shot = work / f"{a.check}.png"
+        shot.unlink(missing_ok=True)
+        blue = ["--cvar", "r.Background=Color", "--cvar", "r.Background.Color=0,0,1"]
+        if a.check == "glb":
+            rc, out = run(base + [str(helmet), "--frames", "120", "--size", "800x600", "--screenshot", str(shot)] + blue)
+        else:
+            rc, out = run(base + ["--frames", "300", "--size", "800x600", "--screenshot", str(shot)] + blue,
+                          during=lambda: post_drop(helmet))
+        if backend_absent(rc, out):
+            print("SKIP: backend not available on this machine (viewer exit 3)")
+            return SKIP
+        if rc != 0:
+            print(f"FAIL: exit {rc}")
+            return 1
+        if "validation messages: 0" not in out:
+            print("FAIL: 'validation messages: 0' not in the viewer log")
+            return 1
+        if a.check == "dragdrop" and "viewer: dropped" not in out:
+            print("FAIL: the viewer did not log the dropped file")
+            return 1
+        centre, corner = pixel(shot, 400, 300), pixel(shot, 790, 590)
+        print(f"{a.check}: centre (400, 300) = {centre}, corner (790, 590) = {corner}")
+        if not (corner[0] <= 3 and corner[1] <= 3 and corner[2] >= 252):
+            print("FAIL: the corner is not the glTF scene's background colour (0, 0, 255)")
+            return 1
+        if abs(centre[0] - corner[0]) + abs(centre[1] - corner[1]) + abs(centre[2] - corner[2]) < 60:
+            print("FAIL: the centre shows the background, not the model")
             return 1
         return 0
 

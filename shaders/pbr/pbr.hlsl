@@ -142,8 +142,11 @@ float4 PSMain(VSOutput input, bool frontFacing : SV_IsFrontFace) : SV_Target0
     // USE_PUNCTUAL (pbr.frag): every light of this draw's space-1 list (none in reference mode unless
     // r.ReferenceMode.Punctual), times its shadow visibility in normal mode (lights.hlsli).
     const float alphaRoughness = perceptualRoughness * perceptualRoughness;
-    color += punctualLighting(input.worldPosition, n, ng, v, baseColor.rgb, metallic, alphaRoughness, f0Dielectric,
-                              specularWeight);
+    [branch] if (lightInfo.x != 0u)
+    {
+        color += punctualLighting(input.worldPosition, n, ng, v, baseColor.rgb, metallic, alphaRoughness, f0Dielectric,
+                                  specularWeight);
+    }
 
     const float3 emissiveSample =
         emissiveTexture.Sample(emissiveSampler, textureUV(input, TEX_EMISSIVE, texCoordSets2.x)).rgb;

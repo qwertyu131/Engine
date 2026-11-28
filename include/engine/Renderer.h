@@ -94,6 +94,10 @@ public:
     Result<void> setVsync(bool vsync);           // window
     // Window + debugUi: starts a Dear ImGui frame (ImGui:: calls follow until renderFrame(), which draws it).
     void beginUi(float deltaSeconds, float dpiScale, std::span<const platform::InputEvent> events);
+    // Releases a scene (its GPU objects, after the GPU is idle) / an asset and its scenes (plan F3 Task 8: the viewer
+    // replaces the scene on drag-and-drop). Unknown handles are ignored; the active scene becomes none.
+    void destroyScene(SceneHandle scene);
+    void releaseAsset(AssetHandle asset);
     // Punctual lights of a glTF scene (plan F3 Task 7; empty for a built-in scene or an unknown handle): the asset's
     // KHR_lights_punctual lights in Sample-Renderer's getVisibleLights order, then the added ones.
     std::vector<LightInfo> lights(SceneHandle scene) const;

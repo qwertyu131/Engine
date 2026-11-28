@@ -64,3 +64,11 @@ values at `CVarSource::Code` (each change logged). The engine-internal `rhi::IDe
 | `Scene.h`: `LightType`, `LightInfo` | a scene's punctual lights as the host sees them (world space) |
 | `lights(SceneHandle)`, `setLightEnabled(SceneHandle, index, bool)` | the viewer's lights panel (list + toggles, plan F3 Task 8) |
 | `addLight(SceneHandle, const LightInfo&)` | lights for an asset without any: the Task 8 bench (Sponza, 1 directional + 8 point lights through `headless --light`) and the viewer |
+
+## F3 (plan F3 Task 8): viewer `.glb`
+
+| Addition | Why |
+|---|---|
+| `Scene.h`: `ExtensionStatus`, `AssetInfo::extensions` | the viewer's asset panel: each extension used, loaded or ignored with the reason (engine/asset extension table) |
+| `destroyScene(SceneHandle)`, `releaseAsset(AssetHandle)` | drag-and-drop replaces the viewer's scene without keeping the previous one's GPU objects |
+| `Window.h`: `Window::takeDroppedFiles()`, `Key::F` | drag-and-drop of a file onto the viewer window; `F` = fit camera |

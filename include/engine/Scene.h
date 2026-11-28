@@ -8,12 +8,20 @@
 
 namespace eng {
 
+// What the renderer does with one extensionsUsed entry of an asset (plan F3 Task 8: the viewer's asset panel).
+struct ExtensionStatus {
+    std::string name;
+    bool loaded = false; // true: handled in this build; false: parsed and ignored
+    std::string note;    // what it does, or why it is ignored (e.g. "material extension, supported from F6")
+};
+
 struct AssetInfo {
     std::string source;                      // UTF-8 path or "builtin:<name>"
     bool builtin = false;
     uint32_t sceneCount = 0;                 // glTF scenes (1 for a built-in scene)
     int defaultScene = -1;                   // gltf.scene, -1 when absent
     std::vector<std::string> extensionsUsed; // glTF extensionsUsed
+    std::vector<ExtensionStatus> extensions; // one per extensionsUsed entry, same order
     std::vector<std::string> messages;       // loader / upload diagnostics: "[info] ..." / "[warning] ..."
 };
 

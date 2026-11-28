@@ -2,7 +2,14 @@
 //
 //   viewer --backend vulkan|d3d11 [--warp] [--adapter <index>] [--scene builtin:...|<file.gltf|.glb>] [--cvar n=v]...
 //          [--frames N] [--screenshot <png>] [--script resize] [--size WxH] [--shader-dir <dir>]
-//          [--asset-dir <dir>]
+//          [--asset-dir <dir>] [<file.gltf|.glb>]
+//
+//   <file>           (plan F3 Task 8) the asset to show, as --scene. A .gltf / .glb dropped onto the window replaces the
+//                    scene (the previous one is released); the viewer logs "viewer: dropped <path>".
+//   Camera (glTF scenes): orbit around the fit camera's target. Left mouse drag = rotate, right mouse drag = pan,
+//                    wheel = zoom, F = fit (Sample-Viewer resetView). Input over a panel goes to the panel.
+//   Panels: Device, Frame time, CVars (left), Asset (extensions used: loaded / ignored with the reason) and Lights
+//                    (per-light toggles, sg.ShadowQuality / sg.LightingQuality, r.ReferenceMode[.Punctual]) (right).
 //
 //   --frames N       renders N frames and exits 0 (fixed 1/60 s animation step, so runs are repeatable);
 //                    without it the viewer runs until the window is closed (real-time animation).
@@ -26,8 +33,14 @@
 #include <engine/Renderer.h>
 #include <engine/Window.h>
 
+#include <imgui.h>
+
+#include <algorithm>
+#include <array>
+#include <cctype>
 #include <chrono>
 #include <charconv>
+#include <cmath>
 #include <cstdio>
 #include <ctime>
 #include <exception>
@@ -63,7 +76,7 @@ void printUsage(std::ostream& os) {
     os << "usage:\n"
           "  viewer --backend vulkan|d3d11 [--warp] [--adapter <index>] [--scene builtin:...] [--cvar n=v]...\n"
           "         [--frames N] [--screenshot <png>] [--script resize] [--size WxH] [--shader-dir <dir>]\n"
-          "         [--asset-dir <dir>]\n"
+          "         [--asset-dir <dir>] [<file.gltf|.glb>]\n"
           "scenes: builtin:triangle, builtin:textured-cube (default), builtin:pbr-spheres, <file>.gltf / .glb\n"
           "exit codes: 0 = ok, 2 = usage / IO error, 3 = backend not available, 4 = validation error,\n"
           "            5 = device lost / GPU error\n";
@@ -80,10 +93,20 @@ std::optional<int> parseInt(const std::string& s, int min, int max) {
 
 std::optional<Options> parseArgs(const std::vector<std::string>& args) {
     Options o;
+    bool positional = false;
     for (size_t i = 1; i < args.size(); ++i) {
         const std::string& k = args[i];
         if (k == "--warp") {
             o.warp = true;
+            continue;
+        }
+        if (k.rfind("--", 0) != 0) {
+            if (positional) {
+                std::cerr << "viewer: more than one file given ('" << k << "')\n";
+                return std::nullopt;
+            }
+            o.scene = k; // viewer [options] <file.gltf|.glb>
+            positional = true;
             continue;
         }
         if (i + 1 >= args.size()) {
@@ -162,6 +185,60 @@ bool applyCVars(eng::Settings& reg, const std::vector<std::string>& cvars) {
         }
     }
     return true;
+}
+
+// Orbit camera around the fit camera's target (plan F3 Task 8): yaw / pitch 0 = the fit camera (looking down -Z).
+struct Orbit {
+    eng::Camera fit;
+    std::array<float, 3> target{0, 0, 0};
+    float distance = 1.0f, fitDistance = 1.0f, yaw = 0.0f, pitch = 0.0f;
+
+    void reset(const eng::Camera& c) {
+        fit = c;
+        target = c.target;
+        const float dx = c.position[0] - c.target[0], dy = c.position[1] - c.target[1], dz = c.position[2] - c.target[2];
+        distance = fitDistance = std::max(1e-4f, std::sqrt(dx * dx + dy * dy + dz * dz));
+        yaw = pitch = 0.0f;
+    }
+    eng::Camera camera() const {
+        eng::Camera c = fit;
+        const float cp = std::cos(pitch);
+        c.target = target;
+        c.position = {target[0] + distance * cp * std::sin(yaw), target[1] + distance * std::sin(pitch),
+                      target[2] + distance * cp * std::cos(yaw)};
+        c.up = {0.0f, 1.0f, 0.0f};
+        c.zfar = std::max(fit.zfar, fit.zfar + (distance - fitDistance));
+        return c;
+    }
+    void rotate(float dx, float dy) {
+        yaw -= dx * 0.008f;
+        pitch = std::clamp(pitch + dy * 0.008f, -1.55f, 1.55f);
+    }
+    void pan(float dx, float dy, float viewportHeight) {
+        const eng::Camera c = camera();
+        std::array<float, 3> f{c.target[0] - c.position[0], c.target[1] - c.position[1], c.target[2] - c.position[2]};
+        const float fl = std::sqrt(f[0] * f[0] + f[1] * f[1] + f[2] * f[2]);
+        for (float& v : f) {
+            v /= fl;
+        }
+        std::array<float, 3> r{f[1] * c.up[2] - f[2] * c.up[1], f[2] * c.up[0] - f[0] * c.up[2], f[0] * c.up[1] - f[1] * c.up[0]};
+        const float rl = std::max(1e-6f, std::sqrt(r[0] * r[0] + r[1] * r[1] + r[2] * r[2]));
+        for (float& v : r) {
+            v /= rl;
+        }
+        const std::array<float, 3> u{r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]};
+        const float k = distance * 2.0f * std::tan(fit.yfov * 0.5f) / std::max(1.0f, viewportHeight);
+        for (int i = 0; i < 3; ++i) {
+            target[i] += (-r[i] * dx + u[i] * dy) * k;
+        }
+    }
+    void zoom(float notches) { distance = std::max(1e-4f, distance * std::pow(0.9f, notches)); }
+};
+
+bool isGltfPath(const std::string& p) {
+    std::string ext = p.size() >= 5 ? p.substr(p.size() - 5) : p;
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) { return char(std::tolower(ch)); });
+    return ext == ".gltf" || (ext.size() >= 4 && ext.substr(ext.size() - 4) == ".glb");
 }
 
 std::string timestamp() {
@@ -265,18 +342,27 @@ int run(const std::vector<std::string>& args) {
     int exitCode = kExitOk;
     std::string exitMessage;
     {
-        auto asset = renderer.loadAsset(eng::golden::fromUtf8(opts->scene));
-        if (!asset) {
-            std::cerr << "viewer: " << asset.error().message << "\n";
-            return asset.error().exitCode;
+        auto loaded = renderer.loadAsset(eng::golden::fromUtf8(opts->scene));
+        if (!loaded) {
+            std::cerr << "viewer: " << loaded.error().message << "\n";
+            return loaded.error().exitCode;
         }
-        auto scene = renderer.instantiate(*asset);
-        if (!scene) {
-            std::cerr << "viewer: " << scene.error().message << "\n";
-            return scene.error().exitCode;
+        auto instantiated = renderer.instantiate(*loaded);
+        if (!instantiated) {
+            std::cerr << "viewer: " << instantiated.error().message << "\n";
+            return instantiated.error().exitCode;
         }
+        eng::AssetHandle asset = *loaded;
+        eng::SceneHandle scene = *instantiated;
         eng::platform::Window::Size size = win.size();
-        renderer.setCamera(renderer.fitCamera(*scene, float(std::max(1u, size.width)) / float(std::max(1u, size.height))));
+        const auto aspectOf = [](eng::platform::Window::Size s) {
+            return float(std::max(1u, s.width)) / float(std::max(1u, s.height));
+        };
+        Orbit orbit;
+        orbit.reset(renderer.fitCamera(scene, aspectOf(size)));
+        renderer.setCamera(orbit.camera());
+        bool dragRotate = false, dragPan = false;
+        float mouseX = 0.0f, mouseY = 0.0f;
 
         eng::viewer::FrameStats stats;
         const auto start = std::chrono::steady_clock::now();
@@ -320,6 +406,32 @@ int run(const std::vector<std::string>& args) {
                     f12 = true;
                 }
             }
+            // Drag-and-drop (plan F3 Task 8): the last dropped .gltf / .glb replaces the scene.
+            for (const std::string& path : win.takeDroppedFiles()) {
+                if (!isGltfPath(path)) {
+                    std::cerr << "[warn] viewer: dropped file is not a .gltf / .glb: " << path << "\n";
+                    continue;
+                }
+                std::printf("viewer: dropped %s\n", path.c_str());
+                std::fflush(stdout);
+                auto a = renderer.loadAsset(eng::golden::fromUtf8(path));
+                if (!a) {
+                    std::cerr << "[error] viewer: cannot load the dropped file: " << a.error().message << "\n";
+                    continue;
+                }
+                auto s = renderer.instantiate(*a);
+                if (!s) {
+                    std::cerr << "[error] viewer: cannot show the dropped file: " << s.error().message << "\n";
+                    renderer.releaseAsset(*a);
+                    renderer.setActiveScene(scene);
+                    continue;
+                }
+                renderer.releaseAsset(asset);
+                renderer.setActiveScene(*s);
+                asset = *a;
+                scene = *s;
+                orbit.reset(renderer.fitCamera(scene, aspectOf(win.size())));
+            }
             const auto now = std::chrono::steady_clock::now();
             const float dt = std::chrono::duration<float>(now - last).count();
             last = now;
@@ -345,8 +457,37 @@ int run(const std::vector<std::string>& args) {
                                          : std::chrono::duration<float>(now - start).count();
             renderer.setTime(t);
             renderer.beginUi(dt, win.dpiScale(), events);
+            // Orbit camera input (not when the UI wants the mouse / keyboard).
+            const bool uiMouse = ImGui::GetCurrentContext() && ImGui::GetIO().WantCaptureMouse && showUi->getBool();
+            const bool uiKeys = ImGui::GetCurrentContext() && ImGui::GetIO().WantCaptureKeyboard && showUi->getBool();
+            for (const auto& e : events) {
+                using T = eng::platform::InputEvent::Type;
+                if (e.type == T::MouseMove) {
+                    const float dx = e.x - mouseX, dy = e.y - mouseY;
+                    mouseX = e.x;
+                    mouseY = e.y;
+                    if (dragRotate) {
+                        orbit.rotate(dx, dy);
+                    } else if (dragPan) {
+                        orbit.pan(dx, dy, float(ws.height));
+                    }
+                } else if (e.type == T::MouseButton) {
+                    const bool pressed = e.down && !uiMouse;
+                    if (e.button == 0) {
+                        dragRotate = pressed;
+                    } else if (e.button == 1) {
+                        dragPan = pressed;
+                    }
+                } else if (e.type == T::MouseWheel && !uiMouse) {
+                    orbit.zoom(e.y);
+                } else if (e.type == T::Key && e.key == eng::platform::Key::F && e.down && !uiKeys) {
+                    orbit.reset(renderer.fitCamera(scene, aspectOf(ws)));
+                }
+            }
+            renderer.setCamera(orbit.camera());
             if (showUi->getBool()) {
                 eng::viewer::drawPanels(renderer.caps(), stats);
+                eng::viewer::drawScenePanels(renderer, asset, scene, float(ws.width));
             }
             const bool lastFrame = total > 0 && frame == total - 1;
             const bool shoot = (lastFrame && !opts->screenshot.empty()) || f12;

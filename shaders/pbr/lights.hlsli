@@ -106,9 +106,9 @@ float shadowTileVisibility(uint tile, float3 worldPos, float3 ng, float3 lightPo
     const int radius = lightInfo.z != 0u ? 1 : 0;
     float lit = 0.0;
     float taps = 0.0;
-    for (int y = -radius; y <= radius; ++y)
+    [loop] for (int y = -radius; y <= radius; ++y)
     {
-        for (int x = -radius; x <= radius; ++x)
+        [loop] for (int x = -radius; x <= radius; ++x)
         {
             const int2 t = clamp(centre + int2(x, y), lo, hi);
             const float2 uv = (float2(t) + 0.5) * shadowInfo.zw;
@@ -136,7 +136,7 @@ float lightVisibility(uint i, float3 worldPos, float3 ng)
         // The first cascade whose far view depth covers the point; none beyond r.Shadow.Distance.
         const float depth = dot(worldPos - cameraPosition.xyz, viewForward.xyz);
         bool found = false;
-        for (uint c = 0u; c < count; ++c)
+        [loop] for (uint c = 0u; c < count; ++c)
         {
             const bool here = !found && depth <= shadowRects[first + c].w;
             tile = here ? first + c : tile;
@@ -170,7 +170,7 @@ float3 punctualLighting(float3 worldPos, float3 n, float3 ng, float3 v, float3 b
     float3 color = float3(0.0, 0.0, 0.0);
     const float3 f90Dielectric = float3(1.0, 1.0, 1.0);
     const uint count = min(lightInfo.x, uint(MAX_LIGHTS));
-    for (uint i = 0u; i < count; ++i)
+    [loop] for (uint i = 0u; i < count; ++i)
     {
         const float4 l0 = lights[4u * i];
         const float4 l2 = lights[4u * i + 2u];
