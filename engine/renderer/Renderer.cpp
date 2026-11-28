@@ -98,6 +98,7 @@ struct Renderer::Impl {
     std::unique_ptr<ui::ImGuiRenderer> ui;
 #endif
     bool uiOpen = false;
+    bool finished = false; // finish() released the GPU objects
 
     struct Asset {
         AssetInfo info;
@@ -409,6 +410,9 @@ void Renderer::setTime(float seconds) {
 
 Result<void> Renderer::renderFrame() {
     Impl& m = *impl_;
+    if (m.finished) {
+        return std::unexpected(Error{2, "renderFrame after finish()"});
+    }
     Format f = m.windowed() ? m.swapchainFormat : Format::RGBA8_UNORM;
     if (auto it = m.scenes.find(m.active); it != m.scenes.end()) {
         f = it->second.format;
@@ -607,7 +611,31 @@ void Renderer::beginUi(float deltaSeconds, float dpiScale, std::span<const platf
 }
 
 Result<void> Renderer::finish() {
-    return impl_->dev->submitAndWait();
+    // Releases every GPU object (scenes, UI, target / swapchain) and waits for the GPU, so validation messages raised
+    // by the teardown count before the host decides its exit code (as the F2 apps did: scene destroyed, then
+    // submitAndWait, then the validation count).
+    Impl& m = *impl_;
+    Result<void> r = m.dev->submitAndWait();
+    m.scenes.clear();
+    m.active = 0;
+#if defined(_WIN32)
+    if (m.uiOpen) {
+        ImGui::EndFrame();
+        m.uiOpen = false;
+    }
+    m.ui.reset();
+#endif
+    if (m.target) {
+        m.dev->destroy(m.target);
+        m.target = {};
+    }
+    if (m.swapchain) {
+        m.dev->destroy(m.swapchain);
+        m.swapchain = {};
+    }
+    m.finished = true;
+    Result<void> r2 = m.dev->submitAndWait(); // runs the deferred destruction
+    return r ? r2 : r;
 }
 
 } // namespace eng

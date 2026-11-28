@@ -34,7 +34,7 @@ The plan's interface (`create`, `loadAsset`, `instantiate`, `fitCamera`, `setCam
 | `setActiveScene(SceneHandle)` | `instantiate` makes its scene active; a host with several scenes can switch |
 | `setTime(float)` | the viewer's spinning cube (built-in scenes); glTF scenes stay at rest until F4 |
 | `assetInfo(AssetHandle)`, `sceneInfo(SceneHandle)` | extensions used / diagnostics (viewer asset panel, Task 8) and scene extents (tests) |
-| `validationErrorCount()`, `finish()` | exit code 4 of both apps after the last frame |
+| `validationErrorCount()`, `finish()` | exit code 4 of both apps: `finish()` releases every GPU object and waits, so teardown validation messages are counted before the exit code (as the F2 apps did) |
 | `requestCapture()` | viewer screenshots: the back buffer is read before present, `readback()` returns it |
 | `setVsync(bool)` | the viewer's `r.VSync` cvar at run time |
 | `beginUi(dt, dpiScale, events)` | the viewer's Dear ImGui panels; Dear ImGui (`<imgui.h>`) is a public dependency of `engine::facade` |

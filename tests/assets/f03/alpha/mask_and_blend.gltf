@@ -103,17 +103,20 @@
   {
    "buffer": 0,
    "byteOffset": 0,
-   "byteLength": 96
+   "byteLength": 96,
+   "byteStride": 12
   },
   {
    "buffer": 0,
    "byteOffset": 96,
-   "byteLength": 96
+   "byteLength": 96,
+   "byteStride": 12
   },
   {
    "buffer": 0,
    "byteOffset": 192,
-   "byteLength": 64
+   "byteLength": 64,
+   "byteStride": 8
   },
   {
    "buffer": 0,

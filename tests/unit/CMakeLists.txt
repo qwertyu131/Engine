@@ -245,7 +245,11 @@ if(TARGET shaders)
     if(MSVC)
         target_compile_options(renderer_unit_tests PRIVATE /W4 /WX /permissive- /utf-8 /external:W0)
     endif()
-    foreach(b IN LISTS ENG_BUILT_RHI_BACKENDS)
+    set(renderer_backends ${ENG_BUILT_RHI_BACKENDS})
+    if(ENG_RHI_D3D11)
+        list(APPEND renderer_backends d3d11-fl10_0) # T0: SM 4.0, skin cbuffer, morph vertex attributes
+    endif()
+    foreach(b IN LISTS renderer_backends)
         add_test(NAME unit.renderer.${b} COMMAND renderer_unit_tests --backend=${b} --no-version=true)
         set_tests_properties(unit.renderer.${b} PROPERTIES
             SKIP_RETURN_CODE 77

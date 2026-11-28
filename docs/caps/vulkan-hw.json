@@ -303,5 +303,5 @@
   "rayTracing": true,
   "bindless": true,
   "timestampQueries": true,
-  "note": "Vulkan physical device 'NVIDIA GeForce RTX 3070 Ti' (API 1.4.357): limits, formats and features the device SUPPORTS (vkGetPhysicalDevice*); the RHI enables dynamicRendering and the texture compression features the device has (plan F3 Task 3). Written by headless --dump-caps (plan F2 Task 7)."
+  "note": "Vulkan physical device 'NVIDIA GeForce RTX 3070 Ti' (API 1.4.357): limits, formats and features the device SUPPORTS (vkGetPhysicalDevice*); the RHI enables dynamicRendering, the texture compression features the device has (plan F3 Task 3) and VK_KHR_maintenance5 when present (point lists, plan F3 Task 4). Written by headless --dump-caps (plan F2 Task 7)."
 }

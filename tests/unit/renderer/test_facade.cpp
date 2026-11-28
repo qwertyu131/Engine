@@ -1,7 +1,9 @@
 // Renderer facade (plan F3 Task 4, spec K-D). Uses ONLY include/engine/*.h (the K-D rule the apps follow; the target
 // has no engine-internal include path) plus nlohmann/json for the test's own reading of the glTF files.
 //
-//   renderer_unit_tests --backend=vulkan|d3d11 [doctest options]   (one ctest entry per backend, exit 77 = absent)
+//   renderer_unit_tests --backend=vulkan|d3d11|d3d11-fl10_0 [doctest options]
+//   (one ctest entry per backend configuration, exit 77 = absent; d3d11-fl10_0 = D3D11 capped at FL10_0 = T0: SM 4.0
+//   shaders, the skin cbuffer, morph targets as vertex attributes)
 //
 // Every case renders offscreen with r.Background=Color (magenta, r.Background.Color) so "background" is a known colour,
 // and checks the validation message count is 0. Probes come from the assets' design, never from a render:
@@ -16,7 +18,13 @@
 //   f03/alpha            MASK and BLEND over the bare background (AlphaBlendModeTest's cut-outs show its marble bed,
 //                        not the background): the cut-out is the background, the blend a half / half mix;
 //   SimpleSkin, RecursiveSkeletons  rest pose with skinning renders (something drawn), validation 0;
-//   no_material.gltf     the glTF default material (white, metallic 1, roughness 1) renders.
+//   f03/rest             a quad displaced +2 in x by a skin (joint translated) or a morph target (weight 0.5 of +4):
+//                        drawn at the displaced place, nothing at the origin;
+//   f03/colorspace/emissive_view  the renderer's slot -> view table (Review Focus 3): an emissive texture sampled
+//                        midway equals the emissiveFactor of its sRGB-decoded midpoint;
+//   f03/missing          Review Focus 4: no material (default material), no normals, no tangents with a normal map, no
+//                        UVs with a texture: each drawn; non-finite tangent input: renders with validation 0.
+// Every case ends with finish() (every GPU object released, GPU idle) and validation 0.
 #include <engine/Renderer.h>
 
 #include <doctest/doctest.h>
@@ -31,7 +39,7 @@
 
 namespace {
 
-eng::rhi::Backend g_backend = eng::rhi::Backend::Vulkan;
+eng::RendererDesc g_desc; // backend configuration of this run (main)
 
 std::filesystem::path u8(std::string_view s) {
     return std::filesystem::path(std::u8string(s.begin(), s.end()));
@@ -51,8 +59,7 @@ struct Fixture {
 };
 
 Fixture open(const std::filesystem::path& file) {
-    eng::RendererDesc d;
-    d.backend = g_backend;
+    eng::RendererDesc d = g_desc;
     d.width = d.height = kSize;
     d.shaderDir = u8(ENG_TEST_SHADER_LIB_DIR);
     d.assetDir = u8(ENG_TEST_ASSET_DIR);
@@ -69,6 +76,13 @@ Fixture open(const std::filesystem::path& file) {
     f.camera = f.r->fitCamera(f.scene, 1.0f);
     f.r->setCamera(f.camera);
     return f;
+}
+
+// finish(): releases every GPU object and waits; the teardown's validation messages count too.
+void done(Fixture& f) {
+    auto r = f.r->finish();
+    REQUIRE_MESSAGE(r.has_value(), (r ? std::string() : r.error().message));
+    CHECK(f.r->validationErrorCount() == 0);
 }
 
 eng::Image render(Fixture& f, uint32_t size = kSize) {
@@ -193,14 +207,16 @@ int main(int argc, char** argv) {
             args.push_back(argv[i]);
         }
     }
-    if (backend != "vulkan" && backend != "d3d11") {
-        std::printf("usage: renderer_unit_tests --backend=vulkan|d3d11 [doctest options]\n");
+    if (backend != "vulkan" && backend != "d3d11" && backend != "d3d11-fl10_0") {
+        std::printf("usage: renderer_unit_tests --backend=vulkan|d3d11|d3d11-fl10_0 [doctest options]\n");
         return 2;
     }
-    g_backend = backend == "vulkan" ? eng::rhi::Backend::Vulkan : eng::rhi::Backend::D3D11;
+    g_desc.backend = backend == "vulkan" ? eng::rhi::Backend::Vulkan : eng::rhi::Backend::D3D11;
+    g_desc.d3d11FeatureLevelCap = backend == "d3d11-fl10_0" ? 0xa000 : 0;
+    g_desc.shaderDir = u8(ENG_TEST_SHADER_LIB_DIR);
+    g_desc.assetDir = u8(ENG_TEST_ASSET_DIR);
     {
-        eng::RendererDesc d;
-        d.backend = g_backend;
+        eng::RendererDesc d = g_desc;
         d.shaderDir = u8(ENG_TEST_SHADER_LIB_DIR);
         d.assetDir = u8(ENG_TEST_ASSET_DIR);
         auto r = eng::Renderer::create(d);
@@ -212,8 +228,8 @@ int main(int argc, char** argv) {
             std::printf("FAIL: backend %s: exit %d: %s\n", backend.c_str(), r.error().exitCode, r.error().message.c_str());
             return 1;
         }
-        std::printf("renderer backend: %s (%s, %s)\n", backend.c_str(), (*r)->caps().adapterName.c_str(),
-                    (*r)->caps().apiVersion.c_str());
+        std::printf("renderer backend: %s (%s, %s, tier %d)\n", backend.c_str(), (*r)->caps().adapterName.c_str(),
+                    (*r)->caps().apiVersion.c_str(), (*r)->caps().tier);
         std::fflush(stdout);
     }
     doctest::Context ctx(static_cast<int>(args.size()), args.data());
@@ -230,6 +246,7 @@ TEST_CASE("BoxTextured.glb: create -> load -> instantiate -> fit -> render -> re
     const eng::Image img = render(f);
     CHECK_FALSE(isBackground(pixel(img, kSize / 2, kSize / 2)));
     CHECK(isBackground(pixel(img, 1, 1))); // the fit camera leaves a margin around the box
+    done(f);
 }
 
 TEST_CASE("OrientationTest: every arrow's shaft is where its node transform puts it (quaternions and matrices)") {
@@ -278,6 +295,7 @@ TEST_CASE("OrientationTest: every arrow's shaft is where its node transform puts
         CAPTURE(p[2]);
         CHECK(a.colour(p));
     }
+    done(f);
 }
 
 TEST_CASE("NegativeScaleTest: green checks shown, no red X (negative determinant flips the front face)") {
@@ -287,6 +305,7 @@ TEST_CASE("NegativeScaleTest: green checks shown, no red X (negative determinant
     MESSAGE("NegativeScaleTest: red-X pixels " << red << ", green-check pixels " << green);
     CHECK(red == 0);
     CHECK(green >= 200); // six checks (front / back / sample x scale 1 / -1), about 80 pixels each at 384 x 384
+    done(f);
 }
 
 TEST_CASE("AlphaBlendModeTest: every column shows its green check, no red X") {
@@ -322,6 +341,7 @@ TEST_CASE("AlphaBlendModeTest: every column shows its green check, no red X") {
         CAPTURE(green);
         CHECK(green >= 8);
     }
+    done(f);
 }
 
 TEST_CASE("MASK cuts below alphaCutoff to the background; BLEND mixes with it (tests/assets/f03/alpha)") {
@@ -348,6 +368,7 @@ TEST_CASE("MASK cuts below alphaCutoff to the background; BLEND mixes with it (t
     CHECK(mixed[0] <= 170);
     CHECK(mixed[2] >= 200);
     CHECK(mixed[1] <= 40);
+    done(f);
 }
 
 TEST_CASE("skinned rest pose renders: SimpleSkin, RecursiveSkeletons") {
@@ -364,23 +385,80 @@ TEST_CASE("skinned rest pose renders: SimpleSkin, RecursiveSkeletons") {
         }
         MESSAGE(std::string(model) << ": " << drawn << " non-background pixels");
         CHECK(drawn > 500);
+        done(f);
     }
 }
 
-TEST_CASE("a primitive without material renders with the glTF default material") {
-    Fixture f = open(u8(ENG_TEST_ASSET_DIR) / "f03" / "missing" / "no_material.gltf");
+TEST_CASE("Review Focus 4: missing material / normals / tangents / UVs each render") {
+    // f03/missing (scripts/make_f03_assets.py): one triangle (0, 0, 0) (1, 0, 0) (0, 1, 0) facing +Z; the fit camera
+    // looks at it from +Z, so its centroid is drawn whatever the loader generated for it.
+    for (const char* name : {"no_material", "no_normals", "no_tangents_normal_map", "no_uv_with_texture"}) {
+        const std::string file = std::string(name) + ".gltf";
+        CAPTURE(file);
+        Fixture f = open(u8(ENG_TEST_ASSET_DIR) / "f03" / "missing" / u8(file));
+        const eng::Image img = render(f);
+        const M4 vp = viewProj(f.camera, 1.0);
+        const auto px = project(vp, {1.0 / 3.0, 1.0 / 3.0, 0.0});
+        const auto p = pixel(img, px[0], px[1]);
+        CAPTURE(p[0]);
+        CAPTURE(p[1]);
+        CAPTURE(p[2]);
+        CHECK_FALSE(isBackground(p));
+        if (file == "no_material.gltf") {
+            // The glTF default material (white base colour, metallic 1, roughness 1): grey, lit by the IBL.
+            CHECK(std::abs(p[0] - p[1]) <= 24);
+            CHECK(std::abs(p[1] - p[2]) <= 24);
+        }
+        done(f);
+    }
+    // NaN / Inf position and UV of one vertex with a normal map and no TANGENT: loads, renders, validation 0.
+    Fixture f = open(u8(ENG_TEST_ASSET_DIR) / "f03" / "missing" / "nonfinite_tangent_input.gltf");
+    (void)render(f);
+    done(f);
+}
+
+TEST_CASE("rest pose: a skin and a morph target move the quad +2 in x (tests/assets/f03/rest)") {
+    for (const char* name : {"skin_quad.gltf", "morph_quad.gltf"}) {
+        const std::string file = name;
+        CAPTURE(file);
+        Fixture f = open(u8(ENG_TEST_ASSET_DIR) / "f03" / "rest" / u8(file));
+        // The fit camera frames the undeformed quad (Sample-Viewer extents ignore skins and morphs); this camera sees
+        // both the origin and x = 2.
+        eng::Camera c;
+        c.position = {1.0f, 0.0f, 6.0f};
+        c.target = {1.0f, 0.0f, 0.0f};
+        c.yfov = 0.785398163f;
+        c.znear = 0.1f;
+        c.zfar = 100.0f;
+        f.r->setCamera(c);
+        const eng::Image img = render(f);
+        const M4 vp = viewProj(c, 1.0);
+        const auto moved = project(vp, {2.0, 0.0, 0.0}), origin = project(vp, {0.0, 0.0, 0.0});
+        const auto pm = pixel(img, moved[0], moved[1]), po = pixel(img, origin[0], origin[1]);
+        CAPTURE(pm[0]);
+        CAPTURE(po[0]);
+        CHECK_FALSE(isBackground(pm));
+        CHECK(isBackground(po));
+        done(f);
+    }
+}
+
+TEST_CASE("Review Focus 3 in the renderer: the emissive texture's view decodes sRGB before filtering") {
+    // f03/colorspace/emissive_view.gltf: quad A emits emissiveFactor (0, srgbToLinear(188 / 255) / 2, 0); quad B emits
+    // its 2 x 1 texture (0, 0, 0) - (0, 188, 0) sampled midway with emissiveFactor 1. Same black base, same normal: both
+    // must give the same pixel. GpuModel's slot table makes emissive an sRGB view; a linear view makes B brighter.
+    Fixture f = open(u8(ENG_TEST_ASSET_DIR) / "f03" / "colorspace" / "emissive_view.gltf");
     const eng::Image img = render(f);
-    // One triangle (0, 0, 0) (1, 0, 0) (0, 1, 0), +Z normal, facing the fit camera: its centroid is drawn.
     const M4 vp = viewProj(f.camera, 1.0);
-    const auto px = project(vp, {1.0 / 3.0, 1.0 / 3.0, 0.0});
-    const auto p = pixel(img, px[0], px[1]);
-    CAPTURE(p[0]);
-    CAPTURE(p[1]);
-    CAPTURE(p[2]);
-    CHECK_FALSE(isBackground(p));
-    // White base colour, metallic 1, roughness 1: grey (no hue), lit by the IBL.
-    CHECK(std::abs(p[0] - p[1]) <= 24);
-    CHECK(std::abs(p[1] - p[2]) <= 24);
+    const auto pa = project(vp, {-0.6, 0.0, 0.0}), pb = project(vp, {0.6, 0.0, 0.0});
+    const auto a = pixel(img, pa[0], pa[1]), b = pixel(img, pb[0], pb[1]);
+    MESSAGE("emissive factor quad " << a[0] << "," << a[1] << "," << a[2] << " / texture quad " << b[0] << "," << b[1]
+                                    << "," << b[2]);
+    CHECK_FALSE(isBackground(a));
+    CHECK(std::abs(a[1] - b[1]) <= 3);
+    CHECK(std::abs(a[0] - b[0]) <= 3);
+    CHECK(std::abs(a[2] - b[2]) <= 3);
+    done(f);
 }
 
 } // TEST_SUITE

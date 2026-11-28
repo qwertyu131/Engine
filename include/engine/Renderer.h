@@ -94,7 +94,9 @@ public:
     Result<void> setVsync(bool vsync);           // window
     // Window + debugUi: starts a Dear ImGui frame (ImGui:: calls follow until renderFrame(), which draws it).
     void beginUi(float deltaSeconds, float dpiScale, std::span<const platform::InputEvent> events);
-    // Waits for the GPU; validation errors raised by work in flight surface here (exit 4).
+    // Ends rendering: releases every GPU object (scenes, debug UI, target / swapchain) and waits for the GPU, so
+    // validation messages of work in flight and of the teardown are counted (validationErrorCount) before the host
+    // picks its exit code. Only validationErrorCount / caps / assetInfo are meaningful afterwards.
     Result<void> finish();
 
 private:

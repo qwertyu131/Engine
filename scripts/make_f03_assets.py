@@ -10,6 +10,7 @@ Layout:
     missing/   valid files with missing attributes / material (Review Focus 4) and extension handling.
     colorspace/ the crafted TextureLinearInterpolationTest variant of the Review Focus 3 colour-space probe (Task 3).
     alpha/     MASK and BLEND quads over the bare background (Task 4 facade probes).
+    rest/      a quad displaced +2 in x by a skin or by a morph target at rest pose (Task 4 facade probes).
     paths/     .gltf files with external .bin / .png in the same and in a sibling directory, non-ASCII names
                with spaces, URI-encoded (%20, UTF-8 percent escapes) (Review Focus 2).
 
@@ -342,9 +343,10 @@ def fixtures() -> dict[str, bytes]:
         "samplers": [{"magFilter": 9728, "minFilter": 9728, "wrapS": 33071, "wrapT": 33071}],
         "textures": [{"source": 0, "sampler": 0}],
         "buffers": [{"byteLength": len(blob), "uri": data_uri("application/octet-stream", blob)}],
-        "bufferViews": [{"buffer": 0, "byteOffset": 0, "byteLength": 96},
-                        {"buffer": 0, "byteOffset": n_off, "byteLength": 96},
-                        {"buffer": 0, "byteOffset": uv_off, "byteLength": 64},
+        # Vertex views shared by both quads' accessors: byteStride is required then (glTF 2.0 §3.6.2.3).
+        "bufferViews": [{"buffer": 0, "byteOffset": 0, "byteLength": 96, "byteStride": 12},
+                        {"buffer": 0, "byteOffset": n_off, "byteLength": 96, "byteStride": 12},
+                        {"buffer": 0, "byteOffset": uv_off, "byteLength": 64, "byteStride": 8},
                         {"buffer": 0, "byteOffset": i_off, "byteLength": 24}],
         "accessors": [
             {"bufferView": 0, "componentType": 5126, "count": 4, "type": "VEC3",
@@ -358,6 +360,96 @@ def fixtures() -> dict[str, bytes]:
             {"bufferView": 2, "byteOffset": 32, "componentType": 5126, "count": 4, "type": "VEC2"},
             {"bufferView": 3, "byteOffset": 12, "componentType": 5123, "count": 6, "type": "SCALAR"}]}
     files["alpha/mask_and_blend.gltf"] = dumps(alpha_doc)
+
+    # --- rest/ (plan F3 Task 4): skinning and morphing at rest pose, with an exact displacement -------------------
+    # A unit quad (x, y in [-0.5, 0.5], z 0, facing +Z) displaced +2 in x two ways: skin_quad.gltf skins every vertex
+    # 100 % to joint node 1 (translation (2, 0, 0), no inverseBindMatrices = identity); morph_quad.gltf has one morph
+    # target with POSITION deltas (+4, 0, 0) and mesh.weights [0.5]. Either way the quad is drawn around (2, 0, 0)
+    # and nothing at the origin.
+    def quad_doc(extra_attrs: bytes, attrs: dict, extra_views: list, extra_accessors: list, mesh_extra: dict,
+                 nodes: list, scene_nodes: list, more: dict) -> bytes:
+        pos = [(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.5, 0.5, 0.0), (-0.5, 0.5, 0.0)]
+        nrm = [(0.0, 0.0, 1.0)] * 4
+        idx = [0, 1, 2, 0, 2, 3]
+        base = f32(pos) + f32(nrm) + b"".join(struct.pack("<H", i) for i in idx) + b"\0\0\0\0"  # 4-aligned
+        data = base + extra_attrs
+        views = [{"buffer": 0, "byteOffset": 0, "byteLength": 48}, {"buffer": 0, "byteOffset": 48, "byteLength": 48},
+                 {"buffer": 0, "byteOffset": 96, "byteLength": 12}]
+        accs = [{"bufferView": 0, "componentType": 5126, "count": 4, "type": "VEC3", "min": [-0.5, -0.5, 0.0],
+                 "max": [0.5, 0.5, 0.0]},
+                {"bufferView": 1, "componentType": 5126, "count": 4, "type": "VEC3"},
+                {"bufferView": 2, "componentType": 5123, "count": 6, "type": "SCALAR"}]
+        for v in extra_views:
+            v = dict(v)
+            v["byteOffset"] += len(base)
+            views.append(v)
+        accs += extra_accessors
+        prim = {"attributes": {"POSITION": 0, "NORMAL": 1, **attrs}, "indices": 2, "material": 0}
+        prim.update(mesh_extra.get("primitive", {}))
+        mesh = {"primitives": [prim]}
+        mesh.update(mesh_extra.get("mesh", {}))
+        doc = {"asset": {"version": "2.0", "generator": "scripts/make_f03_assets.py"}, "scene": 0,
+               "scenes": [{"nodes": scene_nodes}], "nodes": nodes, "meshes": [mesh],
+               "materials": [{"pbrMetallicRoughness": {"baseColorFactor": [0.9, 0.9, 0.9, 1.0], "metallicFactor": 0.0,
+                                                       "roughnessFactor": 1.0}}],
+               "buffers": [{"byteLength": len(data), "uri": data_uri("application/octet-stream", data)}],
+               "bufferViews": views, "accessors": accs}
+        doc.update(more)
+        return dumps(doc)
+
+    joints = b"".join(struct.pack("<4B", 0, 0, 0, 0) for _ in range(4))
+    weights = f32([(1.0, 0.0, 0.0, 0.0)] * 4)
+    files["rest/skin_quad.gltf"] = quad_doc(
+        joints + weights, {"JOINTS_0": 3, "WEIGHTS_0": 4},
+        [{"buffer": 0, "byteOffset": 0, "byteLength": 16}, {"buffer": 0, "byteOffset": 16, "byteLength": 64}],
+        [{"bufferView": 3, "componentType": 5121, "count": 4, "type": "VEC4"},
+         {"bufferView": 4, "componentType": 5126, "count": 4, "type": "VEC4"}],
+        {}, [{"mesh": 0, "skin": 0}, {"translation": [2.0, 0.0, 0.0]}], [0, 1], {"skins": [{"joints": [1]}]})
+    deltas = f32([(4.0, 0.0, 0.0)] * 4)
+    files["rest/morph_quad.gltf"] = quad_doc(
+        deltas, {}, [{"buffer": 0, "byteOffset": 0, "byteLength": 48}],
+        [{"bufferView": 3, "componentType": 5126, "count": 4, "type": "VEC3", "min": [4.0, 0.0, 0.0],
+          "max": [4.0, 0.0, 0.0]}],
+        {"primitive": {"targets": [{"POSITION": 3}]}, "mesh": {"weights": [0.5]}}, [{"mesh": 0}], [0], {})
+
+    # --- colorspace/emissive_view.gltf (Review Focus 3 through the renderer's slot -> view table) ---------------------
+    # Two quads, black base colour, metallic 0, roughness 1: quad A (x -1.1 .. -0.1) has emissiveFactor
+    # (0, srgbToLinear(188 / 255) / 2, 0) and no texture; quad B (x 0.1 .. 1.1) has emissiveFactor (1, 1, 1) and the
+    # crafted 2 x 1 emissive texture (0, 0, 0) - (0, 188, 0) sampled at its midpoint (every UV = (0.5, 0.5), LINEAR).
+    # With emissive as an sRGB view both quads emit the same green; a linear view makes B brighter.
+    g = ((188 / 255 + 0.055) / 1.055) ** 2.4 / 2
+    ev_pos = [(-1.1, -0.5, 0.0), (-0.1, -0.5, 0.0), (-0.1, 0.5, 0.0), (-1.1, 0.5, 0.0),
+              (0.1, -0.5, 0.0), (1.1, -0.5, 0.0), (1.1, 0.5, 0.0), (0.1, 0.5, 0.0)]
+    ev_blob = (f32(ev_pos) + f32([(0.0, 0.0, 1.0)] * 8) + f32([(0.5, 0.5)] * 8) +
+               b"".join(struct.pack("<H", i) for i in [0, 1, 2, 0, 2, 3] * 2))
+    black = {"baseColorFactor": [0.0, 0.0, 0.0, 1.0], "metallicFactor": 0.0, "roughnessFactor": 1.0}
+    ev_doc = {
+        "asset": {"version": "2.0", "generator": "scripts/make_f03_assets.py"},
+        "scene": 0, "scenes": [{"nodes": [0, 1]}], "nodes": [{"mesh": 0}, {"mesh": 1}],
+        "meshes": [{"primitives": [{"attributes": {"POSITION": 0, "NORMAL": 1, "TEXCOORD_0": 2}, "indices": 3,
+                                    "material": 0}]},
+                   {"primitives": [{"attributes": {"POSITION": 4, "NORMAL": 5, "TEXCOORD_0": 6}, "indices": 7,
+                                    "material": 1}]}],
+        "materials": [{"emissiveFactor": [0.0, g, 0.0], "pbrMetallicRoughness": black},
+                      {"emissiveFactor": [1.0, 1.0, 1.0], "emissiveTexture": {"index": 0}, "pbrMetallicRoughness": black}],
+        "images": [{"uri": data_uri("image/png", png_2x1)}],
+        "samplers": [{"magFilter": 9729, "minFilter": 9729, "wrapS": 33071, "wrapT": 33071}],
+        "textures": [{"source": 0, "sampler": 0}],
+        "buffers": [{"byteLength": len(ev_blob), "uri": data_uri("application/octet-stream", ev_blob)}],
+        "bufferViews": [{"buffer": 0, "byteOffset": 0, "byteLength": 96, "byteStride": 12},
+                        {"buffer": 0, "byteOffset": 96, "byteLength": 96, "byteStride": 12},
+                        {"buffer": 0, "byteOffset": 192, "byteLength": 64, "byteStride": 8},
+                        {"buffer": 0, "byteOffset": 256, "byteLength": 24}],
+        "accessors": [
+            {"bufferView": 0, "componentType": 5126, "count": 4, "type": "VEC3", "min": [-1.1, -0.5, 0.0], "max": [-0.1, 0.5, 0.0]},
+            {"bufferView": 1, "componentType": 5126, "count": 4, "type": "VEC3"},
+            {"bufferView": 2, "componentType": 5126, "count": 4, "type": "VEC2"},
+            {"bufferView": 3, "componentType": 5123, "count": 6, "type": "SCALAR"},
+            {"bufferView": 0, "byteOffset": 48, "componentType": 5126, "count": 4, "type": "VEC3", "min": [0.1, -0.5, 0.0], "max": [1.1, 0.5, 0.0]},
+            {"bufferView": 1, "byteOffset": 48, "componentType": 5126, "count": 4, "type": "VEC3"},
+            {"bufferView": 2, "byteOffset": 32, "componentType": 5126, "count": 4, "type": "VEC2"},
+            {"bufferView": 3, "byteOffset": 12, "componentType": 5123, "count": 6, "type": "SCALAR"}]}
+    files["colorspace/emissive_view.gltf"] = dumps(ev_doc)
 
     # --- paths/ (Review Focus 2) ---------------------------------------------------------------------------
     mat = {"pbrMetallicRoughness": {"baseColorTexture": {"index": 0}}}
