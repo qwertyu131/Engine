@@ -8,6 +8,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <chrono>
 #include <fstream>
 #include <set>
 #include <string>
@@ -50,6 +51,37 @@ TEST_CASE("every bad/ fixture: exit 2 with its message, no diagnostics claim suc
                              "bad_image.gltf", "accessor_count_2pow31.gltf"}) {
         CHECK_MESSAGE(listed.count(kind) == 1, kind);
     }
+}
+
+TEST_CASE("a long parent chain loads in linear time (no quadratic cycle check)") {
+    // Chains of 50000 and 100000 nodes generated here (not committed): node i has child i + 1, the triangle hangs off
+    // the last node. Doubling the chain must not quadruple the load time (a per-node walk up the chain would); the
+    // ratio is checked instead of an absolute time so Debug, Release and ASan builds use the same bound.
+    std::ifstream in(f03Dir() / "missing" / "no_material.gltf", std::ios::binary);
+    const nlohmann::json base = nlohmann::json::parse(in);
+    const auto loadChain = [&](size_t count) {
+        std::string nodes;
+        nodes.reserve(count * 20);
+        for (size_t i = 0; i < count; ++i) {
+            nodes += i + 1 < count ? "{\"children\":[" + std::to_string(i + 1) + "]}," : std::string("{\"mesh\":0}");
+        }
+        nlohmann::json doc = base;
+        doc["nodes"] = nlohmann::json::parse("[" + nodes + "]");
+        const std::filesystem::path tmp = std::filesystem::temp_directory_path() / u8path("eng_f03_chain ğ.gltf");
+        std::ofstream(tmp, std::ios::binary) << doc.dump();
+        const auto t0 = std::chrono::steady_clock::now();
+        const Result<ModelData> r = loadGltf(tmp, LoadOptions{}, nullptr);
+        const double s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+        std::filesystem::remove(tmp);
+        REQUIRE_MESSAGE(r.has_value(), (r ? std::string() : r.error().message));
+        CHECK(r->nodes.size() == count);
+        CHECK(r->nodes.back().parent == static_cast<int>(count - 2));
+        MESSAGE(count << "-node chain: " << s << " s");
+        return s;
+    };
+    const double t1 = loadChain(50000);
+    const double t2 = loadChain(100000);
+    CHECK(t2 < 3.0 * t1 + 0.05);
 }
 
 TEST_CASE("a nonexistent path and a directory: exit 2") {

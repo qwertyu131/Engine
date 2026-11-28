@@ -137,11 +137,15 @@ Result<Source> checkAccessor(const Context& c, size_t index) {
     s.count = a.count;
     const uint64_t count = a.count;
     if (!a.bufferViewIndex) {
-        uint64_t bytes = 0;
-        if (!mulAdd(count, s.layout.elementBytes, 0, bytes) || bytes > c.options.maxFileBytes) {
+        // Zeros (+ sparse): nothing bounds the count by file data, so it is bounded by r.Asset.MaxVertices (such
+        // accessors are sparse morph targets / attributes, one element per vertex) and the decoded output size by
+        // r.Asset.MaxFileBytes, both before anything is allocated.
+        uint64_t decoded = 0;
+        if (count > c.options.maxVertices || !mulAdd(count, uint64_t{s.layout.components} * 4u, 0, decoded) ||
+            decoded > c.options.maxFileBytes) {
             return std::unexpected(fail(std::format("accessor {}: count {} without a bufferView exceeds "
-                                                    "r.Asset.MaxFileBytes ({} bytes)",
-                                                    index, count, c.options.maxFileBytes)));
+                                                    "r.Asset.MaxVertices ({}) / r.Asset.MaxFileBytes ({} bytes decoded)",
+                                                    index, count, c.options.maxVertices, c.options.maxFileBytes)));
         }
         return s;
     }

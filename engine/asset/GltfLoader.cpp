@@ -395,13 +395,31 @@ Result<ModelData> convert(Context& c) {
             m.nodes[ch].parent = static_cast<int>(i);
         }
     }
-    for (size_t i = 0; i < m.nodes.size(); ++i) { // a parent chain longer than the node count is a cycle
-        int p = m.nodes[i].parent;
-        for (size_t steps = 0; p != -1; ++steps) {
-            if (steps > m.nodes.size()) {
-                return std::unexpected(fail(std::format("node {}: the node hierarchy has a cycle", i)));
+    // Cycle check in linear time: walk each parent chain once, colouring nodes (0 = unvisited, 1 = on the current
+    // chain, 2 = known to reach a root). Every node has at most one parent (checked above).
+    {
+        std::vector<uint8_t> state(m.nodes.size(), 0);
+        std::vector<size_t> chain;
+        for (size_t i = 0; i < m.nodes.size(); ++i) {
+            chain.clear();
+            size_t n = i;
+            for (;;) {
+                if (state[n] == 2) {
+                    break;
+                }
+                if (state[n] == 1) {
+                    return std::unexpected(fail(std::format("node {}: the node hierarchy has a cycle", n)));
+                }
+                state[n] = 1;
+                chain.push_back(n);
+                if (m.nodes[n].parent < 0) {
+                    break;
+                }
+                n = static_cast<size_t>(m.nodes[n].parent);
             }
-            p = m.nodes[static_cast<size_t>(p)].parent;
+            for (const size_t k : chain) {
+                state[k] = 2;
+            }
         }
     }
 

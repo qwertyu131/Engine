@@ -371,6 +371,19 @@ TEST_CASE("texture without its TEXCOORD -> warning, UV (0, 0)") {
     CHECK_MESSAGE(l.has(Diagnostic::Warning, "TEXCOORD_0"), l.all());
 }
 
+TEST_CASE("non-finite POSITION / UV with a normal map and no TANGENT: loads, finite generated tangents") {
+    const Loaded l = load(f03Dir() / "missing" / "nonfinite_tangent_input.gltf");
+    const ModelData& m = ok(l);
+    const Primitive& p = m.meshes.at(0).primitives.at(0);
+    CHECK(p.generatedTangents);
+    REQUIRE(p.tangent.size() == p.vertexCount);
+    for (const Vec4& t : p.tangent) {
+        for (const float v : t) {
+            CHECK(std::isfinite(v));
+        }
+    }
+}
+
 TEST_CASE("no material -> the default material (-1), loads without diagnostics") {
     const Loaded l = load(f03Dir() / "missing" / "no_material.gltf");
     const ModelData& m = ok(l);

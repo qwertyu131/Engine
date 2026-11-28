@@ -186,6 +186,15 @@ def fixtures() -> dict[str, bytes]:
         dumps(gltf_doc(sp, data_uri("application/octet-stream", blob), len(blob))), "sparse",
         "accessor out of range (sparse index)")
 
+    ub = json.loads(json.dumps(layout))
+    ub["accessors"][layout["indices"]] = {"componentType": 5121, "count": 2 ** 31, "type": "SCALAR"}
+    bad("unbacked_accessor_2pow31.gltf", dumps(gltf_doc(ub, embedded, len(tri))), "without a bufferView",
+        "a 2^31 accessor count without a bufferView (zeros: nothing to range-check against)")
+
+    cyc = gltf_doc(layout, embedded, len(tri))
+    cyc["nodes"] = [{"mesh": 0}, {"children": [2]}, {"children": [1]}]  # 1 -> 2 -> 1, one parent each
+    bad("node_cycle.gltf", dumps(cyc), "cycle", "node hierarchy with a cycle (hang guard)")
+
     bad("missing_buffer_file.gltf", dumps(gltf_doc(layout, "does_not_exist.bin", len(tri))), "does_not_exist.bin",
         "external buffer missing")
     bad("not_json.gltf", b"{ this is not json ]\n", "JSON", "malformed JSON")
@@ -213,6 +222,14 @@ def fixtures() -> dict[str, bytes]:
     files["missing/no_uv_with_texture.gltf"] = dumps(
         gltf_doc(l_nu, data_uri("application/octet-stream", t_nu), len(t_nu),
                  {"pbrMetallicRoughness": {"baseColorTexture": {"index": 0}}},
+                 [{"uri": data_uri("image/png", PNG_2X2)}]))
+    # Non-finite POSITION / UV with a normal map and no TANGENT: MikkTSpace and the flat-normal path must return.
+    nan, inf = float("nan"), float("inf")
+    blob = bytearray(tri)
+    struct.pack_into("<3f", blob, 12, nan, inf, 0.0)  # vertex 1 position
+    struct.pack_into("<2f", blob, layout["bufferViews"][2]["byteOffset"] + 8, nan, -inf)  # vertex 1 uv
+    files["missing/nonfinite_tangent_input.gltf"] = dumps(
+        gltf_doc(layout, data_uri("application/octet-stream", bytes(blob)), len(blob), normal_mat,
                  [{"uri": data_uri("image/png", PNG_2X2)}]))
     files["missing/no_material.gltf"] = dumps(gltf_doc(layout, embedded, len(tri)))
     files["missing/unknown_used_extension.gltf"] = dumps(

@@ -47,6 +47,16 @@
    "reviewFocus": "accessor out of range (sparse index)"
   },
   {
+   "file": "unbacked_accessor_2pow31.gltf",
+   "message": "without a bufferView",
+   "reviewFocus": "a 2^31 accessor count without a bufferView (zeros: nothing to range-check against)"
+  },
+  {
+   "file": "node_cycle.gltf",
+   "message": "cycle",
+   "reviewFocus": "node hierarchy with a cycle (hang guard)"
+  },
+  {
    "file": "missing_buffer_file.gltf",
    "message": "does_not_exist.bin",
    "reviewFocus": "external buffer missing"
