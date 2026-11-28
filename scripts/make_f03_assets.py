@@ -593,6 +593,53 @@ def fixtures() -> dict[str, bytes]:
         "accessors": sv_acc}
     files["colorspace/slot_views.gltf"] = dumps(sv_doc)
 
+    # --- colorspace/mr_normal_views.gltf (the slot -> view table for metallicRoughness and normal: both linear) -------
+    # The slot_views.gltf layout (four 1 x 1 quads, normal +z, every UV = (0.5, 0.5), LINEAR clamp sampler) plus a
+    # TANGENT (1, 0, 0, 1) on every vertex (constant UVs give MikkTSpace nothing to work with):
+    #   top row, metallicFactor 1, roughnessFactor 1, a dark coloured base (0.3, 0.15, 0.03) so the sun's reflection
+    #     does not saturate: quad A has the 1 x 1 metallicRoughness texture (0, 127, 127), quad B the 2 x 1 texture
+    #     (0, 0, 0) - (0, 254, 254) sampled midway. Linear views: roughness = metallic = 127 / 255 on both. sRGB
+    #     views: A srgbToLinear(127 / 255) = 0.212, B srgbToLinear(254 / 255) / 2 = 0.496, so the pair splits (roughness widens the sun's
+    #     reflection, the sun disk of the IBL is 18 degrees around a direction 10 degrees off +z).
+    #     (An earlier 94 / (0 .. 188) pair with a bright base could not see the swap: both lobes stay inside the sun
+    #     disk and the pixel saturates.)
+    #   bottom row, white base, metallic 0, roughness 1: quad C has the 1 x 1 normal texture (94, 128, 255), quad D
+    #     the 2 x 1 normal texture (0, 128, 255) - (188, 128, 255) sampled midway. Linear views: the same tilted
+    #     normal (x = 2 * 94 / 255 - 1); sRGB views: x = -0.78 on C, -0.50 on D.
+    mr_mid_png = png_bytes(1, 1, bytes([0, 127, 127, 255]))
+    mr_png = png_bytes(2, 1, bytes([0, 0, 0, 255, 0, 254, 254, 255]))
+    n_mid_png = png_bytes(1, 1, bytes([94, 128, 255, 255]))
+    n_png = png_bytes(2, 1, bytes([0, 128, 255, 255, 188, 128, 255, 255]))
+    mn_blob = sv_blob + f32([(1.0, 0.0, 0.0, 1.0)] * 16)  # TANGENT at byte 560
+    mn_acc = []
+    mn_meshes = []
+    for q in range(4):
+        mn_acc += [dict(a) for a in sv_acc[4 * q:4 * q + 4]]
+        mn_acc.append({"bufferView": 4, "byteOffset": 64 * q, "componentType": 5126, "count": 4, "type": "VEC4"})
+        attrs = {"POSITION": 5 * q, "NORMAL": 5 * q + 1, "TEXCOORD_0": 5 * q + 2, "TANGENT": 5 * q + 4}
+        mn_meshes.append({"primitives": [{"attributes": attrs, "indices": 5 * q + 3, "material": q}]})
+    coloured = [0.3, 0.15, 0.03, 1.0]
+    mn_doc = {
+        "asset": {"version": "2.0", "generator": "scripts/make_f03_assets.py"},
+        "scene": 0, "scenes": [{"nodes": [0, 1, 2, 3]}], "nodes": [{"mesh": q} for q in range(4)],
+        "meshes": mn_meshes,
+        "materials": [
+            {"pbrMetallicRoughness": {"baseColorFactor": coloured, "metallicRoughnessTexture": {"index": 0},
+                                      "metallicFactor": 1.0, "roughnessFactor": 1.0}},
+            {"pbrMetallicRoughness": {"baseColorFactor": coloured, "metallicRoughnessTexture": {"index": 1},
+                                      "metallicFactor": 1.0, "roughnessFactor": 1.0}},
+            {"normalTexture": {"index": 2},
+             "pbrMetallicRoughness": {"baseColorFactor": white, "metallicFactor": 0.0, "roughnessFactor": 1.0}},
+            {"normalTexture": {"index": 3},
+             "pbrMetallicRoughness": {"baseColorFactor": white, "metallicFactor": 0.0, "roughnessFactor": 1.0}}],
+        "images": [{"uri": data_uri("image/png", p)} for p in (mr_mid_png, mr_png, n_mid_png, n_png)],
+        "samplers": [{"magFilter": 9729, "minFilter": 9729, "wrapS": 33071, "wrapT": 33071}],
+        "textures": [{"source": i, "sampler": 0} for i in range(4)],
+        "buffers": [{"byteLength": len(mn_blob), "uri": data_uri("application/octet-stream", mn_blob)}],
+        "bufferViews": sv_doc["bufferViews"] + [{"buffer": 0, "byteOffset": 560, "byteLength": 256, "byteStride": 16}],
+        "accessors": mn_acc}
+    files["colorspace/mr_normal_views.gltf"] = dumps(mn_doc)
+
     # --- paths/ (Review Focus 2) ---------------------------------------------------------------------------
     mat = {"pbrMetallicRoughness": {"baseColorTexture": {"index": 0}}}
     same = "çıktı klasörü"

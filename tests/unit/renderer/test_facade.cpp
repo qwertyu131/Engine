@@ -24,6 +24,8 @@
 //                        midway equals the emissiveFactor of its sRGB-decoded midpoint;
 //   f03/colorspace/slot_views  the same for baseColor (sRGB view: texture quad = factor quad) and occlusion (linear
 //                        view: a 2 x 1 texture's midpoint = a 1 x 1 texture of that value);
+//   f03/colorspace/mr_normal_views  the same for metallicRoughness and normal (linear views: a 2 x 1 texture's
+//                        midpoint = a 1 x 1 texture of that value);
 //   f03/missing          Review Focus 4: no material (default material), no normals, no tangents with a normal map, no
 //                        UVs with a texture: each drawn; non-finite tangent input: renders with validation 0.
 // Every case ends with finish() (every GPU object released, GPU idle) and validation 0.
@@ -487,6 +489,41 @@ TEST_CASE("Review Focus 3 in the renderer: baseColor is an sRGB view, occlusion 
                                 << b[2]);
     MESSAGE("occlusion 1 x 1 " << cq[0] << "," << cq[1] << "," << cq[2] << " / 2 x 1 midpoint " << d[0] << ","
                                << d[1] << "," << d[2]);
+    for (const auto& p : {a, b, cq, d}) {
+        CHECK_FALSE(isBackground(p));
+    }
+    for (int ch = 0; ch < 3; ++ch) {
+        CAPTURE(ch);
+        CHECK(std::abs(a[ch] - b[ch]) <= 3);
+        CHECK(std::abs(cq[ch] - d[ch]) <= 3);
+    }
+    done(f);
+}
+
+TEST_CASE("Review Focus 3 in the renderer: metallicRoughness and normal are linear views") {
+    // f03/colorspace/mr_normal_views.gltf (scripts/make_f03_assets.py): top row = 1 x 1 metallicRoughness quad A vs
+    // 2 x 1 metallicRoughness midpoint quad B (metallic 1, coloured base), bottom row = 1 x 1 normal quad C vs 2 x 1
+    // normal midpoint quad D; each pair matches only when GpuModel's slot table gives the slot a linear (UNORM)
+    // view. Same distant, narrow camera as the baseColor / occlusion case.
+    Fixture f = open(u8(ENG_TEST_ASSET_DIR) / "f03" / "colorspace" / "mr_normal_views.gltf");
+    eng::Camera c;
+    c.position = {0.0f, 0.0f, 40.0f};
+    c.target = {0.0f, 0.0f, 0.0f};
+    c.yfov = 2.0f * std::atan(1.4f / 40.0f);
+    c.znear = 1.0f;
+    c.zfar = 100.0f;
+    f.r->setCamera(c);
+    const eng::Image img = render(f);
+    const M4 vp = viewProj(c, 1.0);
+    const auto probe = [&](double x, double y) {
+        const auto p = project(vp, {x, y, 0.0});
+        return pixel(img, p[0], p[1]);
+    };
+    const auto a = probe(-0.6, 0.6), b = probe(0.6, 0.6), cq = probe(-0.6, -0.6), d = probe(0.6, -0.6);
+    MESSAGE("metallicRoughness 1 x 1 " << a[0] << "," << a[1] << "," << a[2] << " / 2 x 1 midpoint " << b[0] << ","
+                                       << b[1] << "," << b[2]);
+    MESSAGE("normal 1 x 1 " << cq[0] << "," << cq[1] << "," << cq[2] << " / 2 x 1 midpoint " << d[0] << "," << d[1]
+                            << "," << d[2]);
     for (const auto& p : {a, b, cq, d}) {
         CHECK_FALSE(isBackground(p));
     }
