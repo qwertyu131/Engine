@@ -34,6 +34,12 @@ if(ENG_ASAN)
     endif()
 endif()
 
+# Parallel compile of the files inside each MSBuild project (Visual Studio generators only; Ninja already runs one
+# cl.exe per file). Project-level parallelism (-maxCpuCount) comes from Directory.Build.rsp in the repo root.
+if(MSVC AND CMAKE_GENERATOR MATCHES "Visual Studio")
+    add_compile_options(/MP)
+endif()
+
 include(cmake/Dependencies.cmake)
 if(ENG_BUILD_SHADERC)
     include(cmake/ShaderTools.cmake)
