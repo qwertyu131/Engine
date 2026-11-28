@@ -9,6 +9,7 @@ Layout:
                bad/expected.json lists every fixture with the message substring the test requires.
     missing/   valid files with missing attributes / material (Review Focus 4) and extension handling.
     colorspace/ the crafted TextureLinearInterpolationTest variant of the Review Focus 3 colour-space probe (Task 3).
+    alpha/     MASK and BLEND quads over the bare background (Task 4 facade probes).
     paths/     .gltf files with external .bin / .png in the same and in a sibling directory, non-ASCII names
                with spaces, URI-encoded (%20, UTF-8 percent escapes) (Review Focus 2).
 
@@ -310,6 +311,53 @@ def fixtures() -> dict[str, bytes]:
     cs["nodes"].append({"mesh": 1, "translation": [2.0, 0.0, 0.0]})
     cs["scenes"][0]["nodes"] = [0, 1]
     files["colorspace/linear_interpolation_crafted.gltf"] = dumps(cs)
+
+    # --- alpha/ (plan F3 Task 4): MASK and BLEND over the bare background ------------------------------------------
+    # AlphaBlendModeTest's quads stand in front of its marble bed, so a cut-out there shows the bed, not the background.
+    # This fixture puts the two modes over nothing: quad A (x -1.1 .. -0.1) is MASK (cutoff 0.5) with a 2 x 1 NEAREST
+    # texture whose left texel has alpha 0 and right texel alpha 255 (both green): its left half is cut away, its right
+    # half drawn; quad B (x 0.1 .. 1.1) is BLEND with baseColorFactor (0, 0, 1, 0.5), no texture: half transparent.
+    # Both face +Z, metallic 0 / roughness 1, single-sided.
+    quad_pos = [(-1.1, -0.5, 0.0), (-0.1, -0.5, 0.0), (-0.1, 0.5, 0.0), (-1.1, 0.5, 0.0),
+                (0.1, -0.5, 0.0), (1.1, -0.5, 0.0), (1.1, 0.5, 0.0), (0.1, 0.5, 0.0)]
+    quad_nrm = [(0.0, 0.0, 1.0)] * 8
+    quad_uv = [(0.0, 1.0), (1.0, 1.0), (1.0, 0.0), (0.0, 0.0)] * 2
+    quad_idx = [0, 1, 2, 0, 2, 3] * 2  # each quad indexes its own 4 vertices
+    blob = f32(quad_pos) + f32(quad_nrm) + f32(quad_uv) + b"".join(struct.pack("<H", i) for i in quad_idx)
+    n_off, uv_off, i_off = 96, 192, 256
+    alpha_doc = {
+        "asset": {"version": "2.0", "generator": "scripts/make_f03_assets.py"},
+        "scene": 0, "scenes": [{"nodes": [0, 1]}], "nodes": [{"mesh": 0}, {"mesh": 1}],
+        "meshes": [{"primitives": [{"attributes": {"POSITION": 0, "NORMAL": 1, "TEXCOORD_0": 2}, "indices": 3,
+                                    "material": 0}]},
+                   {"primitives": [{"attributes": {"POSITION": 4, "NORMAL": 5, "TEXCOORD_0": 6}, "indices": 7,
+                                    "material": 1}]}],
+        "materials": [{"alphaMode": "MASK", "alphaCutoff": 0.5,
+                       "pbrMetallicRoughness": {"baseColorTexture": {"index": 0}, "metallicFactor": 0.0,
+                                                "roughnessFactor": 1.0}},
+                      {"alphaMode": "BLEND",
+                       "pbrMetallicRoughness": {"baseColorFactor": [0.0, 0.0, 1.0, 0.5], "metallicFactor": 0.0,
+                                                "roughnessFactor": 1.0}}],
+        "images": [{"uri": data_uri("image/png", png_bytes(2, 1, bytes([0, 255, 0, 0, 0, 255, 0, 255])))}],
+        "samplers": [{"magFilter": 9728, "minFilter": 9728, "wrapS": 33071, "wrapT": 33071}],
+        "textures": [{"source": 0, "sampler": 0}],
+        "buffers": [{"byteLength": len(blob), "uri": data_uri("application/octet-stream", blob)}],
+        "bufferViews": [{"buffer": 0, "byteOffset": 0, "byteLength": 96},
+                        {"buffer": 0, "byteOffset": n_off, "byteLength": 96},
+                        {"buffer": 0, "byteOffset": uv_off, "byteLength": 64},
+                        {"buffer": 0, "byteOffset": i_off, "byteLength": 24}],
+        "accessors": [
+            {"bufferView": 0, "componentType": 5126, "count": 4, "type": "VEC3",
+             "min": [-1.1, -0.5, 0.0], "max": [-0.1, 0.5, 0.0]},
+            {"bufferView": 1, "componentType": 5126, "count": 4, "type": "VEC3"},
+            {"bufferView": 2, "componentType": 5126, "count": 4, "type": "VEC2"},
+            {"bufferView": 3, "componentType": 5123, "count": 6, "type": "SCALAR"},
+            {"bufferView": 0, "byteOffset": 48, "componentType": 5126, "count": 4, "type": "VEC3",
+             "min": [0.1, -0.5, 0.0], "max": [1.1, 0.5, 0.0]},
+            {"bufferView": 1, "byteOffset": 48, "componentType": 5126, "count": 4, "type": "VEC3"},
+            {"bufferView": 2, "byteOffset": 32, "componentType": 5126, "count": 4, "type": "VEC2"},
+            {"bufferView": 3, "byteOffset": 12, "componentType": 5123, "count": 6, "type": "SCALAR"}]}
+    files["alpha/mask_and_blend.gltf"] = dumps(alpha_doc)
 
     # --- paths/ (Review Focus 2) ---------------------------------------------------------------------------
     mat = {"pbrMetallicRoughness": {"baseColorTexture": {"index": 0}}}

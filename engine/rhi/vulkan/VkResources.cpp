@@ -355,6 +355,12 @@ Result<PipelineHandle> VulkanDevice::createGraphicsPipeline(const GraphicsPipeli
 
     VkPipelineInputAssemblyStateCreateInfo ia{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
     ia.topology = toVk(desc.topology);
+    if (desc.topology == PrimitiveTopology::PointList && !maintenance5_) {
+        // Without VK_KHR_maintenance5 the vertex shader must write PointSize (the HLSL shaders do not): refused here,
+        // before the driver sees it, instead of a validation error (plan F3 Task 4).
+        return std::unexpected(Error{kExitUsage, "vulkan: point-list pipeline needs VK_KHR_maintenance5 (the vertex "
+                                                 "shader does not write PointSize)"});
+    }
     VkPipelineViewportStateCreateInfo vp{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
     vp.viewportCount = 1;
     vp.scissorCount = 1;

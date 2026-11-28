@@ -23,7 +23,7 @@
 // The FL10_0 numbers are API limits of the RTX 3070 Ti driver and of WARP at a capped feature level, not
 // measurements of real FL10 hardware.
 #include "Compare.h"
-#include "Scenes.h"
+#include "renderer/builtin/Scenes.h"
 
 #include "rhi/Rhi.h"
 #include "rhi/ShaderLibrary.h"
@@ -102,7 +102,7 @@ GraphicsPipelineDesc pbrPipelineDesc(ShaderHandle vs, ShaderHandle ps) {
     pd.vs = vs;
     pd.ps = ps;
     // Every VS input of pbr.hlsl (SKIN0 MORPH0): POSITION NORMAL TANGENT TEXCOORD0/1 COLOR0, one buffer.
-    pd.vertexLayout.buffers = {{72, false}}; // apps/headless/PbrSpheresScene.cpp PbrVertex
+    pd.vertexLayout.buffers = {{72, false}}; // engine/renderer/builtin/PbrSpheresScene.cpp PbrVertex
     pd.vertexLayout.attributes = {{"POSITION", Format::RGB32_FLOAT, 0, 0},   {"NORMAL", Format::RGB32_FLOAT, 0, 12},
                                   {"TANGENT", Format::RGBA32_FLOAT, 0, 24},  {"TEXCOORD0", Format::RG32_FLOAT, 0, 40},
                                   {"TEXCOORD1", Format::RG32_FLOAT, 0, 48}, {"COLOR0", Format::RGBA32_FLOAT, 0, 56}};

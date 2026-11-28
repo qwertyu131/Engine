@@ -1,7 +1,7 @@
 // builtin:triangle on every backend configuration (plan F2 Task 2) + the negative validation tests
 // (Review Focus 2: the validation hook must really be wired).
 //
-// Probe values are computed by hand from the scene definition (apps/headless/Scenes.h), never copied
+// Probe values are computed by hand from the scene definition (engine/renderer/builtin/Scenes.h), never copied
 // from a render:
 //   target RGBA8_UNORM, clear 0.1 -> round(0.1 * 255) = 26 (25.5 + float error rounds up; +-1 allowed for
 //   the UNORM rounding rule);
@@ -9,7 +9,7 @@
 //   weigh < 0.6 % = 1.5/255: pure R / G / B within +-2/255.
 // An error made identically on both backends (Y flip, winding) cannot pass: red must be top-left,
 // green top-right, blue bottom.
-#include "Scenes.h"
+#include "renderer/builtin/Scenes.h"
 
 #include "rhi/Rhi.h"
 #include "rhi/ShaderLibrary.h"

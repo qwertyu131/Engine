@@ -70,7 +70,7 @@ PipelineHandle pbrPipeline(IDevice& dev, const char* key) {
     GraphicsPipelineDesc pd;
     pd.vs = st[0];
     pd.ps = st[1];
-    // PbrVertex of apps/headless/PbrSpheresScene.cpp: position, normal, tangent, uv0, uv1, color.
+    // PbrVertex of engine/renderer/builtin/PbrSpheresScene.cpp: position, normal, tangent, uv0, uv1, color.
     pd.vertexLayout.buffers = {{72, false}};
     pd.vertexLayout.attributes = {{"POSITION", Format::RGB32_FLOAT, 0, 0},  {"NORMAL", Format::RGB32_FLOAT, 0, 12},
                                   {"TANGENT", Format::RGBA32_FLOAT, 0, 24}, {"TEXCOORD0", Format::RG32_FLOAT, 0, 40},

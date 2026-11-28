@@ -232,6 +232,7 @@ private:
     bool khrDynamicRendering_ = false;
     bool surfaceExtensions_ = false;   // VK_KHR_surface + VK_KHR_win32_surface enabled on the instance
     bool swapchainExtension_ = false;  // VK_KHR_swapchain enabled on the device
+    bool maintenance5_ = false;        // VK_KHR_maintenance5 enabled: point lists without a PointSize write
     VmaAllocator allocator_ = nullptr;
 
     Frame frames_[kFramesInFlight];

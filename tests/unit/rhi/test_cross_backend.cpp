@@ -3,7 +3,7 @@
 // (exit 77 = Skipped otherwise, see test_main.cpp). An error made identically on both backends cannot
 // be caught here; the absolute probes of test_cube.cpp cover that (Review Focus 1).
 #include "Compare.h"
-#include "Scenes.h"
+#include "renderer/builtin/Scenes.h"
 
 #include "rhi/Rhi.h"
 

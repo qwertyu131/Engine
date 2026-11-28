@@ -1,6 +1,6 @@
 // viewer: windowed renderer with an RHI-drawn ImGui (plan F2 Task 6; spec K-G).
 //
-//   viewer --backend vulkan|d3d11 [--warp] [--adapter <index>] [--scene builtin:...] [--cvar n=v]...
+//   viewer --backend vulkan|d3d11 [--warp] [--adapter <index>] [--scene builtin:...|<file.gltf|.glb>] [--cvar n=v]...
 //          [--frames N] [--screenshot <png>] [--script resize] [--size WxH] [--shader-dir <dir>]
 //          [--asset-dir <dir>]
 //
@@ -11,7 +11,9 @@
 //                    (12 frames each) and logs the client size the window really got at every step.
 //   F12              saves Saved/Screenshots/<backend>-<yyyymmdd-hhmmss>.png (relative to the working dir).
 // CVars: r.VSync (default 1), r.Viewer.ShowUI (default 1); --cvar uses CVarSource::CommandLine, the CVar
-// panel CVarSource::Console. Default scene: builtin:textured-cube spinning at 45 deg/s.
+// panel CVarSource::Console. Default scene: builtin:textured-cube spinning at 45 deg/s. Everything GPU goes through
+// the library facade (include/engine, spec K-D, plan F3 Task 4): window from engine/Window.h, eng::Renderer with the
+// window handle and its Dear ImGui overlay (beginUi + ImGui:: calls, drawn by renderFrame).
 //
 // Exit codes (plan F2 Global Constraints): 0 ok, 2 usage / IO, 3 backend not available, 4 validation error,
 // 5 device lost / GPU error. On exit it prints the frame count, the average fps of the rendered frames and
@@ -19,16 +21,10 @@
 #include "Panels.h"
 
 #include "Image.h"
-#include "Scenes.h"
 #include "Utf8.h"
-#include "core/CVar.h"
-#include "core/Log.h"
-#include "platform/Window.h"
-#include "rhi/Rhi.h"
-#include "rhi/ShaderLibrary.h"
-#include "ui/ImGuiRenderer.h"
 
-#include <imgui.h>
+#include <engine/Renderer.h>
+#include <engine/Window.h>
 
 #include <chrono>
 #include <charconv>
@@ -54,7 +50,7 @@ struct Options {
     std::string backend;
     bool warp = false;
     int adapter = -1;
-    std::string scene{eng::scenes::kTexturedCube};
+    std::string scene{"builtin:textured-cube"};
     std::vector<std::string> cvars;
     std::optional<int> frames;
     std::string screenshot;
@@ -68,7 +64,7 @@ void printUsage(std::ostream& os) {
           "  viewer --backend vulkan|d3d11 [--warp] [--adapter <index>] [--scene builtin:...] [--cvar n=v]...\n"
           "         [--frames N] [--screenshot <png>] [--script resize] [--size WxH] [--shader-dir <dir>]\n"
           "         [--asset-dir <dir>]\n"
-          "scenes: builtin:triangle, builtin:textured-cube (default), builtin:pbr-spheres\n"
+          "scenes: builtin:triangle, builtin:textured-cube (default), builtin:pbr-spheres, <file>.gltf / .glb\n"
           "exit codes: 0 = ok, 2 = usage / IO error, 3 = backend not available, 4 = validation error,\n"
           "            5 = device lost / GPU error\n";
 }
@@ -148,8 +144,7 @@ std::optional<Options> parseArgs(const std::vector<std::string>& args) {
     return o;
 }
 
-bool applyCVars(const std::vector<std::string>& cvars) {
-    auto& reg = eng::CVarRegistry::get();
+bool applyCVars(eng::Settings& reg, const std::vector<std::string>& cvars) {
     for (const std::string& kv : cvars) {
         const size_t eq = kv.find('=');
         if (eq == std::string::npos || eq == 0) {
@@ -189,7 +184,7 @@ int run(const std::vector<std::string>& args) {
         return kExitError;
     }
     std::optional<eng::rhi::Backend> backend;
-    for (const eng::rhi::Backend b : eng::rhi::compiledBackends()) {
+    for (const eng::rhi::Backend b : eng::Renderer::compiledBackends()) {
         if (opts->backend == eng::rhi::toString(b)) {
             backend = b;
         }
@@ -198,33 +193,21 @@ int run(const std::vector<std::string>& args) {
         std::cerr << "viewer: backend '" << opts->backend << "' not available in this build\n";
         return kExitNoBackend;
     }
-    bool knownScene = false;
-    for (const std::string_view n : eng::scenes::sceneNames()) {
-        knownScene = knownScene || opts->scene == n;
-    }
-    if (!knownScene) {
-        std::cerr << "viewer: unknown scene '" << opts->scene << "'\n";
-        return kExitError;
-    }
-
-    auto& reg = eng::CVarRegistry::get();
-    eng::CVar* vsyncVar = reg.registerInt("r.VSync", 1, "Present with vertical sync (1) or as fast as possible (0)",
-                                          eng::CVarFlags::None, 0, 1);
-    eng::CVar* showUi = reg.registerBool("r.Viewer.ShowUI", true, "Draw the viewer's ImGui panels");
-    if (!applyCVars(opts->cvars)) {
-        return kExitError;
+    if (opts->scene.rfind("builtin:", 0) == 0) {
+        bool knownScene = false;
+        for (const std::string_view n : eng::Renderer::builtinScenes()) {
+            knownScene = knownScene || opts->scene == n;
+        }
+        if (!knownScene) {
+            std::cerr << "viewer: unknown scene '" << opts->scene << "'\n";
+            return kExitError;
+        }
     }
 
-#if defined(ENG_DEFAULT_SHADER_DIR)
-    const fs::path shaderDir = eng::rhi::pathFromUtf8(opts->shaderDir.empty() ? ENG_DEFAULT_SHADER_DIR : opts->shaderDir);
-#else
-    const fs::path shaderDir = eng::rhi::pathFromUtf8(opts->shaderDir);
-#endif
-#if defined(ENG_DEFAULT_ASSET_DIR)
-    const fs::path assetDir = eng::rhi::pathFromUtf8(opts->assetDir.empty() ? ENG_DEFAULT_ASSET_DIR : opts->assetDir);
-#else
-    const fs::path assetDir = eng::rhi::pathFromUtf8(opts->assetDir);
-#endif
+    eng::Settings settings;
+    eng::CVar* vsyncVar = settings.registry().registerInt(
+        "r.VSync", 1, "Present with vertical sync (1) or as fast as possible (0)", eng::CVarFlags::None, 0, 1);
+    eng::CVar* showUi = settings.registry().registerBool("r.Viewer.ShowUI", true, "Draw the viewer's ImGui panels");
 
     eng::platform::WindowDesc wd;
     wd.title = "eng viewer - " + opts->backend + (opts->warp ? " (WARP)" : "") + " - " + opts->scene;
@@ -237,61 +220,63 @@ int run(const std::vector<std::string>& args) {
     }
     eng::platform::Window& win = **window;
 
-    eng::rhi::DeviceDesc dd;
-    dd.backend = *backend;
-    dd.warp = opts->warp;
-    dd.adapterIndex = opts->adapter;
-    auto devr = eng::rhi::createDevice(dd);
-    if (!devr) {
-        // "backend not available:" marks the absent-backend exit 3 (the only one ctest skips, plan F3 Task 1).
-        std::cerr << "viewer: " << (devr.error().exitCode == kExitNoBackend ? "backend not available: " : "")
-                  << devr.error().message << "\n";
-        return devr.error().exitCode;
+    // Everything GPU through the library facade (include/engine, spec K-D, plan F3 Task 4).
+    eng::RendererDesc rd;
+    rd.backend = *backend;
+    rd.warp = opts->warp;
+    rd.adapterIndex = opts->adapter;
+    rd.window.handle = win.nativeHandle();
+    rd.width = win.size().width;
+    rd.height = win.size().height;
+    rd.debugUi = true;
+#if defined(ENG_DEFAULT_SHADER_DIR)
+    rd.shaderDir = eng::golden::fromUtf8(opts->shaderDir.empty() ? ENG_DEFAULT_SHADER_DIR : opts->shaderDir);
+#else
+    rd.shaderDir = eng::golden::fromUtf8(opts->shaderDir);
+#endif
+#if defined(ENG_DEFAULT_ASSET_DIR)
+    rd.assetDir = eng::golden::fromUtf8(opts->assetDir.empty() ? ENG_DEFAULT_ASSET_DIR : opts->assetDir);
+#else
+    rd.assetDir = eng::golden::fromUtf8(opts->assetDir);
+#endif
+    // --cvar before the renderer exists only for the viewer's own cvars; the renderer's are registered by create,
+    // so the command line is applied (CommandLine source) right after it, before vsync / the scene are read.
+    rd.vsync = true;
+    auto rr = eng::Renderer::create(rd);
+    if (!rr) {
+        std::cerr << "viewer: " << (rr.error().exitCode == kExitNoBackend ? "backend not available: " : "")
+                  << rr.error().message << "\n";
+        return rr.error().exitCode;
     }
-    eng::rhi::IDevice& dev = **devr;
-    ENG_LOG_INFO("viewer: backend {}: {} (API {}, tier {})", opts->backend, dev.caps().adapterName,
-                 dev.caps().apiVersion, dev.caps().tier);
-
-    const eng::rhi::Format format = eng::rhi::Format::BGRA8_SRGB;
-    eng::rhi::SwapchainDesc sd;
-    sd.nativeWindow = win.nativeHandle();
-    sd.width = win.size().width;
-    sd.height = win.size().height;
-    sd.format = format;
-    sd.vsync = vsyncVar->getInt() != 0;
-    auto scr = dev.createSwapchain(sd);
-    if (!scr) {
-        std::cerr << "viewer: " << scr.error().message << "\n";
-        return scr.error().exitCode;
+    eng::Renderer& renderer = **rr;
+    if (!applyCVars(settings, opts->cvars)) {
+        return kExitError;
     }
-    const eng::rhi::SwapchainHandle swapchain = *scr;
-    eng::platform::Window::Size scSize = win.size();
-    bool vsync = sd.vsync;
+    bool vsync = vsyncVar->getInt() != 0;
+    if (!vsync) {
+        if (auto r = renderer.setVsync(false); !r) {
+            std::cerr << "viewer: " << r.error().message << "\n";
+            return r.error().exitCode;
+        }
+    }
+    std::cerr << "[info] viewer: backend " << opts->backend << ": " << renderer.caps().adapterName << " (API "
+              << renderer.caps().apiVersion << ", tier " << renderer.caps().tier << ")\n";
 
     int exitCode = kExitOk;
     std::string exitMessage;
     {
-        eng::scenes::SceneDesc sdesc;
-        sdesc.shaderDir = shaderDir;
-        sdesc.assetDir = assetDir;
-        sdesc.colorFormat = format;
-        sdesc.width = std::max(1u, scSize.width);
-        sdesc.height = std::max(1u, scSize.height);
-        auto scener = eng::scenes::createScene(dev, opts->scene, sdesc);
-        if (!scener) {
-            std::cerr << "viewer: " << scener.error().message << "\n";
-            dev.destroy(swapchain);
-            return scener.error().exitCode;
+        auto asset = renderer.loadAsset(eng::golden::fromUtf8(opts->scene));
+        if (!asset) {
+            std::cerr << "viewer: " << asset.error().message << "\n";
+            return asset.error().exitCode;
         }
-        std::unique_ptr<eng::scenes::Scene> scene = std::move(*scener);
-        auto uir = eng::ui::ImGuiRenderer::create(dev, shaderDir, format);
-        if (!uir) {
-            std::cerr << "viewer: " << uir.error().message << "\n";
-            dev.destroy(swapchain);
-            return uir.error().exitCode;
+        auto scene = renderer.instantiate(*asset);
+        if (!scene) {
+            std::cerr << "viewer: " << scene.error().message << "\n";
+            return scene.error().exitCode;
         }
-        std::unique_ptr<eng::ui::ImGuiRenderer> ui = std::move(*uir);
-        uint32_t sceneW = sdesc.width, sceneH = sdesc.height;
+        eng::platform::Window::Size size = win.size();
+        renderer.setCamera(renderer.fitCamera(*scene, float(std::max(1u, size.width)) / float(std::max(1u, size.height))));
 
         eng::viewer::FrameStats stats;
         const auto start = std::chrono::steady_clock::now();
@@ -339,134 +324,66 @@ int run(const std::vector<std::string>& args) {
             const float dt = std::chrono::duration<float>(now - last).count();
             last = now;
 
-            // Swapchain follows the window (a 0 x 0 size is ignored: rendering skips while minimised).
             const eng::platform::Window::Size ws = win.size();
             if (const bool wantVsync = vsyncVar->getInt() != 0; wantVsync != vsync) {
                 vsync = wantVsync;
-                if (auto r = dev.setSwapchainVsync(swapchain, vsync); !r) {
+                if (auto r = renderer.setVsync(vsync); !r) {
                     exitCode = r.error().exitCode;
                     exitMessage = r.error().message;
                     break;
                 }
             }
             if (win.minimized() || ws.width == 0 || ws.height == 0) {
-                // Nothing to draw: sleep until a window message or 16 ms (plan F3 Task 1; was a busy spin).
                 win.waitEvents(16);
                 continue;
             }
-            if (!(ws == scSize)) {
-                if (auto r = dev.resizeSwapchain(swapchain, ws.width, ws.height); !r) {
-                    exitCode = r.error().exitCode;
-                    exitMessage = r.error().message;
-                    break;
-                }
-                scSize = ws;
-            }
-            if (ws.width != sceneW || ws.height != sceneH) {
-                if (auto r = scene->resize(ws.width, ws.height); !r) {
-                    exitCode = r.error().exitCode;
-                    exitMessage = r.error().message;
-                    break;
-                }
-                sceneW = ws.width;
-                sceneH = ws.height;
+            if (!(ws == size)) {
+                renderer.resize(ws.width, ws.height);
+                size = ws;
             }
             const float t = opts->frames ? static_cast<float>(frame) / 60.0f
                                          : std::chrono::duration<float>(now - start).count();
-            scene->setTime(t);
-            ui->newFrame(dt, ws.width, ws.height, win.dpiScale(), events);
+            renderer.setTime(t);
+            renderer.beginUi(dt, win.dpiScale(), events);
             if (showUi->getBool()) {
-                eng::viewer::drawPanels(dev.caps(), stats);
-            }
-
-            const auto f0 = std::chrono::steady_clock::now();
-            eng::rhi::ICommandList& cmd = dev.beginFrame();
-            auto bb = dev.acquireNextImage(swapchain);
-            if (!bb) {
-                exitCode = bb.error().exitCode;
-                exitMessage = bb.error().message;
-                (void)dev.present(swapchain);
-                break;
-            }
-            if (!*bb) { // nothing to draw this frame (swapchain being rebuilt / zero size)
-                ImGui::EndFrame();
-                if (auto r = dev.present(swapchain); !r) {
-                    exitCode = r.error().exitCode;
-                    exitMessage = r.error().message;
-                    break;
-                }
-                continue;
-            }
-            const eng::rhi::TextureBarrier toTarget{*bb, eng::rhi::ResourceState::Undefined,
-                                                    eng::rhi::ResourceState::RenderTarget};
-            cmd.barrier({&toTarget, 1});
-            eng::rhi::Result<void> rec = scene->record(cmd, *bb);
-            if (rec) {
-                rec = ui->render(cmd, *bb, ws.width, ws.height);
+                eng::viewer::drawPanels(renderer.caps(), stats);
             }
             const bool lastFrame = total > 0 && frame == total - 1;
             const bool shoot = (lastFrame && !opts->screenshot.empty()) || f12;
-            eng::rhi::Result<void> pres;
-            if (rec && shoot) {
-                const eng::rhi::TextureBarrier toCopy{*bb, eng::rhi::ResourceState::RenderTarget,
-                                                      eng::rhi::ResourceState::CopySrc};
-                cmd.barrier({&toCopy, 1});
-                pres = dev.submitAndWait();
-                if (pres) {
-                    auto img = dev.readback(*bb);
-                    if (!img) {
-                        pres = std::unexpected(img.error());
-                    } else {
-                        fs::path out = lastFrame && !opts->screenshot.empty()
-                                           ? eng::golden::fromUtf8(opts->screenshot)
-                                           : fs::path("Saved") / "Screenshots" /
-                                                 (opts->backend + "-" + timestamp() + ".png");
-                        if (out.has_parent_path()) {
-                            std::error_code ec;
-                            fs::create_directories(out.parent_path(), ec);
-                        }
-                        eng::golden::Image im;
-                        im.width = static_cast<int>(img->width);
-                        im.height = static_cast<int>(img->height);
-                        im.channels = 4;
-                        im.rgba8 = std::move(img->rgba8);
-                        if (!eng::golden::savePng(out, im)) {
-                            std::cerr << "viewer: cannot write '" << eng::golden::toUtf8(out) << "'\n";
-                            exitCode = kExitError;
-                        } else {
-                            ENG_LOG_INFO("viewer: screenshot {} ({}x{})", eng::golden::toUtf8(out), im.width, im.height);
-                            screenshotTaken = screenshotTaken || lastFrame;
-                        }
-                    }
-                }
+            if (shoot) {
+                renderer.requestCapture();
+            }
+            const auto f0 = std::chrono::steady_clock::now();
+            if (auto r = renderer.renderFrame(); !r) {
+                exitCode = r.error().exitCode;
+                exitMessage = r.error().message;
+                break;
+            }
+            if (shoot) {
                 f12 = false;
-                eng::rhi::ICommandList& cmd2 = dev.beginFrame();
-                (void)dev.acquireNextImage(swapchain); // the same, still acquired image
-                const eng::rhi::TextureBarrier toPresent{*bb, eng::rhi::ResourceState::CopySrc,
-                                                         eng::rhi::ResourceState::Present};
-                cmd2.barrier({&toPresent, 1});
-                const eng::rhi::Result<void> p2 = dev.present(swapchain);
-                if (pres) {
-                    pres = p2;
-                }
-            } else {
-                const eng::rhi::TextureBarrier toPresent{*bb, eng::rhi::ResourceState::RenderTarget,
-                                                         eng::rhi::ResourceState::Present};
-                cmd.barrier({&toPresent, 1});
-                pres = dev.present(swapchain);
-            }
-            if (!rec) {
-                exitCode = rec.error().exitCode;
-                exitMessage = rec.error().message;
-                break;
-            }
-            if (!pres) {
-                exitCode = pres.error().exitCode;
-                exitMessage = pres.error().message;
-                break;
-            }
-            if (exitCode != kExitOk) {
-                break;
+                auto img = renderer.readback();
+                if (img) {
+                    fs::path out = lastFrame && !opts->screenshot.empty()
+                                       ? eng::golden::fromUtf8(opts->screenshot)
+                                       : fs::path("Saved") / "Screenshots" / (opts->backend + "-" + timestamp() + ".png");
+                    if (out.has_parent_path()) {
+                        std::error_code ec;
+                        fs::create_directories(out.parent_path(), ec);
+                    }
+                    eng::golden::Image im;
+                    im.width = static_cast<int>(img->width);
+                    im.height = static_cast<int>(img->height);
+                    im.channels = 4;
+                    im.rgba8 = std::move(img->rgba8);
+                    if (!eng::golden::savePng(out, im)) {
+                        std::cerr << "viewer: cannot write '" << eng::golden::toUtf8(out) << "'\n";
+                        exitCode = kExitError;
+                        break;
+                    }
+                    std::cerr << "[info] viewer: screenshot " << eng::golden::toUtf8(out) << " (" << im.width << "x"
+                              << im.height << ")\n";
+                    screenshotTaken = screenshotTaken || lastFrame;
+                } // no captured frame (zero-size swapchain this frame): nothing to save
             }
             const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - f0).count();
             stats.push(dt * 1000.0f);
@@ -483,19 +400,16 @@ int run(const std::vector<std::string>& args) {
         const double wall = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
         std::printf("viewer: frames rendered %d, %.1f fps over %.2f s (wall clock, %s, %ux%u, vsync %d), "
                     "frame_ms_avg %.3f (CPU record + submit)\n",
-                    rendered, wall > 0.0 ? rendered / wall : 0.0, wall, opts->backend.c_str(), scSize.width,
-                    scSize.height, vsync ? 1 : 0, rendered ? renderedMs / rendered : 0.0);
-        ui.reset();
-        scene.reset();
+                    rendered, wall > 0.0 ? rendered / wall : 0.0, wall, opts->backend.c_str(), size.width, size.height,
+                    vsync ? 1 : 0, rendered ? renderedMs / rendered : 0.0);
     }
-    dev.destroy(swapchain);
-    if (auto r = dev.submitAndWait(); !r && exitCode == kExitOk) {
+    if (auto r = renderer.finish(); !r && exitCode == kExitOk) {
         exitCode = r.error().exitCode;
         exitMessage = r.error().message;
     }
-    std::printf("viewer: validation messages: %u\n", dev.validationErrorCount());
+    std::printf("viewer: validation messages: %u\n", renderer.validationErrorCount());
     std::fflush(stdout);
-    if (exitCode == kExitOk && dev.validationErrorCount() > 0) {
+    if (exitCode == kExitOk && renderer.validationErrorCount() > 0) {
         exitCode = kExitValidation;
         exitMessage = "validation messages";
     }

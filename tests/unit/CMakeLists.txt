@@ -187,7 +187,7 @@ if(TARGET shaders)
         rhi/test_caps.cpp
         rhi/test_texture_upload.cpp
         rhi/SceneProbes.h)
-    target_link_libraries(rhi_unit_tests PRIVATE engine::rhi engine::renderer headless_core nlohmann_json::nlohmann_json doctest::doctest
+    target_link_libraries(rhi_unit_tests PRIVATE engine::rhi engine::renderer golden_core nlohmann_json::nlohmann_json doctest::doctest
     eng_bcdec)
     if(ENG_RHI_VULKAN)
         # test_caps.cpp calls Vulkan through volk (the loaded entry points live in engine_rhi, VkLibs.cpp).
@@ -228,4 +228,27 @@ if(TARGET shaders)
             SKIP_RETURN_CODE 77
             FAIL_REGULAR_EXPRESSION "test cases: +0 \\|")
     endif()
+endif()
+
+
+# --- renderer facade (F3 Task 4) -----------------------------------------------------------------
+# renderer_unit_tests links only engine::facade (include/engine/*.h, spec K-D) + nlohmann/json + doctest: no
+# engine-internal include path. One ctest entry per backend; an absent backend is exit 77 = ctest Skipped.
+if(TARGET shaders)
+    add_executable(renderer_unit_tests renderer/test_facade.cpp)
+    target_link_libraries(renderer_unit_tests PRIVATE engine::facade nlohmann_json::nlohmann_json doctest::doctest)
+    target_compile_definitions(renderer_unit_tests PRIVATE DOCTEST_CONFIG_IMPLEMENT
+        ENG_TEST_SHADER_LIB_DIR="${ENG_SHADER_LIB_DIR}"
+        ENG_TEST_ASSET_DIR="${PROJECT_SOURCE_DIR}/tests/assets"
+        ENG_TEST_SAMPLE_MODELS="${PROJECT_SOURCE_DIR}/tests/assets/glTF-Sample-Assets/Models")
+    add_dependencies(renderer_unit_tests shaders)
+    if(MSVC)
+        target_compile_options(renderer_unit_tests PRIVATE /W4 /WX /permissive- /utf-8 /external:W0)
+    endif()
+    foreach(b IN LISTS ENG_BUILT_RHI_BACKENDS)
+        add_test(NAME unit.renderer.${b} COMMAND renderer_unit_tests --backend=${b} --no-version=true)
+        set_tests_properties(unit.renderer.${b} PROPERTIES
+            SKIP_RETURN_CODE 77
+            FAIL_REGULAR_EXPRESSION "test cases: +0 \\|")
+    endforeach()
 endif()

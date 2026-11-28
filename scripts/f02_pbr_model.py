@@ -3,7 +3,7 @@
 Usage:
     python scripts/f02_pbr_model.py --probes W H     # prints the probe list (JSON) for a W x H render
 
-The scene (apps/headless/PbrSpheresScene.cpp, constants documented in apps/headless/Scenes.h) is modelled
+The scene (engine/renderer/builtin/PbrSpheresScene.cpp, constants documented in engine/renderer/builtin/Scenes.h) is modelled
 here from the same constants, NOT the same code: camera, sphere grid, the analytic environment (sky /
 ground gradient + sun disk), the Khronos PBR Neutral tone mapper and the gamma 2.2 output encode. The
 probe colours are computed from the analytic environment along each pixel's camera ray, never read
@@ -34,7 +34,7 @@ import json
 import math
 import sys
 
-# --- scene constants (must equal apps/headless/Scenes.h) ----------------------------------------
+# --- scene constants (must equal engine/renderer/builtin/Scenes.h) ----------------------------------------
 EYE = (0.0, 0.0, 12.0)            # looking down -Z, +Y up, right-handed
 FOV_Y_DEG = 32.0
 GRID_COLS, GRID_ROWS = 5, 5       # metallic = col / 4 (X), roughness = row / 4 (Y, row 0 at the top)

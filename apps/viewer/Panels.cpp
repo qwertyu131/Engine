@@ -2,9 +2,11 @@
 // frame-time graph of the last 240 frames, and the CVar list with editing at CVarSource::Console.
 #include "Panels.h"
 
-#include "core/CVar.h"
+#include <engine/CVar.h>
 
 #include <imgui.h>
+
+#include <algorithm>
 
 #include <cstdio>
 #include <map>
@@ -96,6 +98,9 @@ void cvarPanel() {
     CVarRegistry& reg = CVarRegistry::get();
     std::vector<std::string> names;
     reg.forEach([&](const CVar& c) { names.emplace_back(c.name()); });
+    // The viewer's own r.Viewer.* cvars first (r.Viewer.ShowUI turns this panel off; it stays at a fixed place, the
+    // ctest viewer.click clicks it), then every other cvar in name order.
+    std::stable_partition(names.begin(), names.end(), [](const std::string& n) { return n.rfind("r.Viewer.", 0) == 0; });
     for (const std::string& name : names) {
         CVar* c = reg.find(name);
         if (!c) {

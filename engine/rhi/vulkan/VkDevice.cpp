@@ -372,7 +372,21 @@ Result<void> VulkanDevice::createLogicalDevice() {
         if (swapchainExtension_) {
             exts.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
         }
+        // Plan F3 Task 4: VK_KHR_maintenance5 lets a point-list pipeline's vertex shader leave PointSize unwritten
+        // (size 1.0, as D3D11 and glTF POINTS); the PBR shader does not write it (VUID ...-topology-08773 otherwise).
+        if (hasExtension(avail, VK_KHR_MAINTENANCE_5_EXTENSION_NAME)) {
+            VkPhysicalDeviceMaintenance5FeaturesKHR m5{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR};
+            VkPhysicalDeviceFeatures2 q{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+            q.pNext = &m5;
+            vkGetPhysicalDeviceFeatures2(physical_, &q);
+            maintenance5_ = m5.maintenance5 == VK_TRUE;
+            if (maintenance5_) {
+                exts.push_back(VK_KHR_MAINTENANCE_5_EXTENSION_NAME);
+            }
+        }
     }
+    VkPhysicalDeviceMaintenance5FeaturesKHR m5f{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR};
+    m5f.maintenance5 = VK_TRUE;
     VkPhysicalDeviceVulkan13Features f13{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
     VkPhysicalDeviceDynamicRenderingFeaturesKHR fdr{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR};
     VkPhysicalDeviceFeatures2 f2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
@@ -380,9 +394,11 @@ Result<void> VulkanDevice::createLogicalDevice() {
         exts.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
         fdr.dynamicRendering = VK_TRUE;
         f2.pNext = &fdr;
+        fdr.pNext = maintenance5_ ? &m5f : nullptr;
     } else {
         f13.dynamicRendering = VK_TRUE;
         f2.pNext = &f13;
+        f13.pNext = maintenance5_ ? &m5f : nullptr;
     }
     // Plan F3 Task 3: block-compressed textures (KHR_texture_basisu transcode targets) need these core features
     // enabled; each is enabled exactly when the device supports it (DeviceCaps bc / bc6h7 / etc2 / astc).

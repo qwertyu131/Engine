@@ -18,7 +18,7 @@
 // Background: clear chosen per target so both read back (51, 51, 51) (UNORM 0.2; sRGB linear 0.0331).
 // Mirrored geometry would put another face's colour under a probe: the visible faces' tiles come from
 // both rows and two columns of the atlas.
-#include "Scenes.h"
+#include "renderer/builtin/Scenes.h"
 
 #include "rhi/Rhi.h"
 #include "rhi/ShaderLibrary.h"

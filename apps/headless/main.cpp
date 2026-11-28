@@ -9,7 +9,9 @@
 //   cpu     F0: `--scene builtin:test-pattern` (deterministic CPU pattern, see TestPattern.h).
 //   vulkan  F2: through engine/rhi, with validation (VK_LAYER_KHRONOS_validation + sync validation).
 //   d3d11   F2: through engine/rhi, with the debug layer; --warp = WARP software rasterizer.
-// GPU scenes (Scenes.h): builtin:triangle, builtin:textured-cube, builtin:pbr-spheres. --adapter selects the adapter by index
+// GPU scenes through the library facade (include/engine, spec K-D, plan F3 Task 4): builtin:triangle,
+// builtin:textured-cube, builtin:pbr-spheres, or a .gltf / .glb file (fit camera of its default scene, rest pose).
+// --adapter selects the adapter by index
 // (default: the backend's default). --shader-dir is the shader library of the `shaders` build step
 // (default: the build tree's, compiled in). --asset-dir is the test asset root (default: the source
 // tree's tests/assets, compiled in).
@@ -33,15 +35,12 @@
 // this machine, 4 = validation error (also: validation layer missing), 5 = device lost / GPU error.
 // All path arguments are UTF-8 (on Windows they are taken from the wide command line).
 
-#include "Scenes.h"
 #include "TestPattern.h"
 
 #include "Image.h"
 #include "Utf8.h"
-#include "core/CVar.h"
-#include "core/Log.h"
-#include "rhi/Rhi.h"
-#include "rhi/ShaderLibrary.h"
+
+#include <engine/Renderer.h>
 
 #include <algorithm>
 #include <charconv>
@@ -66,6 +65,7 @@ namespace {
 constexpr int kExitOk = 0;
 constexpr int kExitError = 2;
 constexpr int kExitNoBackend = 3;
+constexpr int kExitValidation = 4;
 
 constexpr std::string_view kBuiltinTestPattern = "builtin:test-pattern";
 constexpr int kMaxBenchFrames = 1'000'000;
@@ -78,10 +78,11 @@ void printUsage(std::ostream& os) {
           "           [--d3d11-feature-level 10_0|10_1|11_0|11_1] [--dump-caps <json>]\n"
           "  headless --backend <gpu> --dump-caps <json> [--warp] [--adapter <index>] [--d3d11-feature-level ...]\n"
           "backends in this build: cpu";
-    for (const eng::rhi::Backend b : eng::rhi::compiledBackends()) {
+    for (const eng::rhi::Backend b : eng::Renderer::compiledBackends()) {
         os << ", " << eng::rhi::toString(b);
     }
-    os << "\nscenes: builtin:test-pattern (cpu), builtin:triangle, builtin:textured-cube, builtin:pbr-spheres (gpu)\n"
+    os << "\nscenes: builtin:test-pattern (cpu), builtin:triangle, builtin:textured-cube, builtin:pbr-spheres, "
+          "<file>.gltf / .glb (gpu)\n"
           "exit codes: 0 = ok, 2 = usage / IO error, 3 = backend not available, 4 = validation error,\n"
           "            5 = device lost / GPU error\n";
 }
@@ -209,8 +210,7 @@ std::optional<Options> parseArgs(const std::vector<std::string>& args) {
     return o;
 }
 
-bool applyCVars(const std::vector<std::string>& cvars) {
-    auto& reg = eng::CVarRegistry::get();
+bool applyCVars(eng::Settings& reg, const std::vector<std::string>& cvars) {
     for (const std::string& kv : cvars) {
         const size_t eq = kv.find('=');
         if (eq == std::string::npos || eq == 0) {
@@ -227,7 +227,7 @@ bool applyCVars(const std::vector<std::string>& cvars) {
             std::cerr << "headless: cvar '" << name << "' rejected value '" << value << "'\n";
             return false;
         }
-        ENG_LOG_INFO("cvar {} = {} (CommandLine)", name, value);
+        std::cerr << "[info] cvar " << name << " = " << value << " (CommandLine)\n";
     }
     return true;
 }
@@ -272,8 +272,7 @@ std::string capsNote(const eng::rhi::DeviceCaps& c, const Options& o) {
     return n + " Written by headless --dump-caps (plan F2 Task 7).";
 }
 
-int dumpCaps(const eng::rhi::IDevice& device, const Options& o) {
-    const eng::rhi::DeviceCaps& c = device.caps();
+int dumpCaps(const eng::rhi::DeviceCaps& c, const Options& o) {
     const fs::path path = eng::golden::fromUtf8(o.dumpCaps);
     std::error_code ec;
     if (path.has_parent_path()) {
@@ -303,7 +302,7 @@ int run(const std::vector<std::string>& args) {
     }
 
     std::optional<eng::rhi::Backend> gpu;
-    for (const eng::rhi::Backend b : eng::rhi::compiledBackends()) {
+    for (const eng::rhi::Backend b : eng::Renderer::compiledBackends()) {
         if (opts->backend == eng::rhi::toString(b)) {
             gpu = b;
         }
@@ -322,187 +321,148 @@ int run(const std::vector<std::string>& args) {
     }
     const bool capsOnly = opts->scene.empty();
 
-    eng::CVar* warmup = eng::CVarRegistry::get().registerInt(
+    eng::Settings settings;
+    eng::CVar* warmup = settings.registry().registerInt(
         "r.Bench.WarmupFrames", 0, "Untimed frames rendered before --bench timing starts", eng::CVarFlags::None, 0,
         1000);
-    if (!applyCVars(opts->cvars)) {
+    if (!gpu && !applyCVars(settings, opts->cvars)) {
+        return kExitError;
+    }
+    if (!gpu && opts->scene != kBuiltinTestPattern) {
+        std::cerr << "headless: scene '" << opts->scene << "' not supported in this build (only " << kBuiltinTestPattern
+                  << ")\n";
         return kExitError;
     }
 
-    // GPU backends: device + scene through engine/rhi (plan F2 Task 2).
-    std::unique_ptr<eng::rhi::IDevice> device;
-    fs::path shaderDir;
-    fs::path assetDir;
-    if (gpu && !capsOnly) {
-        bool known = false;
-        std::string names;
-        for (const std::string_view n : eng::scenes::sceneNames()) {
-            known = known || opts->scene == n;
-            names += (names.empty() ? "" : ", ") + std::string(n);
+    // GPU: everything through the facade (spec K-D, plan F3 Task 4).
+    std::unique_ptr<eng::Renderer> renderer;
+    if (gpu) {
+        if (!capsOnly && opts->scene.rfind("builtin:", 0) == 0) {
+            bool known = false;
+            std::string names;
+            for (const std::string_view n : eng::Renderer::builtinScenes()) {
+                known = known || opts->scene == n;
+                names += (names.empty() ? "" : ", ") + std::string(n);
+            }
+            if (!known) {
+                std::cerr << "headless: scene '" << opts->scene << "' not supported on backend " << opts->backend
+                          << " in this build (" << names << ", or a .gltf / .glb file)\n";
+                return kExitError;
+            }
         }
-        if (!known) {
-            std::cerr << "headless: scene '" << opts->scene << "' not supported on backend " << opts->backend
-                      << " in this build (" << names << ")\n";
-            return kExitError;
-        }
+        eng::RendererDesc rd;
+        rd.backend = *gpu;
+        rd.warp = opts->warp;
+        rd.adapterIndex = opts->adapter;
+        rd.d3d11FeatureLevelCap = opts->d3d11FeatureLevel;
+        rd.width = static_cast<uint32_t>(opts->width);
+        rd.height = static_cast<uint32_t>(opts->height);
 #if defined(ENG_DEFAULT_SHADER_DIR)
-        shaderDir = eng::rhi::pathFromUtf8(opts->shaderDir.empty() ? ENG_DEFAULT_SHADER_DIR : opts->shaderDir);
+        rd.shaderDir = eng::golden::fromUtf8(opts->shaderDir.empty() ? ENG_DEFAULT_SHADER_DIR : opts->shaderDir);
 #else
-        if (opts->shaderDir.empty()) {
+        if (!capsOnly && opts->shaderDir.empty()) {
             std::cerr << "headless: --shader-dir is required (no shader library in this build)\n";
             return kExitError;
         }
-        shaderDir = eng::rhi::pathFromUtf8(opts->shaderDir);
+        rd.shaderDir = eng::golden::fromUtf8(opts->shaderDir);
 #endif
 #if defined(ENG_DEFAULT_ASSET_DIR)
-        assetDir = eng::rhi::pathFromUtf8(opts->assetDir.empty() ? ENG_DEFAULT_ASSET_DIR : opts->assetDir);
+        rd.assetDir = eng::golden::fromUtf8(opts->assetDir.empty() ? ENG_DEFAULT_ASSET_DIR : opts->assetDir);
 #else
-        assetDir = eng::rhi::pathFromUtf8(opts->assetDir);
+        rd.assetDir = eng::golden::fromUtf8(opts->assetDir);
 #endif
-    }
-    if (gpu) {
-        eng::rhi::DeviceDesc dd;
-        dd.backend = *gpu;
-        dd.warp = opts->warp;
-        dd.adapterIndex = opts->adapter;
-        dd.d3d11FeatureLevelCap = opts->d3d11FeatureLevel;
-        auto dev = eng::rhi::createDevice(dd);
-        if (!dev) {
-            // "backend not available:" marks the absent-backend exit 3 (the only one ctest skips, plan F3 Task 1).
-            std::cerr << "headless: " << (dev.error().exitCode == kExitNoBackend ? "backend not available: " : "")
-                      << dev.error().message << "\n";
-            return dev.error().exitCode;
+        auto r = eng::Renderer::create(rd);
+        if (!r) {
+            // Only device creation's exit 3 is "backend not available" (cmake/TestSkip.cmake skips on that text).
+            std::cerr << "headless: " << (r.error().exitCode == kExitNoBackend ? "backend not available: " : "")
+                      << r.error().message << "\n";
+            return r.error().exitCode;
         }
-        device = std::move(*dev);
-        ENG_LOG_INFO("backend {}: {} (API {})", opts->backend, device->caps().adapterName, device->caps().apiVersion);
+        renderer = std::move(*r);
+        std::cerr << "[info] backend " << opts->backend << ": " << renderer->caps().adapterName << " (API "
+                  << renderer->caps().apiVersion << ")\n";
+        if (!applyCVars(settings, opts->cvars)) { // after create: the renderer registers its cvars there
+            return kExitError;
+        }
         if (!opts->dumpCaps.empty()) {
-            if (const int rc = dumpCaps(*device, *opts); rc != kExitOk) {
+            if (const int rc = dumpCaps(renderer->caps(), *opts); rc != kExitOk) {
                 return rc;
             }
             if (capsOnly) {
                 return kExitOk;
             }
         }
-    } else if (opts->scene != kBuiltinTestPattern) {
-        std::cerr << "headless: scene '" << opts->scene << "' not supported in this build (only "
-                  << kBuiltinTestPattern << ")\n";
-        return kExitError;
-    }
-
-    // GPU scene: created once (shaders, geometry, textures, IBL), recorded every frame (plan F2 Task 5).
-    // Target format: builtin:textured-cube draws into RGBA8_SRGB (its texture is sRGB), the others into
-    // RGBA8_UNORM (builtin:pbr-spheres applies its own gamma 2.2 encode, as Sample-Viewer).
-    std::unique_ptr<eng::scenes::Scene> scene;
-    const eng::rhi::Format targetFormat =
-        opts->scene == eng::scenes::kTexturedCube ? eng::rhi::Format::RGBA8_SRGB : eng::rhi::Format::RGBA8_UNORM;
-    if (device) {
-        eng::scenes::SceneDesc sd;
-        sd.shaderDir = shaderDir;
-        sd.assetDir = assetDir;
-        sd.colorFormat = targetFormat;
-        sd.width = static_cast<uint32_t>(opts->width);
-        sd.height = static_cast<uint32_t>(opts->height);
-        auto s = eng::scenes::createScene(*device, opts->scene, sd);
-        if (!s) {
-            std::cerr << "headless: " << s.error().message << "\n";
-            return s.error().exitCode;
+        auto asset = renderer->loadAsset(eng::golden::fromUtf8(opts->scene));
+        if (!asset) {
+            std::cerr << "headless: " << asset.error().message << "\n";
+            return asset.error().exitCode;
         }
-        scene = std::move(*s);
+        auto scene = renderer->instantiate(*asset);
+        if (!scene) {
+            std::cerr << "headless: " << scene.error().message << "\n";
+            return scene.error().exitCode;
+        }
+        renderer->setCamera(renderer->fitCamera(*scene, float(opts->width) / float(opts->height)));
     }
 
     int gpuError = kExitOk;
     std::string gpuMessage;
-    const auto renderFrame = [&]() -> eng::Image8 {
-        if (!device) {
-            return eng::makeTestPattern(opts->width, opts->height);
+    // One frame: the CPU pattern, or a GPU frame (record + submit + GPU wait, no readback).
+    const auto gpuFrame = [&]() {
+        if (gpuError != kExitOk) {
+            return;
         }
-        eng::rhi::Result<eng::rhi::Image> img = eng::scenes::renderOffscreen(
-            *device, *scene, targetFormat, static_cast<uint32_t>(opts->width), static_cast<uint32_t>(opts->height));
-        eng::Image8 out;
-        if (!img) {
-            gpuError = img.error().exitCode;
-            gpuMessage = img.error().message;
-            return out;
+        if (auto r = renderer->renderFrame(); !r) {
+            gpuError = r.error().exitCode;
+            gpuMessage = r.error().message;
         }
-        out.width = static_cast<int>(img->width);
-        out.height = static_cast<int>(img->height);
-        out.channels = 4;
-        out.rgba8 = std::move(img->rgba8);
-        return out;
     };
     eng::Image8 frame;
-    if (opts->benchFrames && device) {
-        // GPU bench: one offscreen target; timed = record + submit + GPU wait, no readback per frame.
-        eng::rhi::TextureDesc td;
-        td.width = static_cast<uint32_t>(opts->width);
-        td.height = static_cast<uint32_t>(opts->height);
-        td.format = targetFormat;
-        td.usage = eng::rhi::TextureUsage::RenderTarget | eng::rhi::TextureUsage::CopySrc;
-        td.debugName = "bench target";
-        auto rt = device->createTexture(td);
-        if (!rt) {
-            std::cerr << "headless: " << rt.error().message << "\n";
-            return rt.error().exitCode;
+    if (opts->benchFrames) {
+        if (renderer) {
+            std::cout << "bench: " << opts->backend << " " << opts->scene << " " << opts->width << "x" << opts->height
+                      << ", " << *opts->benchFrames << " timed frames after " << warmup->getInt()
+                      << " warm-up, one offscreen target, frame = record + submit + GPU wait (no readback), validation "
+                      << "on (" << renderer->caps().adapterName << ")\n";
         }
-        std::cout << "bench: " << opts->backend << " " << opts->scene << " " << opts->width << "x" << opts->height
-                  << ", " << *opts->benchFrames << " timed frames after " << warmup->getInt()
-                  << " warm-up, one offscreen target, frame = record + submit + GPU wait (no readback), validation "
-                  << "on (" << device->caps().adapterName << ")\n";
-        bool first = true;
-        auto gpuFrame = [&]() {
-            if (gpuError != kExitOk) {
-                return;
-            }
-            if (auto r = eng::scenes::renderFrameInto(*device, *scene, *rt, first); !r) {
-                gpuError = r.error().exitCode;
-                gpuMessage = r.error().message;
-            }
-            first = false;
-        };
         for (int i = 0; i < warmup->getInt(); ++i) {
-            gpuFrame();
-        }
-        std::vector<double> ms;
-        ms.reserve(static_cast<size_t>(*opts->benchFrames));
-        for (int i = 0; i < *opts->benchFrames; ++i) {
-            const auto t0 = std::chrono::steady_clock::now();
-            gpuFrame();
-            const auto t1 = std::chrono::steady_clock::now();
-            ms.push_back(std::chrono::duration<double, std::milli>(t1 - t0).count());
-        }
-        printBenchLine(ms);
-        if (gpuError == kExitOk) {
-            if (auto img = device->readback(*rt); img) {
-                frame.width = static_cast<int>(img->width);
-                frame.height = static_cast<int>(img->height);
-                frame.channels = 4;
-                frame.rgba8 = std::move(img->rgba8);
+            if (renderer) {
+                gpuFrame();
             } else {
-                gpuError = img.error().exitCode;
-                gpuMessage = img.error().message;
+                frame = eng::makeTestPattern(opts->width, opts->height);
             }
-        }
-        device->destroy(*rt);
-    } else if (opts->benchFrames) {
-        for (int i = 0; i < warmup->getInt(); ++i) {
-            frame = renderFrame();
         }
         std::vector<double> ms;
         ms.reserve(static_cast<size_t>(*opts->benchFrames));
         for (int i = 0; i < *opts->benchFrames; ++i) {
             const auto t0 = std::chrono::steady_clock::now();
-            frame = renderFrame();
+            if (renderer) {
+                gpuFrame();
+            } else {
+                frame = eng::makeTestPattern(opts->width, opts->height);
+            }
             const auto t1 = std::chrono::steady_clock::now();
             ms.push_back(std::chrono::duration<double, std::milli>(t1 - t0).count());
         }
         printBenchLine(ms);
+    } else if (renderer) {
+        gpuFrame();
     } else {
-        frame = renderFrame();
+        frame = eng::makeTestPattern(opts->width, opts->height);
     }
-
-    scene.reset();
-    if (device) {
-        if (auto r = device->submitAndWait(); !r && gpuError == kExitOk) { // runs the deferred destruction
+    if (renderer && gpuError == kExitOk) {
+        if (auto img = renderer->readback(); img) {
+            frame.width = static_cast<int>(img->width);
+            frame.height = static_cast<int>(img->height);
+            frame.channels = 4;
+            frame.rgba8 = std::move(img->rgba8);
+        } else {
+            gpuError = img.error().exitCode;
+            gpuMessage = img.error().message;
+        }
+    }
+    if (renderer) {
+        if (auto r = renderer->finish(); !r && gpuError == kExitOk) { // runs the deferred destruction
             gpuError = r.error().exitCode;
             gpuMessage = r.error().message;
         }
@@ -511,9 +471,9 @@ int run(const std::vector<std::string>& args) {
         std::cerr << "headless: " << gpuMessage << "\n";
         return gpuError;
     }
-    if (device && device->validationErrorCount() > 0) {
-        std::cerr << "headless: " << device->validationErrorCount() << " validation message(s)\n";
-        return eng::rhi::kExitValidation;
+    if (renderer && renderer->validationErrorCount() > 0) {
+        std::cerr << "headless: " << renderer->validationErrorCount() << " validation message(s)\n";
+        return kExitValidation;
     }
 
     const fs::path out = eng::golden::fromUtf8(opts->out);
@@ -525,8 +485,8 @@ int run(const std::vector<std::string>& args) {
         std::cerr << "headless: cannot write '" << opts->out << "'\n";
         return kExitError;
     }
-    ENG_LOG_INFO("wrote {} ({}x{}, backend {}, scene {})", opts->out, opts->width, opts->height, opts->backend,
-                 opts->scene);
+    std::cerr << "[info] wrote " << opts->out << " (" << opts->width << "x" << opts->height << ", backend "
+              << opts->backend << ", scene " << opts->scene << ")\n";
     return kExitOk;
 }
 

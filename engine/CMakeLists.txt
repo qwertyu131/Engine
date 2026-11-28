@@ -6,7 +6,8 @@ add_library(engine STATIC
     core/Log.cpp)
 add_library(engine::engine ALIAS engine)
 
-target_include_directories(engine PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+# Public facade headers (include/engine, spec K-D, plan F3 Task 4) + the engine-internal tree.
+target_include_directories(engine PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}/include")
 target_compile_features(engine PUBLIC cxx_std_20)
 
 # Asserts: DEBUG_ONLY (default) = active in Debug config only; ON / OFF force it.
@@ -34,7 +35,8 @@ add_subdirectory(rhi)
 # glTF loader (plan F3 Task 2): separate target, C++23, no GPU types.
 add_subdirectory(asset)
 
-# Renderer (plan F3 Tasks 3-4): GPU upload, draw lists, passes, facade.
+# Scene + renderer (plan F3 Tasks 3-4): rest-pose scene graph, GPU upload, draw lists, passes, facade.
+add_subdirectory(scene)
 add_subdirectory(renderer)
 
 # Window + UI (plan F2 Task 6).

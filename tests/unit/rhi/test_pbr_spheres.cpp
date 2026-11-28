@@ -1,6 +1,6 @@
 // builtin:pbr-spheres (plan F2 Task 5): the F1 glTF PBR shader (pbr.hlsl) on every backend configuration,
 // Vulkan with spirv T2_SKIN0_MORPH0_UNLIT0, D3D11 with dxbc T1_SKIN0_MORPH0_UNLIT0 (+ the UNLIT1 row), IBL
-// generated on the CPU (apps/headless/Ibl.h), environment background (shaders/test/skybox.hlsl).
+// generated on the CPU (engine/renderer/builtin/Ibl.h), environment background (shaders/test/skybox.hlsl).
 //
 // Probe pixels and colours are NOT taken from a render. They come from scripts/f02_pbr_model.py --probes
 // 256 256, an independent Python model of the scene (camera, sphere grid, analytic environment, Khronos
@@ -15,8 +15,8 @@
 //   sun: the rough dielectric centre (46, 189) is darker (R+G+B lower by >= 10) than the smooth one (46, 25);
 //     both reflect into the sun disk.
 // The CPU IBL helpers are checked backend-independently in suite rhi.ibl.
-#include "Ibl.h"
-#include "Scenes.h"
+#include "renderer/builtin/Ibl.h"
+#include "renderer/builtin/Scenes.h"
 
 #include "Compare.h"
 #include "rhi/Rhi.h"

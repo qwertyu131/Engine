@@ -10,7 +10,7 @@ cube_faces.png (256 x 256, RGBA8, sRGB-encoded colours): a 3 x 2 grid of 80 x 12
 row i // 3). Each tile is a solid colour (FACE_COLORS) with a white letter (R L U D F B) in its
 upper-left corner, so the tile centre is solid and the letter shows the face orientation.
 
-The probe table is an independent Python model of the scene in apps/headless/CubeScene.cpp (same constants,
+The probe table is an independent Python model of the scene in engine/renderer/builtin/CubeScene.cpp (same constants,
 not the same code): camera, model rotation, per-face UV mapping, ray cast against the cube. The C++
 tests hard-code its output; a Y flip, UV-origin or winding error in the renderer therefore cannot be
 cancelled by the same error in the probe positions.
@@ -61,7 +61,7 @@ GLYPHS = {
     "B": ["####.", "#...#", "#...#", "####.", "#...#", "#...#", "####."],
 }
 
-# --- builtin:textured-cube scene constants (must equal apps/headless/CubeScene.cpp) -------------
+# --- builtin:textured-cube scene constants (must equal engine/renderer/builtin/CubeScene.cpp) -------------
 UV_INSET = 2.0           # px: each face samples its tile inset by 2 px (no bleeding from neighbours)
 CAMERA_EYE = (0.0, 0.0, 3.0)  # looking at the origin, +Y up, right-handed view
 FOV_Y_DEG = 45.0

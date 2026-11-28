@@ -1,6 +1,6 @@
 #pragma once
 // ImGui panels of the viewer (plan F2 Task 6): DeviceCaps table, FPS + frame-time graph, CVar list.
-#include "rhi/DeviceCaps.h"
+#include <engine/rhi/DeviceCaps.h>
 
 #include <array>
 #include <cstddef>
