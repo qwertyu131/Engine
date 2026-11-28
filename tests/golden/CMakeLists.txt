@@ -106,3 +106,11 @@ if(ENG_RHI_VULKAN)
                       ARGS --backend vulkan --scene builtin:triangle --width 64 --height 64 --bench 3
                            --cvar r.Bench.WarmupFrames=1 --out @WORK@/tri.png)
 endif()
+
+# GPU CLI entries: a backend absent on the machine (headless exit 3) is ctest Skipped, not Failed, as the
+# unit.rhi.* / viewer.* entries (cli_exit_code.cmake prints "expected exit 0, got 3").
+foreach(t dump_caps_d3d11_fl10_0 dump_caps_d3d11_warp dump_caps_vulkan bench_gpu_d3d11 bench_gpu_vulkan)
+    if(TEST headless.cli.${t})
+        set_tests_properties(headless.cli.${t} PROPERTIES SKIP_REGULAR_EXPRESSION "expected exit 0, got 3")
+    endif()
+endforeach()
