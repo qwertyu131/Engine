@@ -17,6 +17,12 @@
 namespace fs = std::filesystem;
 using namespace eng::golden;
 
+#if defined(_WIN32)
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
+
 namespace {
 
 fs::path fixture(const char* name) {
@@ -29,11 +35,19 @@ Image load(const char* name) {
     return *img;
 }
 
-// A fresh, empty temp directory whose leaf name contains non-ASCII characters and spaces.
+// A fresh, empty temp directory whose leaf name contains non-ASCII characters and spaces. Per process (the process id
+// in the name): ctest runs unit.golden and unit.all, the same binary, in parallel (-j), and a shared directory let one
+// process delete the other's files.
 struct TempDir {
     fs::path path;
     explicit TempDir(const char* tag) {
-        path = fs::temp_directory_path() / (std::string("eng-golden-") + tag) / fromUtf8("ç ğ ü test");
+#if defined(_WIN32)
+        const int pid = _getpid();
+#else
+        const int pid = static_cast<int>(getpid());
+#endif
+        path = fs::temp_directory_path() / (std::string("eng-golden-") + tag + "-" + std::to_string(pid)) /
+               fromUtf8("ç ğ ü test");
         std::error_code ec;
         fs::remove_all(path.parent_path(), ec);
         fs::create_directories(path);

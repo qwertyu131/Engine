@@ -51,7 +51,8 @@ cbuffer Frame : register(b0, space0)
     float4x4 envRotation;  // IBL rotation (Sample-Viewer u_EnvRotation); upper 3x3 used
     float4 cameraPosition; // xyz = world-space camera position
     float4 iblParams;      // x = exposure, y = environment intensity, z = specular mip count, w unused
-    uint4 frameFlags;      // x = 1: apply the gamma 2.2 output encode (UNORM target, as Sample-Viewer)
+    uint4 frameFlags;      // x = 1: apply the gamma 2.2 output encode (UNORM target, as Sample-Viewer), y = tonemap
+                           // operator (shaders/post/tonemap.hlsl: 0 PbrNeutral, 1 Aces, 2 None)
 };
 TextureCube<float4> specularEnvTexture : register(t1, space0);   // GGX-prefiltered radiance (u_GGXEnvSampler)
 TextureCube<float4> irradianceEnvTexture : register(t2, space0); // Lambertian irradiance (u_LambertianEnvSampler)

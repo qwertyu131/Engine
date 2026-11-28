@@ -1,0 +1,13 @@
+{
+  "comment": "glTF scene environment background (plan F3 Task 5). No permutation axes: key 'default'. dxbc tier0Variant: also SM 4.0 under 'default-t0' for D3D11 FL10_x (T0).",
+  "source": "shaders/ibl/background.hlsl",
+  "entries": [
+    { "entry": "VSMain", "stage": "vs" },
+    { "entry": "PSMain", "stage": "fs" }
+  ],
+  "axes": {},
+  "targets": {
+    "spirv": { "backend": "Vulkan" },
+    "dxbc":  { "backend": "D3D11", "tier0Variant": true }
+  }
+}

@@ -1,13 +1,16 @@
 """Fetch the pinned glTF test assets and the Khronos glTF-Validator (plan F0 Task 6).
 
 Usage:
-    python scripts/fetch_assets.py [--only sample-assets|validator] [--verify]
+    python scripts/fetch_assets.py [--only sample-assets|validator|environments] [--verify]
 
 Everything is pinned in tests/assets/assets.lock.json:
     glTF-Sample-Assets  git repo + exact commit + sparse-checkout patterns
                         -> tests/assets/glTF-Sample-Assets/  (shallow, blob-filtered, sparse)
     gltf-validator      release version + archive url + sha256 (win64; "linux64" sub-entry for Linux)
                         -> tests/assets/tools/<archive>  and  tests/assets/tools/gltf_validator-<ver>-<platform>/
+Environment files (plan F3 Task 5) are pinned in tests/golden/ref/sample-viewer/settings.json "pinnedFiles"
+(url at a commit + sha256, the files refgen renders the references with):
+    Cannon_Exterior.hdr, lut_sheen_E.png -> tests/assets/environments/<name>
 
 Idempotent:
   * checkout already at the pinned commit -> "up to date", no network access;
@@ -15,7 +18,7 @@ Idempotent:
   * archive present with the pinned sha256 and extracted -> "up to date", no download;
   * a leftover <archive>.part from an interrupted download is deleted and the download restarts;
   * an archive whose sha256 differs is deleted and downloaded again; a freshly downloaded file with
-    the wrong sha256 is deleted and the run fails with "sha256 mismatch".
+    the wrong sha256 is deleted and the run fails with "sha256 mismatch" (environment files alike).
 --verify checks the pins without any network access (exit 1 if something is missing or wrong).
 
 Exit codes: 0 ok, 1 fetch / verify failure, 2 usage error. Stdlib only (needs `git` on PATH).
@@ -38,6 +41,7 @@ from typing import Callable
 
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_ROOT = REPO / "tests" / "assets"
+DEFAULT_SETTINGS = REPO / "tests" / "golden" / "ref" / "sample-viewer" / "settings.json"
 USER_AGENT = "engine-fetch-assets/1.0"
 CHUNK = 1 << 20
 
@@ -92,8 +96,9 @@ def host_platform_key() -> str | None:
 class Fetcher:
     def __init__(self, root: Path = DEFAULT_ROOT, lock_path: Path | None = None, git: GitRunner = run_git,
                  download: Downloader = http_download, log: Callable[[str], None] = print,
-                 platform_key: str | None = None):
+                 platform_key: str | None = None, settings_path: Path | None = None):
         self.root = Path(root)
+        self.settings_path = Path(settings_path) if settings_path else DEFAULT_SETTINGS
         self.lock_path = Path(lock_path) if lock_path else self.root / "assets.lock.json"
         try:
             self.lock = json.loads(self.lock_path.read_text(encoding="utf-8"))
@@ -270,10 +275,59 @@ class Fetcher:
         self._extract(archive, extract, sha)
         self.log(f"gltf-validator: {version} -> {self.validator_exe()}")
 
+    # --- environment files (settings.json pinnedFiles) -----------------------------------------
+
+    def environment_pins(self) -> dict:
+        try:
+            pins = json.loads(self.settings_path.read_text(encoding="utf-8"))["pinnedFiles"]
+        except (OSError, ValueError, KeyError) as e:
+            raise FetchError(f"cannot read pinnedFiles from '{self.settings_path}': {e}") from e
+        if not isinstance(pins, dict):
+            raise FetchError(f"'{self.settings_path}': pinnedFiles must be an object")
+        return pins
+
+    @property
+    def environments_dir(self) -> Path:
+        return self.root / "environments"
+
+    def environments(self, verify: bool = False) -> None:
+        for name, pin in self.environment_pins().items():
+            if "/" in name or "\\" in name or name in (".", ".."):
+                raise FetchError(f"environments: invalid file name {name!r}")
+            url, sha = pin["url"], pin["sha256"].lower()
+            dest = self.environments_dir / name
+            part = dest.with_name(dest.name + ".part")
+            if part.exists() and not verify:
+                part.unlink()
+            if dest.exists():
+                actual = sha256_file(dest)
+                if actual == sha:
+                    self.log(f"environments: {name} up to date")
+                    continue
+                if verify:
+                    raise FetchError(f"environments: sha256 mismatch for '{name}': expected {sha}, got {actual}")
+                self.log(f"environments: '{name}' has sha256 {actual}, expected {sha}; downloading again")
+                dest.unlink()
+            elif verify:
+                raise FetchError(f"environments: '{dest}' missing")
+            self.environments_dir.mkdir(parents=True, exist_ok=True)
+            self.log(f"environments: downloading {url}")
+            try:
+                self.download(url, part)
+            except Exception:
+                part.unlink(missing_ok=True)
+                raise
+            actual = sha256_file(part)
+            if actual != sha:
+                part.unlink()
+                raise FetchError(f"environments: sha256 mismatch for '{name}': expected {sha}, got {actual}")
+            os.replace(part, dest)
+            self.log(f"environments: {name} -> {dest}")
+
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--only", choices=["sample-assets", "validator"], help="fetch only one item")
+    ap.add_argument("--only", choices=["sample-assets", "validator", "environments"], help="fetch only one item")
     ap.add_argument("--verify", action="store_true", help="check the pins only, no network access")
     try:
         args = ap.parse_args(argv)
@@ -285,6 +339,8 @@ def main(argv: list[str] | None = None) -> int:
             f.sample_assets(verify=args.verify)
         if args.only in (None, "validator"):
             f.validator(verify=args.verify)
+        if args.only in (None, "environments"):
+            f.environments(verify=args.verify)
     except FetchError as e:
         print(f"fetch_assets: {e}", file=sys.stderr)
         return 1

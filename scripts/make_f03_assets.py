@@ -655,6 +655,25 @@ def fixtures() -> dict[str, bytes]:
     files["paths/sahne ı/sibling dir.gltf"] = dumps(
         gltf_doc(layout, "../kaynak%20%C4%9F/geometri%20%C5%9F.bin", len(tri), mat,
                  [{"uri": "../kaynak%20%C4%9F/resim%20%C3%B6.png"}]))
+
+    # --- degenerate/ (Review Focus 5, plan F3 Task 5: fit camera on a degenerate bounding box) ---------------
+    # single_point: one triangle whose three vertices are the origin (POSITION min = max = 0: a zero-size box; the
+    #   triangle has no area, so nothing is rasterized and the frame is the background only);
+    # empty_scene: a scene without nodes (no extents at all).
+    pt = f32([(0.0, 0.0, 0.0)] * 3) + b"".join(struct.pack("<H", i) for i in INDICES) + b"\0\0"
+    files["degenerate/single_point.gltf"] = dumps({
+        "asset": {"version": "2.0", "generator": "scripts/make_f03_assets.py"},
+        "scene": 0, "scenes": [{"nodes": [0]}], "nodes": [{"mesh": 0}],
+        "meshes": [{"primitives": [{"attributes": {"POSITION": 0}, "indices": 1}]}],
+        "buffers": [{"byteLength": len(pt), "uri": data_uri("application/octet-stream", pt)}],
+        "bufferViews": [{"buffer": 0, "byteOffset": 0, "byteLength": 36, "target": 34962},
+                        {"buffer": 0, "byteOffset": 36, "byteLength": 6, "target": 34963}],
+        "accessors": [{"bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3",
+                       "min": [0.0, 0.0, 0.0], "max": [0.0, 0.0, 0.0]},
+                      {"bufferView": 1, "componentType": 5123, "count": 3, "type": "SCALAR"}]})
+    files["degenerate/empty_scene.gltf"] = dumps({
+        "asset": {"version": "2.0", "generator": "scripts/make_f03_assets.py"},
+        "scene": 0, "scenes": [{"name": "empty"}]})
     return files
 
 

@@ -508,7 +508,7 @@ VulkanDevice::~VulkanDevice() {
         });
         shaders_.clear([&](Shader& s) { vkDestroyShaderModule(device_, s.module, nullptr); });
         textures_.clear([&](Texture& t) {
-            vkDestroyImageView(device_, t.view, nullptr);
+            destroyViews(t);
             if (!t.swapchainImage) {
                 vmaDestroyImage(allocator_, t.image, t.allocation);
             }
@@ -661,7 +661,7 @@ void VulkanDevice::destroy(Handle h) {
         if (auto t = textures_.remove(h.id)) {
             ENG_ASSERT_MSG(!t->swapchainImage, "destroy of a swapchain image (destroy the swapchain instead)");
             fn = [this, t = *t] {
-                vkDestroyImageView(device_, t.view, nullptr);
+                destroyViews(t);
                 if (!t.swapchainImage) {
                     vmaDestroyImage(allocator_, t.image, t.allocation);
                 }
@@ -859,6 +859,110 @@ Result<Image> VulkanDevice::readback(TextureHandle handle) {
         return std::unexpected(validationError());
     }
     return img;
+}
+
+Result<std::vector<std::byte>> VulkanDevice::readbackSubresource(TextureHandle handle, uint32_t mip, uint32_t layer) {
+    if (recording_) {
+        return std::unexpected(Error{kExitUsage, "vulkan: readbackSubresource during an open frame (call "
+                                                 "submitAndWait first)"});
+    }
+    Texture* t = textures_.get(handle.id);
+    if (!t) {
+        return std::unexpected(Error{kExitUsage, "vulkan: readbackSubresource of an invalid texture handle"});
+    }
+    const TextureDesc& d = t->desc;
+    if (mip >= d.mipLevels || layer >= d.arrayLayers) {
+        return std::unexpected(Error{kExitUsage, std::format("vulkan: readbackSubresource mip {} layer {} out of range "
+                                                             "({} mips, {} layers)",
+                                                             mip, layer, d.mipLevels, d.arrayLayers)});
+    }
+    if (isCompressed(d.format) || isDepthFormat(d.format) || formatBytes(d.format) == 0) {
+        return std::unexpected(Error{kExitUsage, std::string("vulkan: readbackSubresource of ") + toString(d.format) +
+                                                     " not supported"});
+    }
+    if (t->state == ResourceState::Undefined) {
+        return std::unexpected(Error{kExitUsage, "vulkan: readbackSubresource of a texture that was never written"});
+    }
+    if (!any(d.usage, TextureUsage::CopySrc)) {
+        return std::unexpected(Error{kExitUsage, "vulkan: readbackSubresource needs TextureUsage::CopySrc"});
+    }
+    const uint32_t w = std::max(1u, d.width >> mip), h = std::max(1u, d.height >> mip);
+    const VkDeviceSize size = VkDeviceSize(w) * h * formatBytes(d.format);
+    VkBufferCreateInfo bci{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    bci.size = size;
+    bci.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    VmaAllocationCreateInfo aci{};
+    aci.usage = VMA_MEMORY_USAGE_AUTO;
+    aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    VkBuffer staging = VK_NULL_HANDLE;
+    VmaAllocation alloc = nullptr;
+    VmaAllocationInfo info{};
+    if (const VkResult r = vmaCreateBuffer(allocator_, &bci, &aci, &staging, &alloc, &info); r != VK_SUCCESS) {
+        return std::unexpected(vkError("vmaCreateBuffer (subresource readback)", r));
+    }
+    VkCommandBufferAllocateInfo ai{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+    ai.commandPool = transferPool_;
+    ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    ai.commandBufferCount = 1;
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    vkAllocateCommandBuffers(device_, &ai, &cmd);
+    VkCommandBufferBeginInfo bi{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(cmd, &bi);
+    const StateInfo from = stateInfo(t->state, false);
+    const StateInfo copy = stateInfo(ResourceState::CopySrc, false);
+    VkImageMemoryBarrier b{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    b.srcQueueFamilyIndex = b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    b.image = t->image;
+    // The whole image: barrier() tracks one state per texture.
+    b.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, VK_REMAINING_MIP_LEVELS, 0, VK_REMAINING_ARRAY_LAYERS};
+    if (t->state != ResourceState::CopySrc) {
+        b.oldLayout = from.layout;
+        b.newLayout = copy.layout;
+        b.srcAccessMask = from.access;
+        b.dstAccessMask = copy.access;
+        vkCmdPipelineBarrier(cmd, from.stage, copy.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
+    }
+    VkBufferImageCopy region{};
+    region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, mip, layer, 1};
+    region.imageExtent = {w, h, 1};
+    vkCmdCopyImageToBuffer(cmd, t->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, staging, 1, &region);
+    VkBufferMemoryBarrier hb{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
+    hb.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    hb.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+    hb.srcQueueFamilyIndex = hb.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    hb.buffer = staging;
+    hb.size = VK_WHOLE_SIZE;
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 0, nullptr, 1, &hb, 0,
+                         nullptr);
+    if (t->state != ResourceState::CopySrc) {
+        std::swap(b.oldLayout, b.newLayout);
+        b.srcAccessMask = copy.access;
+        b.dstAccessMask = from.access;
+        vkCmdPipelineBarrier(cmd, copy.stage, from.stage, 0, 0, nullptr, 0, nullptr, 1, &b);
+    }
+    vkEndCommandBuffer(cmd);
+    VkSubmitInfo si{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    si.commandBufferCount = 1;
+    si.pCommandBuffers = &cmd;
+    VkResult r = vkQueueSubmit(queue_, 1, &si, transferFence_);
+    if (r == VK_SUCCESS) {
+        r = vkWaitForFences(device_, 1, &transferFence_, VK_TRUE, UINT64_MAX);
+    }
+    vkResetFences(device_, 1, &transferFence_);
+    vkFreeCommandBuffers(device_, transferPool_, 1, &cmd);
+    if (r != VK_SUCCESS) {
+        vmaDestroyBuffer(allocator_, staging, alloc);
+        return std::unexpected(vkError("subresource readback submit", r));
+    }
+    vmaInvalidateAllocation(allocator_, alloc, 0, VK_WHOLE_SIZE);
+    std::vector<std::byte> out(static_cast<size_t>(size));
+    std::memcpy(out.data(), info.pMappedData, out.size());
+    vmaDestroyBuffer(allocator_, staging, alloc);
+    if (validationErrors_.load() > 0) {
+        return std::unexpected(validationError());
+    }
+    return out;
 }
 
 } // namespace eng::rhi::vk

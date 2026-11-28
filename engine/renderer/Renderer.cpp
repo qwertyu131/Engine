@@ -2,6 +2,7 @@
 #include <engine/Renderer.h>
 
 #include "Passes.h"
+#include "RenderSettings.h"
 #include "asset/GltfLoader.h"
 #include "builtin/Scenes.h"
 #include "core/Log.h"
@@ -75,6 +76,37 @@ std::optional<std::array<float, 3>> parseColor(std::string_view s) {
     return c;
 }
 
+// r.IBL.Environment -> EnvironmentDesc::source: "builtin", a path (has a directory part or an extension), or a name
+// under <assetDir>/environments/<name>.hdr (scripts/fetch_assets.py --only environments).
+std::string environmentSource(const std::string& value, const std::filesystem::path& assetDir) {
+    if (value == "builtin") {
+        return value;
+    }
+    const std::filesystem::path p = std::filesystem::path(std::u8string(value.begin(), value.end()));
+    if (p.has_parent_path() || p.has_extension()) {
+        return u8(p);
+    }
+    return u8(assetDir / "environments" / (p.u8string() + u8".hdr"));
+}
+
+// r.IBL.* -> the iblSampler parameters (the other Params fields keep Sample-Renderer's constants).
+renderer::ibl::Params iblParams() {
+    const renderer::RenderCVars& c = renderer::renderCVars();
+    renderer::ibl::Params p;
+    const auto res = static_cast<uint32_t>(std::max(16, c.resolution->getInt()));
+    uint32_t pow2 = 16;
+    while (pow2 * 2 <= res) {
+        pow2 *= 2;
+    }
+    if (pow2 != res) {
+        ENG_LOG_WARN("r.IBL.Resolution {} is not a power of two; {} is used", res, pow2);
+    }
+    p.textureSize = pow2;
+    p.ggxSampleCount = static_cast<uint32_t>(std::max(1, c.specularSamples->getInt()));
+    p.lambertianSampleCount = static_cast<uint32_t>(std::max(1, c.diffuseSamples->getInt()));
+    return p;
+}
+
 } // namespace
 
 struct Renderer::Impl {
@@ -83,6 +115,7 @@ struct Renderer::Impl {
     Settings settings;
     CVar* background = nullptr;
     CVar* backgroundColor = nullptr;
+    std::vector<std::string> referenceLog; // applyReferenceMode lines of this renderer (also logged)
     uint32_t width = 1, height = 1;
     // Offscreen target.
     TextureHandle target;
@@ -119,6 +152,17 @@ struct Renderer::Impl {
     float time = 0.0f;
 
     bool windowed() const { return desc.window.handle != nullptr; }
+
+    // Reference mode first (it may change the cvars below), then the scene's environment.
+    renderer::EnvironmentDesc environmentDesc() {
+        for (std::string& line : renderer::applyReferenceMode()) {
+            referenceLog.push_back(std::move(line));
+        }
+        renderer::EnvironmentDesc e;
+        e.source = environmentSource(renderer::renderCVars().environment->getString(), desc.assetDir);
+        e.params = iblParams();
+        return e;
+    }
 
     ~Impl() {
         if (dev) {
@@ -219,6 +263,12 @@ struct Renderer::Impl {
         fp.cameraPosition = eye;
         fp.gammaEncode = !isSrgbFormat(f);
         fp.environmentBackground = background->getString() != "Color";
+        const renderer::RenderCVars& rc = renderer::renderCVars();
+        fp.exposure = rc.exposure->getFloat();
+        fp.intensity = rc.intensity->getFloat();
+        fp.rotationDeg = rc.rotation->getFloat();
+        fp.backgroundBlur = rc.backgroundBlur->getFloat();
+        fp.tonemap = static_cast<uint32_t>(renderer::tonemapFromCVar());
         clearValue(f, fp.clear);
         return s.model->record(cmd, color, fp);
     }
@@ -232,20 +282,10 @@ Result<std::unique_ptr<Renderer>> Renderer::create(const RendererDesc& desc) {
     impl->desc = desc;
     impl->width = std::max(1u, desc.width);
     impl->height = std::max(1u, desc.height);
-    CVarRegistry& reg = CVarRegistry::get();
-    // r.Background / r.Background.Color (the Task 5 cvar names; Task 4 needs a known background for its probes).
-    impl->background = reg.find("r.Background");
-    if (!impl->background) {
-        impl->background = reg.registerString("r.Background", "Environment",
-                                              "glTF scenes: Environment (skybox of the IBL environment) or Color "
-                                              "(r.Background.Color)");
-    }
-    impl->backgroundColor = reg.find("r.Background.Color");
-    if (!impl->backgroundColor) {
-        impl->backgroundColor = reg.registerString("r.Background.Color", "0,0,0",
-                                                   "Background colour with r.Background=Color: r,g,b display values in "
-                                                   "[0, 1] (sRGB-encoded)");
-    }
+    // Renderer cvars (RenderSettings.h: r.ReferenceMode, r.IBL.*, r.Exposure, r.Tonemap, r.Background*).
+    const renderer::RenderCVars& rc = renderer::renderCVars();
+    impl->background = rc.background;
+    impl->backgroundColor = rc.backgroundColor;
     (void)asset::loadOptionsFromCVars(); // registers r.Asset.* so hosts can set them before loading
     DeviceDesc dd;
     dd.backend = desc.backend;
@@ -357,7 +397,8 @@ Result<SceneHandle> Renderer::instantiate(AssetHandle handle, int sceneIndex) {
         // IBL and pipelines are made here, on the first glTF scene, not at Renderer::create (a run with only
         // built-in scenes does the same GPU work as before the facade).
         std::vector<asset::Diagnostic> diags;
-        auto mr = renderer::ModelRenderer::create(*m.dev, m.desc.shaderDir, s.format, *a.model, *s.instance, diags);
+        const renderer::EnvironmentDesc env = m.environmentDesc();
+        auto mr = renderer::ModelRenderer::create(*m.dev, m.desc.shaderDir, s.format, *a.model, *s.instance, env, diags);
         for (const asset::Diagnostic& d : diags) {
             a.info.messages.push_back((d.level == asset::Diagnostic::Warning ? "[warning] " : "[info] ") + d.message);
             if (d.level == asset::Diagnostic::Warning) {
@@ -416,6 +457,12 @@ Result<void> Renderer::renderFrame() {
     Format f = m.windowed() ? m.swapchainFormat : Format::RGBA8_UNORM;
     if (auto it = m.scenes.find(m.active); it != m.scenes.end()) {
         f = it->second.format;
+        if (it->second.model) {
+            // Reference mode / r.IBL.* changes since the last frame: rebuilt outside the frame.
+            if (auto r = it->second.model->setEnvironment(m.environmentDesc()); !r) {
+                return r;
+            }
+        }
     }
     if (!m.windowed()) {
         if (auto r = m.ensureTarget(f); !r) {

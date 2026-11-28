@@ -48,6 +48,9 @@ struct Texture {
     VkImage image = VK_NULL_HANDLE;
     VmaAllocation allocation = nullptr;
     VkImageView view = VK_NULL_HANDLE; // full-resource view (render target / sampling)
+    // 2D views of one subresource (layer * mipLevels + mip) of a render target with more than one (plan F3 Task 5,
+    // ColorAttachment::{mipLevel, arrayLayer}).
+    std::vector<VkImageView> subViews;
     TextureDesc desc;
     VkFormat format = VK_FORMAT_UNDEFINED;
     ResourceState state = ResourceState::Undefined; // last state recorded by barrier() (record order)
@@ -165,6 +168,7 @@ public:
     Result<void> submitAndWait() override;
     Result<void> present(SwapchainHandle swapchain) override;
     Result<Image> readback(TextureHandle texture) override;
+    Result<std::vector<std::byte>> readbackSubresource(TextureHandle texture, uint32_t mip, uint32_t layer) override;
     uint32_t validationErrorCount() const override { return validationErrors_.load(); }
     NativeHandles nativeHandles() const override;
 
@@ -197,6 +201,7 @@ private:
     Result<void> immediateSubmit(const std::function<void(VkCommandBuffer)>& record);
     Result<void> uploadBuffer(const Buffer& dst, std::span<const std::byte> data);
     Result<void> uploadTexture(Texture& dst, std::span<const SubresourceData> init);
+    void destroyViews(const Texture& t); // view + subViews
     Result<void> createPipelineLayout(Pipeline& p); // set layouts per space + VkPipelineLayout into p
     // VkSwapchain.cpp
     Result<void> buildSwapchain(Swapchain& sc, uint32_t width, uint32_t height); // (re)creates images

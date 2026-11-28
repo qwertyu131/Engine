@@ -220,6 +220,68 @@ class FetchAssetsTest(unittest.TestCase):
         self.assertEqual(len(self.downloads), 1)
         self.assertEqual((tools / self.archive_name).read_bytes(), self.zip_bytes)
 
+    # --- environment files (plan F3 Task 5: settings.json pinnedFiles) ---------------------------
+
+    def env_fetcher(self, payloads: dict[str, bytes]) -> "fa.Fetcher":
+        pins = {name: {"url": f"https://example.invalid/env/{name}", "sha256": hashlib.sha256(data).hexdigest(),
+                       "license": "test"} for name, data in payloads.items()}
+        settings = self.root / "settings.json"
+        settings.write_text(json.dumps({"pinnedFiles": pins}), encoding="utf-8")
+
+        def download(url: str, dest: Path) -> None:
+            self.downloads.append(url)
+            dest.write_bytes(self.env_payload.get(url.rsplit("/", 1)[-1], b""))
+        self.env_payload = dict(payloads)
+        return fa.Fetcher(root=self.root, lock_path=self.lock_path, git=FakeGit(head=COMMIT), download=download,
+                          log=self.log.append, platform_key="win64", settings_path=settings)
+
+    def test_environments_downloaded_into_environments_dir_with_sha256(self) -> None:
+        f = self.env_fetcher({"Cannon_Exterior.hdr": b"#?RADIANCE fake", "lut_sheen_E.png": b"png"})
+        f.environments()
+        env = self.root / "environments"
+        self.assertEqual((env / "Cannon_Exterior.hdr").read_bytes(), b"#?RADIANCE fake")
+        self.assertEqual((env / "lut_sheen_E.png").read_bytes(), b"png")
+        self.assertEqual(len(self.downloads), 2)
+
+    def test_environments_second_run_does_not_download(self) -> None:
+        f = self.env_fetcher({"Cannon_Exterior.hdr": b"hdr"})
+        f.environments()
+        f.environments()
+        self.assertEqual(len(self.downloads), 1)
+        self.assertTrue(any("up to date" in line for line in self.log))
+
+    def test_environment_sha_mismatch_raises_and_leaves_nothing(self) -> None:
+        f = self.env_fetcher({"Cannon_Exterior.hdr": b"hdr"})
+        self.env_payload["Cannon_Exterior.hdr"] = b"tampered"
+        with self.assertRaisesRegex(fa.FetchError, "sha256 mismatch"):
+            f.environments()
+        env = self.root / "environments"
+        self.assertFalse((env / "Cannon_Exterior.hdr").exists())
+        self.assertFalse((env / "Cannon_Exterior.hdr.part").exists())
+
+    def test_environment_wrong_existing_file_is_redownloaded(self) -> None:
+        f = self.env_fetcher({"Cannon_Exterior.hdr": b"hdr"})
+        env = self.root / "environments"
+        env.mkdir()
+        (env / "Cannon_Exterior.hdr").write_bytes(b"old")
+        f.environments()
+        self.assertEqual((env / "Cannon_Exterior.hdr").read_bytes(), b"hdr")
+        self.assertEqual(len(self.downloads), 1)
+
+    def test_environment_verify_mode_never_downloads(self) -> None:
+        f = self.env_fetcher({"Cannon_Exterior.hdr": b"hdr"})
+        with self.assertRaisesRegex(fa.FetchError, "missing"):
+            f.environments(verify=True)
+        self.assertEqual(self.downloads, [])
+
+    def test_environment_pins_come_from_the_committed_settings_json(self) -> None:
+        settings = json.loads((REPO / "tests" / "golden" / "ref" / "sample-viewer" / "settings.json").read_text(
+            encoding="utf-8"))
+        f = fa.Fetcher(root=self.root, lock_path=self.lock_path, git=FakeGit(head=COMMIT),
+                       download=self.fake_download(b""), log=self.log.append, platform_key="win64")
+        self.assertEqual(f.environment_pins(), settings["pinnedFiles"])
+        self.assertIn("Cannon_Exterior.hdr", f.environment_pins())
+
 
 if __name__ == "__main__":
     unittest.main()

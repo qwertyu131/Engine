@@ -160,6 +160,24 @@ Result<TextureHandle> D3D11Device::createTexture(const TextureDesc& desc, std::s
         if (HRESULT hr = device_->CreateRenderTargetView(t.texture.Get(), nullptr, &t.rtv); FAILED(hr)) {
             return std::unexpected(hrError("CreateRenderTargetView", hr));
         }
+        if (desc.mipLevels > 1 || desc.arrayLayers > 1) {
+            // ColorAttachment::{mipLevel, arrayLayer}: a 2D-array RTV of one slice and mip each.
+            for (uint32_t layer = 0; layer < desc.arrayLayers; ++layer) {
+                for (uint32_t mip = 0; mip < desc.mipLevels; ++mip) {
+                    D3D11_RENDER_TARGET_VIEW_DESC rd{};
+                    rd.Format = t.format;
+                    rd.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DARRAY;
+                    rd.Texture2DArray.MipSlice = mip;
+                    rd.Texture2DArray.FirstArraySlice = layer;
+                    rd.Texture2DArray.ArraySize = 1;
+                    ComPtr<ID3D11RenderTargetView> v;
+                    if (HRESULT hr = device_->CreateRenderTargetView(t.texture.Get(), &rd, &v); FAILED(hr)) {
+                        return std::unexpected(hrError("CreateRenderTargetView (subresource)", hr));
+                    }
+                    t.subRtvs.push_back(std::move(v));
+                }
+            }
+        }
     }
     if (td.BindFlags & D3D11_BIND_DEPTH_STENCIL) {
         if (HRESULT hr = device_->CreateDepthStencilView(t.texture.Get(), nullptr, &t.dsv); FAILED(hr)) {

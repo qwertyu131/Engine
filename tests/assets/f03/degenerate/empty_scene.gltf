@@ -1,0 +1,12 @@
+{
+ "asset": {
+  "version": "2.0",
+  "generator": "scripts/make_f03_assets.py"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "name": "empty"
+  }
+ ]
+}

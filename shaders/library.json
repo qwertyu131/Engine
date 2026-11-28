@@ -6,6 +6,11 @@
     "shaders/test/color_triangle.permutations.json",
     "shaders/test/textured.permutations.json",
     "shaders/test/skybox.permutations.json",
-    "shaders/ui/imgui.permutations.json"
+    "shaders/ui/imgui.permutations.json",
+    "shaders/ibl/equirect_to_cube.permutations.json",
+    "shaders/ibl/prefilter_ggx.permutations.json",
+    "shaders/ibl/prefilter_lambert.permutations.json",
+    "shaders/ibl/brdf_lut.permutations.json",
+    "shaders/ibl/background.permutations.json"
   ]
 }

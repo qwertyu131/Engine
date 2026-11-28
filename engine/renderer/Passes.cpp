@@ -60,6 +60,8 @@ const BindGroupLayout* ModelRenderer::Pipeline::layout(uint32_t space) const {
 }
 
 ModelRenderer::~ModelRenderer() {
+    releaseIbl();
+    background_.release(dev_);
     for (const auto& [k, g] : drawGroups_) {
         dev_.destroy(g);
     }
@@ -78,9 +80,11 @@ ModelRenderer::~ModelRenderer() {
 Result<std::unique_ptr<ModelRenderer>> ModelRenderer::create(IDevice& device, const std::filesystem::path& shaderDir,
                                                              Format colorFormat, const asset::ModelData& model,
                                                              const scene::SceneInstance& scene,
+                                                             const EnvironmentDesc& environment,
                                                              std::vector<asset::Diagnostic>& diags) {
     std::unique_ptr<ModelRenderer> r(new ModelRenderer(device, model, scene));
     r->colorFormat_ = colorFormat;
+    r->environment_ = environment;
     if (auto e = r->init(shaderDir, diags); !e) {
         return std::unexpected(e.error());
     }
@@ -104,123 +108,130 @@ Result<void> ModelRenderer::init(const std::filesystem::path& shaderDir, std::ve
                                          d.joints.size() / 2, kT0MaxJoints)});
         }
     }
-    if (auto r = makeIbl(); !r) {
+    if (auto r = background_.init(dev_, shaderDir_, colorFormat_, Format::D32_FLOAT, tier_ == "T0"); !r) {
+        return r;
+    }
+    if (auto r = makeIbl(environment_); !r) {
         return r;
     }
     return makeDrawResources();
 }
 
-Result<void> ModelRenderer::makeIbl() {
-    namespace ibl = scenes::ibl;
-    const BuiltinIbl& data = builtinIbl();
-    const ibl::Cube& specular = data.specular;
-    const ibl::Cube& irr = data.irradiance;
-    const std::vector<float>& lut = data.lut;
-    specularMips_ = kEnvMips;
-    const auto cube = [&](const ibl::Cube& c, const char* name) -> Result<TextureHandle> {
-        const auto mips = static_cast<uint32_t>(c.levels.size());
-        std::vector<std::vector<uint16_t>> halves;
-        for (const auto& level : c.levels) {
-            halves.push_back(toHalf(level));
-        }
-        std::vector<SubresourceData> init;
-        for (uint32_t face = 0; face < 6; ++face) {
-            for (uint32_t m = 0; m < mips; ++m) {
-                const uint32_t s = std::max(1u, c.size >> m);
-                const size_t faceElems = size_t(s) * s * 4u;
-                init.push_back({std::as_bytes(std::span(halves[m]).subspan(face * faceElems, faceElems)), 0});
+void ModelRenderer::releaseIbl() {
+    for (auto it = iblOwned_.rbegin(); it != iblOwned_.rend(); ++it) {
+        dev_.destroy(*it);
+    }
+    iblOwned_.clear();
+    frameResources_.clear();
+    specularMips_ = 0;
+}
+
+Result<void> ModelRenderer::setEnvironment(const EnvironmentDesc& environment) {
+    if (environment == environment_ && specularMips_ != 0) {
+        return {};
+    }
+    (void)dev_.submitAndWait(); // the material / frame groups of earlier frames may still reference the textures
+    releaseIbl();
+    environment_ = environment;
+    return makeIbl(environment_);
+}
+
+Result<void> ModelRenderer::makeIbl(const EnvironmentDesc& environment) {
+    namespace bibl = scenes::ibl;
+    TextureHandle specTex, irrTex, lutTex;
+    if (environment.source == "builtin") {
+        const BuiltinIbl& data = builtinIbl();
+        specularMips_ = kEnvMips;
+        const auto cube = [&](const bibl::Cube& c, const char* name) -> Result<TextureHandle> {
+            const auto mips = static_cast<uint32_t>(c.levels.size());
+            std::vector<std::vector<uint16_t>> halves;
+            for (const auto& level : c.levels) {
+                halves.push_back(toHalf(level));
             }
+            std::vector<SubresourceData> init;
+            for (uint32_t face = 0; face < 6; ++face) {
+                for (uint32_t m = 0; m < mips; ++m) {
+                    const uint32_t sz = std::max(1u, c.size >> m);
+                    const size_t faceElems = size_t(sz) * sz * 4u;
+                    init.push_back({std::as_bytes(std::span(halves[m]).subspan(face * faceElems, faceElems)), 0});
+                }
+            }
+            TextureDesc td;
+            td.width = td.height = c.size;
+            td.mipLevels = mips;
+            td.arrayLayers = 6;
+            td.cube = true;
+            td.format = Format::RGBA16_FLOAT;
+            td.usage = TextureUsage::Sampled;
+            td.debugName = name;
+            return dev_.createTexture(td, init);
+        };
+        auto spec = cube(data.specular, "IBL specular (builtin)");
+        if (!spec) {
+            return std::unexpected(spec.error());
         }
-        TextureDesc td;
-        td.width = td.height = c.size;
-        td.mipLevels = mips;
-        td.arrayLayers = 6;
-        td.cube = true;
-        td.format = Format::RGBA16_FLOAT;
-        td.usage = TextureUsage::Sampled;
-        td.debugName = name;
-        auto t = dev_.createTexture(td, init);
-        if (!t) {
-            return std::unexpected(t.error());
+        specTex = *spec;
+        iblOwned_.push_back(specTex);
+        auto irr = cube(data.irradiance, "IBL irradiance (builtin)");
+        if (!irr) {
+            return std::unexpected(irr.error());
         }
-        return keep(*t);
-    };
-    auto spec = cube(specular, "IBL specular");
-    if (!spec) {
-        return std::unexpected(spec.error());
+        irrTex = *irr;
+        iblOwned_.push_back(irrTex);
+        const std::vector<uint16_t> lutHalf = toHalf(data.lut);
+        const SubresourceData lutInit{std::as_bytes(std::span(lutHalf)), 0};
+        TextureDesc ld;
+        ld.width = ld.height = kLutSize;
+        ld.format = Format::RGBA16_FLOAT;
+        ld.usage = TextureUsage::Sampled;
+        ld.debugName = "IBL BRDF LUT (builtin)";
+        auto lut = dev_.createTexture(ld, {&lutInit, 1});
+        if (!lut) {
+            return std::unexpected(lut.error());
+        }
+        lutTex = *lut;
+        iblOwned_.push_back(lutTex);
+    } else {
+        // An .hdr environment (Ibl.h): the GPU passes on T1 / T2, the CPU twin at T0.
+        Result<ibl::GpuIbl> built = std::unexpected(Error{2, "IBL: not built"});
+        if (tier_ == "T0") {
+            built = ibl::buildCpu(dev_, environment.source, environment.params);
+        } else {
+            auto pano = ibl::loadHdr(environment.source);
+            if (!pano) {
+                return std::unexpected(pano.error());
+            }
+            built = ibl::buildGpu(dev_, shaderDir_, *pano, environment.params);
+        }
+        if (!built) {
+            return std::unexpected(built.error());
+        }
+        specTex = built->specular;
+        irrTex = built->irradiance;
+        lutTex = built->lut;
+        iblOwned_.push_back(specTex);
+        iblOwned_.push_back(irrTex);
+        iblOwned_.push_back(lutTex);
+        specularMips_ = built->mipCount;
     }
-    auto irrTex = cube(irr, "IBL irradiance");
-    if (!irrTex) {
-        return std::unexpected(irrTex.error());
-    }
-    const std::vector<uint16_t> lutHalf = toHalf(lut);
-    const SubresourceData lutInit{std::as_bytes(std::span(lutHalf)), 0};
-    TextureDesc ld;
-    ld.width = ld.height = kLutSize;
-    ld.format = Format::RGBA16_FLOAT;
-    ld.usage = TextureUsage::Sampled;
-    ld.debugName = "IBL BRDF LUT";
-    auto lutTex = dev_.createTexture(ld, {&lutInit, 1});
-    if (!lutTex) {
-        return std::unexpected(lutTex.error());
-    }
-    keep(*lutTex);
+    // Sample-Renderer samplers (_loadEnvironmentFromPanorama): specular LINEAR_MIPMAP_LINEAR, diffuse and LUT LINEAR,
+    // all CLAMP_TO_EDGE.
     SamplerDesc envSd;
     envSd.addressU = envSd.addressV = envSd.addressW = AddressMode::ClampToEdge;
     auto envSmp = dev_.createSampler(envSd);
     if (!envSmp) {
         return std::unexpected(envSmp.error());
     }
-    keep(*envSmp);
+    iblOwned_.push_back(*envSmp);
     SamplerDesc lutSd = envSd;
     lutSd.mipFilter = Filter::Nearest;
     auto lutSmp = dev_.createSampler(lutSd);
     if (!lutSmp) {
         return std::unexpected(lutSmp.error());
     }
-    keep(*lutSmp);
-    frameResources_ = {{"specularEnvTexture", *spec}, {"irradianceEnvTexture", *irrTex}, {"brdfLutTexture", *lutTex},
-                       {"envSampler", *envSmp},       {"brdfLutSampler", *lutSmp},      {"environmentTexture", *spec},
-                       {"environmentSampler", *envSmp}};
-
-    // Skybox pipeline (shaders/test/skybox.hlsl): depth test LessEqual against the cleared far plane, no write.
-    const Backend b = dev_.caps().backend;
-    const std::string key = tier_ == "T0" ? "default-t0" : "default";
-    auto vsBlob = ShaderLibrary::load(shaderDir_, "skybox", "VSMain", b, key);
-    if (!vsBlob) {
-        return std::unexpected(vsBlob.error());
-    }
-    auto psBlob = ShaderLibrary::load(shaderDir_, "skybox", "PSMain", b, key);
-    if (!psBlob) {
-        return std::unexpected(psBlob.error());
-    }
-    auto vs = dev_.createShader(*vsBlob);
-    if (!vs) {
-        return std::unexpected(vs.error());
-    }
-    keep(*vs);
-    auto ps = dev_.createShader(*psBlob);
-    if (!ps) {
-        return std::unexpected(ps.error());
-    }
-    keep(*ps);
-    auto layouts = deriveBindGroupLayouts(vsBlob->reflection, psBlob->reflection);
-    if (!layouts) {
-        return std::unexpected(layouts.error());
-    }
-    GraphicsPipelineDesc pd;
-    pd.vs = *vs;
-    pd.ps = *ps;
-    pd.depth = {true, false, CompareOp::LessEqual};
-    pd.colorFormats = {colorFormat_};
-    pd.depthFormat = Format::D32_FLOAT;
-    pd.debugName = "glTF skybox";
-    auto pipe = dev_.createGraphicsPipeline(pd);
-    if (!pipe) {
-        return std::unexpected(pipe.error());
-    }
-    sky_.handle = keep(*pipe);
-    sky_.layouts = std::move(*layouts);
+    iblOwned_.push_back(*lutSmp);
+    frameResources_ = {{"specularEnvTexture", specTex}, {"irradianceEnvTexture", irrTex}, {"brdfLutTexture", lutTex},
+                       {"envSampler", *envSmp},          {"brdfLutSampler", *lutSmp}};
     return {};
 }
 
@@ -501,15 +512,26 @@ Result<void> ModelRenderer::record(ICommandList& cmd, TextureHandle color, const
 
     FrameCB fcb{};
     copyMat(fcb.viewProj, frame.proj * frame.view);
-    copyMat(fcb.envRotation, scene::Mat4::identity());
+    // u_EnvRotation: gl-matrix rotateY(identity, rotation) (renderer.js applyEnvironmentMap), upper 3x3 used.
+    scene::Mat4 envRotation = scene::Mat4::identity();
+    {
+        const float rad = frame.rotationDeg / 180.0f * 3.14159265358979323846f;
+        const float c = std::cos(rad), sn = std::sin(rad);
+        envRotation.at(0, 0) = c;
+        envRotation.at(2, 0) = -sn;
+        envRotation.at(0, 2) = sn;
+        envRotation.at(2, 2) = c;
+    }
+    copyMat(fcb.envRotation, envRotation);
     fcb.cameraPosition[0] = frame.cameraPosition[0];
     fcb.cameraPosition[1] = frame.cameraPosition[1];
     fcb.cameraPosition[2] = frame.cameraPosition[2];
     fcb.cameraPosition[3] = 1.0f;
-    fcb.iblParams[0] = 1.0f; // exposure
-    fcb.iblParams[1] = 1.0f; // environment intensity
+    fcb.iblParams[0] = frame.exposure;
+    fcb.iblParams[1] = frame.intensity;
     fcb.iblParams[2] = static_cast<float>(specularMips_);
     fcb.frameFlags[0] = frame.gammaEncode ? 1u : 0u;
+    fcb.frameFlags[1] = frame.tonemap;
     const BufferBinding frameCb = dev_.allocTransient(sizeof(fcb), 256);
     if (!frameCb.buffer) {
         return std::unexpected(Error{2, "glTF passes: allocTransient failed"});
@@ -517,22 +539,6 @@ Result<void> ModelRenderer::record(ICommandList& cmd, TextureHandle color, const
     std::memcpy(frameCb.cpu, &fcb, sizeof(fcb));
     std::map<std::string, Resource> frameRes = frameResources_;
     frameRes["Frame"] = frameCb;
-
-    SkyCB sky{};
-    const scene::Mat4 camToWorld = scene::inverse(frame.view);
-    copyMat(sky.cameraToWorld, camToWorld);
-    const float tanHalf = std::tan(frame.yfov * 0.5f);
-    sky.rayParams[0] = tanHalf * frame.aspect;
-    sky.rayParams[1] = tanHalf;
-    sky.outputParams[0] = 1.0f;
-    sky.outputParams[1] = 1.0f;
-    sky.outputFlags[0] = fcb.frameFlags[0];
-    const BufferBinding skyCb = dev_.allocTransient(sizeof(sky), 256);
-    if (!skyCb.buffer) {
-        return std::unexpected(Error{2, "glTF passes: allocTransient failed"});
-    }
-    std::memcpy(skyCb.cpu, &sky, sizeof(sky));
-    frameRes["Sky"] = skyCb;
 
     // Pipelines and groups first (no command recorded yet if one fails).
     struct Prepared {
@@ -593,19 +599,6 @@ Result<void> ModelRenderer::record(ICommandList& cmd, TextureHandle color, const
         release();
         return r;
     }
-    BindGroupHandle skyGroup;
-    if (frame.environmentBackground) {
-        auto sg = group(sky_, 0, frameRes);
-        if (!sg) {
-            release();
-            return std::unexpected(sg.error());
-        }
-        skyGroup = *sg;
-        if (skyGroup) {
-            transient.push_back(skyGroup);
-        }
-    }
-
     const TextureBarrier toDepth{depth_, depthState_, ResourceState::DepthWrite};
     cmd.barrier({&toDepth, 1});
     depthState_ = ResourceState::DepthWrite;
@@ -644,15 +637,28 @@ Result<void> ModelRenderer::record(ICommandList& cmd, TextureHandle color, const
         cmd.setIndexBuffer(g.indices, IndexType::Uint32, 0);
         cmd.drawIndexed(g.indexCount, 1, 0, 0, 0);
     };
+    if (frame.environmentBackground) {
+        // drawEnvironmentMap: u_GGXEnvSampler at LOD u_EnvBlurNormalized * (u_MipCount - 1).
+        BackgroundParams bp;
+        bp.viewProj = frame.proj * frame.view;
+        bp.envRotation = envRotation;
+        bp.exposure = frame.exposure;
+        bp.intensity = frame.intensity;
+        bp.lod = frame.backgroundBlur * float(specularMips_ - 1);
+        bp.gammaEncode = frame.gammaEncode;
+        bp.tonemap = frame.tonemap;
+        auto it = frameResources_.find("specularEnvTexture");
+        auto smp = frameResources_.find("envSampler");
+        if (auto r = background_.record(dev_, cmd, bp, std::get<TextureHandle>(it->second),
+                                        std::get<SamplerHandle>(smp->second));
+            !r) {
+            cmd.endRenderPass();
+            release();
+            return r;
+        }
+    }
     for (const Prepared& p : opaque) {
         draw(p);
-    }
-    if (frame.environmentBackground) {
-        cmd.setPipeline(sky_.handle);
-        if (skyGroup) {
-            cmd.setBindGroup(0, skyGroup);
-        }
-        cmd.draw(3, 1, 0, 0);
     }
     for (const Prepared& p : blend) {
         draw(p);

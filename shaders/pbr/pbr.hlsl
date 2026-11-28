@@ -12,7 +12,7 @@
 #include "../common/skin.hlsli"
 #include "../common/morph.hlsli"
 #include "../common/brdf.hlsli"
-#include "../common/tonemap.hlsli"
+#include "../post/tonemap.hlsl"
 
 // ----------------------------------------------------------------------------------------------
 // Vertex stage (Sample-Viewer primitive.vert)
@@ -146,5 +146,5 @@ float4 PSMain(VSOutput input, bool frontFacing : SV_IsFrontFace) : SV_Target0
         }
         baseColor.a = 1.0;
     }
-    return float4(toneMap(color, iblParams.x, frameFlags.x), baseColor.a);
+    return float4(toneMapOutput(color, iblParams.x, frameFlags.x, frameFlags.y), baseColor.a);
 }

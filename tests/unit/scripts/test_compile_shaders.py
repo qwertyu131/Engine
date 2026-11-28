@@ -172,8 +172,10 @@ class LibraryTest(unittest.TestCase):
             # pbr: spirv T2 x 8 + dxbc (T0 + T1) x 8 define sets, 2 entries; triangle: 2 targets x 2 entries;
             # color_triangle: the same + its dxbc T0 variant (2 entries, plan F2 Task 7); textured: 2 x 2 + its
             # dxbc direct-path variant (2 entries); skybox (plan F2 Task 5): 2 x 2 + dxbc T0 variant (2);
-            # ui/imgui (Task 6): 2 targets x 2 entries.
-            self.assertEqual(s["total"], 48 + 4 + 6 + 6 + 6 + 4)
+            # ui/imgui (Task 6): 2 targets x 2 entries; plan F3 Task 5: ibl/{equirect_to_cube, prefilter_ggx,
+            # prefilter_lambert, brdf_lut} 2 targets x 2 entries each (T1 / T2 only), ibl/background 2 x 2 + its dxbc
+            # T0 variant (2).
+            self.assertEqual(s["total"], 48 + 4 + 6 + 6 + 6 + 4 + 4 * 4 + 6)
             self.assertEqual(s["failed"], [])
             self.assertEqual({i["target"] for i in s["items"]}, {"spirv", "dxbc"})
             dirs = {Path(c[c.index("--out") + 1]).relative_to(out).as_posix() for c in fake.calls}
@@ -188,6 +190,8 @@ class LibraryTest(unittest.TestCase):
             self.assertIn("textured/dxbc/default", dirs)
             self.assertIn("skybox/spirv/default", dirs)
             self.assertIn("imgui/dxbc/default", dirs)
+            self.assertIn("prefilter_ggx/spirv/default", dirs)
+            self.assertIn("background/dxbc/default-t0", dirs)
             self.assertIn("pbr/spirv/T2_SKIN0_MORPH0_UNLIT0/PSMain", {i["id"] for i in s["items"]})
 
     def test_shader_without_tier_axis_has_key_default(self) -> None:

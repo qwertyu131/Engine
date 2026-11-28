@@ -14,3 +14,4 @@ tools/refgen/node_modules/
 tools/refgen/.cache/
 third_party/tools/*
 !third_party/tools/tools.lock.json
+tests/assets/environments/

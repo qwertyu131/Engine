@@ -10,6 +10,14 @@ add_library(engine_renderer STATIC
     DrawList.cpp
     Passes.h
     Passes.cpp
+    Ibl.h
+    Ibl.cpp
+    IblCpu.cpp
+    Skybox.h
+    Skybox.cpp
+    Tonemap.cpp
+    RenderSettings.h
+    RenderSettings.cpp
     builtin/Scenes.h
     builtin/Scenes.cpp
     builtin/SceneUtil.h
@@ -21,7 +29,7 @@ add_library(engine::renderer ALIAS engine_renderer)
 target_compile_features(engine_renderer PUBLIC cxx_std_23)
 target_include_directories(engine_renderer PUBLIC "${PROJECT_SOURCE_DIR}/engine")
 # golden_core: PNG loading of builtin:textured-cube's atlas (as in F2).
-target_link_libraries(engine_renderer PUBLIC engine::engine engine::asset engine::scene engine::rhi PRIVATE golden_core)
+target_link_libraries(engine_renderer PUBLIC engine::engine engine::asset engine::scene engine::rhi PRIVATE golden_core eng_stb)
 
 # engine_facade: the public library facade (spec K-D): include/engine/*.h, implemented in Renderer.cpp. Hosts link only
 # this target; every engine library is a PRIVATE (link-only) dependency, so a host's include path is include/ (plus

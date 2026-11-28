@@ -155,6 +155,13 @@ Result<BufferHandle> VulkanDevice::createBuffer(const BufferDesc& desc, std::spa
     return BufferHandle{buffers_.add(b)};
 }
 
+void VulkanDevice::destroyViews(const Texture& t) {
+    for (VkImageView v : t.subViews) {
+        vkDestroyImageView(device_, v, nullptr);
+    }
+    vkDestroyImageView(device_, t.view, nullptr);
+}
+
 Result<TextureHandle> VulkanDevice::createTexture(const TextureDesc& desc, std::span<const SubresourceData> init) {
     if (desc.width == 0 || desc.height == 0 || desc.mipLevels == 0 || desc.arrayLayers == 0) {
         return std::unexpected(Error{kExitUsage, "vulkan: createTexture with a zero dimension"});
@@ -233,6 +240,22 @@ Result<TextureHandle> VulkanDevice::createTexture(const TextureDesc& desc, std::
         vmaDestroyImage(allocator_, t.image, t.allocation);
         return std::unexpected(vkError("vkCreateImageView", r));
     }
+    if (any(desc.usage, TextureUsage::RenderTarget) && (desc.mipLevels > 1 || desc.arrayLayers > 1)) {
+        for (uint32_t layer = 0; layer < desc.arrayLayers; ++layer) {
+            for (uint32_t mip = 0; mip < desc.mipLevels; ++mip) {
+                VkImageViewCreateInfo sv = vci;
+                sv.viewType = VK_IMAGE_VIEW_TYPE_2D;
+                sv.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, mip, 1, layer, 1};
+                VkImageView v = VK_NULL_HANDLE;
+                if (const VkResult r = vkCreateImageView(device_, &sv, nullptr, &v); r != VK_SUCCESS) {
+                    destroyViews(t);
+                    vmaDestroyImage(allocator_, t.image, t.allocation);
+                    return std::unexpected(vkError("vkCreateImageView (subresource)", r));
+                }
+                t.subViews.push_back(v);
+            }
+        }
+    }
     if (!desc.debugName.empty() && vkSetDebugUtilsObjectNameEXT) {
         VkDebugUtilsObjectNameInfoEXT ni{VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
         ni.objectType = VK_OBJECT_TYPE_IMAGE;
@@ -242,7 +265,7 @@ Result<TextureHandle> VulkanDevice::createTexture(const TextureDesc& desc, std::
     }
     if (!init.empty()) {
         if (auto r = uploadTexture(t, init); !r) { // VkUpload.cpp; leaves the texture in ShaderRead
-            vkDestroyImageView(device_, t.view, nullptr);
+            destroyViews(t);
             vmaDestroyImage(allocator_, t.image, t.allocation);
             return std::unexpected(r.error());
         }

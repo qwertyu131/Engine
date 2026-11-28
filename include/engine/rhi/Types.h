@@ -364,6 +364,10 @@ struct ColorAttachment {
     LoadOp load = LoadOp::Clear;
     StoreOp store = StoreOp::Store;
     float clear[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+    // Subresource rendered into (plan F3 Task 5: the IBL prefilter renders each cube face / mip). The render area is
+    // that mip's size.
+    uint32_t mipLevel = 0;
+    uint32_t arrayLayer = 0; // cube face (+X, -X, +Y, -Y, +Z, -Z) or array layer
 };
 
 struct DepthAttachment {

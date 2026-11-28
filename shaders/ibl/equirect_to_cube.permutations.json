@@ -1,0 +1,13 @@
+{
+  "comment": "IBL GPU prefilter pass (plan F3 Task 5, T1 / T2 devices; T0 uses the CPU path engine/renderer/IblCpu.cpp). No permutation axes: key 'default'.",
+  "source": "shaders/ibl/equirect_to_cube.hlsl",
+  "entries": [
+    { "entry": "VSMain", "stage": "vs" },
+    { "entry": "PSMain", "stage": "fs" }
+  ],
+  "axes": {},
+  "targets": {
+    "spirv": { "backend": "Vulkan" },
+    "dxbc":  { "backend": "D3D11" }
+  }
+}

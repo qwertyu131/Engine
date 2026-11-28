@@ -1,12 +1,14 @@
 #pragma once
-// Passes of a glTF scene (plan F3 Task 4, normal mode): one render pass into the colour target with a D32 depth buffer:
-//   1. clear (r.Background=Color: the background colour; Environment: black, the skybox covers it);
-//   2. opaque + mask front-to-back (MASK discards below alphaCutoff in pbr.hlsl);
-//   3. skybox (r.Background=Environment): shaders/test/skybox.hlsl, depth test LessEqual at the far plane, no write;
+// Passes of a glTF scene (plan F3 Task 4 / Task 5): one render pass into the colour target with a D32 depth buffer, in
+// glTF-Sample-Renderer v1.1.0 drawScene order (renderer.js):
+//   1. clear (r.Background=Color: the background colour; Environment: black, the background covers it);
+//   2. environment background (r.Background=Environment): Skybox.h, shaders/ibl/background.hlsl, depth test off;
+//   3. opaque + mask front-to-back (MASK discards below alphaCutoff in pbr.hlsl);
 //   4. blend back-to-front (standard alpha blending, depth test, no depth write).
-// Shadows (normal mode, Task 7), reference-mode IBL / tonemap / background blur (Task 5) come later. Until Task 5 the
-// IBL is the deterministic CPU one of builtin:pbr-spheres (builtin/Ibl.h: 32 x 32 sky / ground gradient cube, GGX
-// prefilter, Lambertian irradiance, GGX BRDF LUT).
+// The tonemap runs in the fragment shaders (shaders/post/tonemap.hlsl). Shadows (normal mode) are Task 7.
+// IBL (Ibl.h): the environment of EnvironmentDesc: an .hdr filtered as Sample-Renderer's iblSampler (GPU passes on
+// T1 / T2, the CPU twin at T0), or "builtin", the deterministic CPU gradient of builtin:pbr-spheres (builtin/Ibl.h:
+// 32 x 32 sky / ground cube, GGX prefilter, Lambertian irradiance, GGX BRDF LUT).
 //
 // Pipelines (shaders/pbr/pbr.hlsl): permutation <TIER>_SKIN<s>_MORPH<m>_UNLIT0 (Vulkan T2, D3D11 T1 / T0 by the
 // device's tier), keyed by skin, morph, cull (doubleSided=false: back), front face (glTF counter-clockwise; a negative
@@ -15,6 +17,8 @@
 // matrix, joint matrices, morph weights / deltas).
 #include "DrawList.h"
 #include "GpuModel.h"
+#include "Ibl.h"
+#include "Skybox.h"
 #include "scene/Scene.h"
 
 #include <filesystem>
@@ -34,6 +38,18 @@ struct FrameParams {
     bool gammaEncode = true;     // UNORM target: the shader's gamma 2.2 output encode (as Sample-Viewer)
     bool environmentBackground = true;
     float clear[4] = {0, 0, 0, 1}; // target-space clear value (linear for sRGB targets)
+    float exposure = 1.0f;         // r.Exposure
+    float intensity = 1.0f;        // r.IBL.Intensity
+    float rotationDeg = 0.0f;      // r.IBL.Rotation (about +Y, gl-matrix rotateY)
+    float backgroundBlur = 0.0f;   // r.Background.Blur (u_EnvBlurNormalized)
+    uint32_t tonemap = 0;          // TonemapOp
+};
+
+// The IBL environment of a scene: "builtin" or an .hdr file, filtered with `params`.
+struct EnvironmentDesc {
+    std::string source = "builtin";
+    ibl::Params params;
+    bool operator==(const EnvironmentDesc&) const = default;
 };
 
 class ModelRenderer {
@@ -41,12 +57,16 @@ public:
     static Result<std::unique_ptr<ModelRenderer>> create(rhi::IDevice& device, const std::filesystem::path& shaderDir,
                                                          rhi::Format colorFormat, const asset::ModelData& model,
                                                          const scene::SceneInstance& scene,
+                                                         const EnvironmentDesc& environment,
                                                          std::vector<asset::Diagnostic>& diags);
     ~ModelRenderer();
     ModelRenderer(const ModelRenderer&) = delete;
     ModelRenderer& operator=(const ModelRenderer&) = delete;
 
     Result<void> resize(uint32_t width, uint32_t height);
+    // Rebuilds the IBL when `environment` differs from the current one (outside a frame).
+    Result<void> setEnvironment(const EnvironmentDesc& environment);
+    const EnvironmentDesc& environment() const { return environment_; }
     // Records the scene into `color` (state RenderTarget on entry and exit; size = the last resize).
     Result<void> record(rhi::ICommandList& cmd, rhi::TextureHandle color, const FrameParams& frame);
 
@@ -66,7 +86,8 @@ private:
     ModelRenderer(rhi::IDevice& d, const asset::ModelData& m, const scene::SceneInstance& s)
         : dev_(d), model_(m), scene_(s) {}
     Result<void> init(const std::filesystem::path& shaderDir, std::vector<asset::Diagnostic>& diags);
-    Result<void> makeIbl();
+    Result<void> makeIbl(const EnvironmentDesc& environment);
+    void releaseIbl();
     Result<void> makeDrawResources();
     Result<const Permutation*> permutation(bool skin, bool morph);
     Result<const Pipeline*> pipeline(const DrawItem& item);
@@ -89,9 +110,11 @@ private:
     std::vector<rhi::Handle> owned_;
     std::map<std::pair<bool, bool>, Permutation> permutations_;
     std::map<PipelineKey, Pipeline> pipelines_;
-    Pipeline sky_;
+    BackgroundPass background_;
+    EnvironmentDesc environment_;
+    std::vector<rhi::Handle> iblOwned_;              // IBL textures / samplers (released on setEnvironment)
     std::map<std::string, Resource> frameResources_; // IBL textures / samplers
-    uint32_t specularMips_ = 0;
+    uint32_t specularMips_ = 0;                      // u_MipCount
     // Per node-primitive resources: Object cbuffer, joints (storage or T0 cbuffer), morph weights (storage).
     struct DrawResources {
         rhi::BufferHandle object, joints, morphWeights;

@@ -8,10 +8,12 @@ Reads tests/golden/<phase>/cases.json (or, if absent, tests/golden/<phase>/manif
 
 Render case (rendered by headless, compared against a reference PNG):
     "name": str,                       # plain file name, unique
-    "backend": str, "scene": str,      # passed to headless --backend / --scene
+    "backend": str, "scene": str,      # passed to headless --backend / --scene (a file path is repo-relative)
     "width": int, "height": int,
     "cvars": ["name=value", ...],      # optional, headless --cvar (CommandLine source)
     "bench": int,                      # optional, headless --bench N -> frameTimeMs = frame_ms_avg
+    "pngChannels": 3 | 4,              # optional, headless --png-channels (3: an RGB render for an RGB reference,
+                                       #   e.g. the Sample-Viewer references, whose canvas has no alpha)
     "ref": str,                        # reference PNG, relative to the manifest directory
     "thresholdFlip": number,           # optional (golden default 0.05)
     "thresholdReason": str,            # required when thresholdFlip is given (plan F2 Task 5)
@@ -162,6 +164,8 @@ def load_manifest(path: Path) -> dict:
         bench = c.get("bench")
         if bench is not None and (not _int(bench) or bench < 1):
             raise DriverError(f"case '{name}': 'bench' must be a positive integer")
+        if "pngChannels" in c and c["pngChannels"] not in (3, 4):
+            raise DriverError(f"case '{name}': 'pngChannels' must be 3 or 4")
         if "out" in c and (not isinstance(c["out"], str) or not c["out"].lower().endswith(".png")):
             raise DriverError(f"case '{name}': 'out' must be a repo-relative .png path")
         if "probes" in c:
@@ -296,14 +300,29 @@ def merge_case_info(results: dict, extra: dict[str, dict]) -> int:
     return sum(1 for c in results.get("cases", []) if c.get("status") != "PASS")
 
 
-def render_case(headless: Path, case: dict, png: Path) -> float | None:
-    """Runs headless for one case. Returns frame_ms_avg (when benchmarked), None otherwise."""
-    cmd = [str(headless), "--backend", case["backend"], "--scene", case["scene"],
+def scene_arg(case: dict) -> str:
+    """headless --scene: a built-in scene as is, a file path relative to the repository root."""
+    scene = case["scene"]
+    if scene.startswith("builtin:") or Path(scene).is_absolute():
+        return scene
+    return str(REPO / scene)
+
+
+def headless_command(headless: Path, case: dict, png: Path) -> list[str]:
+    cmd = [str(headless), "--backend", case["backend"], "--scene", scene_arg(case),
            "--width", str(case["width"]), "--height", str(case["height"]), "--out", str(png)]
     for cv in case.get("cvars", []):
         cmd += ["--cvar", cv]
     if case.get("bench") is not None:
         cmd += ["--bench", str(case["bench"])]
+    if case.get("pngChannels") is not None:
+        cmd += ["--png-channels", str(case["pngChannels"])]
+    return cmd
+
+
+def render_case(headless: Path, case: dict, png: Path) -> float | None:
+    """Runs headless for one case. Returns frame_ms_avg (when benchmarked), None otherwise."""
+    cmd = headless_command(headless, case, png)
     proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     sys.stdout.write(proc.stdout)
     sys.stderr.write(proc.stderr)

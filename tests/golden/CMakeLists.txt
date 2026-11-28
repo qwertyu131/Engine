@@ -71,6 +71,11 @@ headless_cli_test(bad_size 2 ARGS --backend cpu ${tp} --width 0 --out @WORK@/tp.
 headless_cli_test(usage 2 ARGS --backend cpu)
 headless_cli_test(utf8_out 0 EXPECT_FILE "@UTF8DIR@/desen.png"
                   ARGS --backend cpu ${tp} --out "@UTF8DIR@/desen.png")
+# --png-channels 3 (plan F3 Task 5): an RGB PNG, as the Sample-Viewer references (canvas alpha: false).
+headless_cli_test(png_channels_rgb 0 EXPECT_IN_OUTPUT "256x256, 3 channels" EXPECT_FILE @WORK@/tp.png
+                  ARGS --backend cpu ${tp} --png-channels 3 --out @WORK@/tp.png)
+headless_cli_test(png_channels_bad 2 EXPECT_IN_OUTPUT "--png-channels must be 3 or 4"
+                  ARGS --backend cpu ${tp} --png-channels 2 --out @WORK@/tp.png)
 
 # headless --dump-caps (plan F2 Task 7): the DeviceCaps table as JSON, without --scene / --out. The FL10_0
 # entry caps D3D11 at feature level 10_0 (T0); the JSON lands under a non-ASCII path with spaces.

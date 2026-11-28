@@ -28,11 +28,19 @@ void D3D11CommandList::beginRenderPass(const RenderPassDesc& desc) {
         if (!t || !t->rtv) {
             continue;
         }
-        rtvs.push_back(t->rtv.Get());
+        ID3D11RenderTargetView* view = t->rtv.Get();
+        if (!t->subRtvs.empty()) {
+            ENG_ASSERT_MSG(c.mipLevel < t->desc.mipLevels && c.arrayLayer < t->desc.arrayLayers,
+                           "beginRenderPass: attachment mip / layer out of range");
+            view = t->subRtvs[size_t(c.arrayLayer) * t->desc.mipLevels + c.mipLevel].Get();
+        } else {
+            ENG_ASSERT_MSG(c.mipLevel == 0 && c.arrayLayer == 0, "beginRenderPass: attachment mip / layer out of range");
+        }
+        rtvs.push_back(view);
         if (c.load == LoadOp::Clear) {
-            ctx->ClearRenderTargetView(t->rtv.Get(), c.clear);
+            ctx->ClearRenderTargetView(view, c.clear);
         } else if (c.load == LoadOp::DontCare) {
-            ctx->DiscardView(t->rtv.Get());
+            ctx->DiscardView(view);
         }
     }
     ID3D11DepthStencilView* dsv = nullptr;

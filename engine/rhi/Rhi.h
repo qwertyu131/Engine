@@ -131,6 +131,10 @@ public:
     // acquired image, if any. Exit 4 on validation errors, 5 on device loss.
     virtual Result<void> present(SwapchainHandle swapchain) = 0; // plan F2 Task 6
     virtual Result<Image> readback(TextureHandle texture) = 0; // RGBA8, rows top-down
+    // Raw texels of one subresource (plan F3 Task 5), rows top-down, tightly packed (width * formatBytes per row);
+    // uncompressed colour formats only, the texture needs TextureUsage::CopySrc (Vulkan) and data (written or
+    // uploaded). Error{2} for a bad mip / layer or format. Outside a frame (after submitAndWait), as readback.
+    virtual Result<std::vector<std::byte>> readbackSubresource(TextureHandle texture, uint32_t mip, uint32_t layer) = 0;
     virtual uint32_t validationErrorCount() const = 0;
     virtual NativeHandles nativeHandles() const = 0; // spec §5.3 getNativeHandle
 };

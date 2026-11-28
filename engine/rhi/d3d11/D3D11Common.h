@@ -55,6 +55,8 @@ struct BindGroup {
 struct Texture {
     ComPtr<ID3D11Texture2D> texture;
     ComPtr<ID3D11RenderTargetView> rtv;
+    // One RTV per subresource (layer * mipLevels + mip) of a render target with more than one (plan F3 Task 5).
+    std::vector<ComPtr<ID3D11RenderTargetView>> subRtvs;
     ComPtr<ID3D11DepthStencilView> dsv;
     ComPtr<ID3D11ShaderResourceView> srv;
     TextureDesc desc;
@@ -155,6 +157,7 @@ public:
     Result<void> submitAndWait() override;
     Result<void> present(SwapchainHandle swapchain) override;
     Result<Image> readback(TextureHandle texture) override;
+    Result<std::vector<std::byte>> readbackSubresource(TextureHandle texture, uint32_t mip, uint32_t layer) override;
     uint32_t validationErrorCount() const override { return validationErrors_; }
     NativeHandles nativeHandles() const override;
 

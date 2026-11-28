@@ -424,4 +424,53 @@ Result<Image> D3D11Device::readback(TextureHandle handle) {
     return img;
 }
 
+Result<std::vector<std::byte>> D3D11Device::readbackSubresource(TextureHandle handle, uint32_t mip, uint32_t layer) {
+    Texture* t = textures_.get(handle.id);
+    if (!t) {
+        return std::unexpected(Error{kExitUsage, "d3d11: readbackSubresource of an invalid texture handle"});
+    }
+    const TextureDesc& d = t->desc;
+    if (mip >= d.mipLevels || layer >= d.arrayLayers) {
+        return std::unexpected(Error{kExitUsage, std::format("d3d11: readbackSubresource mip {} layer {} out of range "
+                                                             "({} mips, {} layers)",
+                                                             mip, layer, d.mipLevels, d.arrayLayers)});
+    }
+    if (isCompressed(d.format) || d.format == Format::D32_FLOAT || d.format == Format::D24_UNORM_S8_UINT ||
+        formatBytes(d.format) == 0) {
+        return std::unexpected(Error{kExitUsage, std::string("d3d11: readbackSubresource of ") + toString(d.format) +
+                                                     " not supported"});
+    }
+    const uint32_t w = std::max(1u, d.width >> mip), h = std::max(1u, d.height >> mip);
+    D3D11_TEXTURE2D_DESC sd{};
+    sd.Width = w;
+    sd.Height = h;
+    sd.MipLevels = 1;
+    sd.ArraySize = 1;
+    sd.Format = t->format;
+    sd.SampleDesc.Count = 1;
+    sd.Usage = D3D11_USAGE_STAGING;
+    sd.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    ComPtr<ID3D11Texture2D> staging;
+    if (HRESULT hr = device_->CreateTexture2D(&sd, nullptr, &staging); FAILED(hr)) {
+        return std::unexpected(hrError("CreateTexture2D (subresource readback staging)", hr));
+    }
+    context_->CopySubresourceRegion(staging.Get(), 0, 0, 0, 0, t->texture.Get(),
+                                    D3D11CalcSubresource(mip, layer, d.mipLevels), nullptr);
+    D3D11_MAPPED_SUBRESOURCE m{};
+    if (HRESULT hr = context_->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &m); FAILED(hr)) {
+        return std::unexpected(hrError("Map (subresource readback)", hr));
+    }
+    const size_t row = size_t(w) * formatBytes(d.format);
+    std::vector<std::byte> out(row * h);
+    for (uint32_t y = 0; y < h; ++y) {
+        std::memcpy(out.data() + y * row, static_cast<const std::byte*>(m.pData) + size_t(y) * m.RowPitch, row);
+    }
+    context_->Unmap(staging.Get(), 0);
+    drainMessages();
+    if (validationErrors_ > 0) {
+        return std::unexpected(validationError());
+    }
+    return out;
+}
+
 } // namespace eng::rhi::d3d11

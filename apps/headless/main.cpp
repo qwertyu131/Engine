@@ -3,7 +3,7 @@
 //   headless --backend <name> --scene <path|builtin:...> --out <png>
 //            [--width N=256] [--height N=256] [--cvar name=value]... [--bench <frames>]
 //            [--warp] [--adapter <index>] [--shader-dir <dir>] [--asset-dir <dir>]
-//            [--d3d11-feature-level 10_0|10_1|11_0|11_1] [--dump-caps <json>]
+//            [--d3d11-feature-level 10_0|10_1|11_0|11_1] [--dump-caps <json>] [--png-channels 3|4]
 //
 // Backends:
 //   cpu     F0: `--scene builtin:test-pattern` (deterministic CPU pattern, see TestPattern.h).
@@ -75,7 +75,7 @@ void printUsage(std::ostream& os) {
           "  headless --backend <name> --scene <path|builtin:...> --out <png>\n"
           "           [--width N=256] [--height N=256] [--cvar name=value]... [--bench <frames>]\n"
           "           [--warp] [--adapter <index>] [--shader-dir <dir>] [--asset-dir <dir>]\n"
-          "           [--d3d11-feature-level 10_0|10_1|11_0|11_1] [--dump-caps <json>]\n"
+          "           [--d3d11-feature-level 10_0|10_1|11_0|11_1] [--dump-caps <json>] [--png-channels 3|4]\n"
           "  headless --backend <gpu> --dump-caps <json> [--warp] [--adapter <index>] [--d3d11-feature-level ...]\n"
           "backends in this build: cpu";
     for (const eng::rhi::Backend b : eng::Renderer::compiledBackends()) {
@@ -94,6 +94,7 @@ struct Options {
     int width = 256;
     int height = 256;
     std::vector<std::string> cvars;
+    int pngChannels = 4; // --png-channels: 3 = RGB (alpha dropped), as the Sample-Viewer references
     std::optional<int> benchFrames;
     bool warp = false;
     int adapter = -1;
@@ -188,6 +189,12 @@ std::optional<Options> parseArgs(const std::vector<std::string>& args) {
             o.dumpCaps = val;
         } else if (key == "--cvar") {
             o.cvars.push_back(val);
+        } else if (key == "--png-channels") {
+            if (val != "3" && val != "4") {
+                std::cerr << "headless: --png-channels must be 3 or 4 (got '" << val << "')\n";
+                return std::nullopt;
+            }
+            o.pngChannels = val == "3" ? 3 : 4;
         } else if (key == "--bench") {
             auto v = parseInt(val, 1, kMaxBenchFrames);
             if (!v) {
@@ -482,11 +489,13 @@ int run(const std::vector<std::string>& args) {
         std::error_code ec;
         fs::create_directories(out.parent_path(), ec);
     }
+    frame.channels = opts->pngChannels;
     if (!eng::golden::savePng(out, frame)) {
         std::cerr << "headless: cannot write '" << opts->out << "'\n";
         return kExitError;
     }
-    std::cerr << "[info] wrote " << opts->out << " (" << opts->width << "x" << opts->height << ", backend "
+    std::cerr << "[info] wrote " << opts->out << " (" << opts->width << "x" << opts->height << ", "
+              << opts->pngChannels << " channels, backend "
               << opts->backend << ", scene " << opts->scene << ")\n";
     return kExitOk;
 }

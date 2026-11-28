@@ -4,6 +4,7 @@
 
 #include "core/Assert.h"
 
+#include <algorithm>
 #include <vector>
 
 namespace eng::rhi::vk {
@@ -77,6 +78,13 @@ void VulkanCommandList::beginRenderPass(const RenderPassDesc& desc) {
         }
         VkRenderingAttachmentInfo a{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
         a.imageView = t->view;
+        if (!t->subViews.empty()) {
+            ENG_ASSERT_MSG(c.mipLevel < t->desc.mipLevels && c.arrayLayer < t->desc.arrayLayers,
+                           "beginRenderPass: attachment mip / layer out of range");
+            a.imageView = t->subViews[size_t(c.arrayLayer) * t->desc.mipLevels + c.mipLevel];
+        } else {
+            ENG_ASSERT_MSG(c.mipLevel == 0 && c.arrayLayer == 0, "beginRenderPass: attachment mip / layer out of range");
+        }
         a.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         a.loadOp = toVk(c.load);
         a.storeOp = toVk(c.store);
@@ -84,7 +92,7 @@ void VulkanCommandList::beginRenderPass(const RenderPassDesc& desc) {
             a.clearValue.color.float32[i] = c.clear[i];
         }
         colors.push_back(a);
-        extent = {t->desc.width, t->desc.height};
+        extent = {std::max(1u, t->desc.width >> c.mipLevel), std::max(1u, t->desc.height >> c.mipLevel)};
     }
     VkRenderingAttachmentInfo depth{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
     const bool hasDepth = static_cast<bool>(desc.depth.texture);

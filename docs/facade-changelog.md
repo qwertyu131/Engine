@@ -43,3 +43,16 @@ Renderer cvars registered by `Renderer::create`: `r.Background` (`Environment` |
 (`r,g,b` display values). Their names are the plan's Task 5 names; Task 4 registers them early because its probes need
 a known background. `r.Asset.MaxTextureSize`, `r.Asset.MaxVertices`, `r.Asset.MaxFileBytes` (plan F3 Task 2) are also
 registered there, so hosts can set them before `loadAsset`.
+
+## F3 (plan F3 Task 5): reference mode
+
+| Change | Why |
+|---|---|
+| `rhi::ColorAttachment::mipLevel`, `arrayLayer` (`rhi/Types.h`, appended after `clear` so existing aggregate initialisers keep their meaning) | the GPU IBL prefilter renders each face / mip of a cube (glTF-Sample-Renderer `iblSampler.applyFilter`) |
+
+Renderer cvars (`engine/renderer/RenderSettings.h`, registered by `Renderer::create`): `r.ReferenceMode`,
+`r.IBL.Environment`, `r.IBL.Rotation`, `r.IBL.Intensity`, `r.IBL.Resolution`, `r.IBL.SpecularSamples`,
+`r.IBL.DiffuseSamples`, `r.Exposure`, `r.Tonemap` (`PbrNeutral` | `Aces` | `None`), `r.Background.Blur`, beside the
+Task 4 `r.Background` / `r.Background.Color`. `r.ReferenceMode=1` forces the `tests/golden/ref/sample-viewer/settings.json`
+values at `CVarSource::Code` (each change logged). The engine-internal `rhi::IDevice` gained
+`readbackSubresource(texture, mip, layer)` (raw texels; not part of the facade).

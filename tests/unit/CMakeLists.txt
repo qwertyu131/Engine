@@ -191,6 +191,7 @@ if(TARGET shaders)
         rhi/test_pbr_spheres.cpp
         rhi/test_caps.cpp
         rhi/test_texture_upload.cpp
+        rhi/test_subresource.cpp
         rhi/SceneProbes.h)
     target_link_libraries(rhi_unit_tests PRIVATE engine::rhi engine::renderer golden_core nlohmann_json::nlohmann_json doctest::doctest
     eng_bcdec)
@@ -257,6 +258,26 @@ if(TARGET shaders)
     foreach(b IN LISTS renderer_backends)
         add_test(NAME unit.renderer.${b} COMMAND renderer_unit_tests --backend=${b} --no-version=true)
         set_tests_properties(unit.renderer.${b} PROPERTIES
+            SKIP_RETURN_CODE 77
+            FAIL_REGULAR_EXPRESSION "test cases: +0 \\|")
+    endforeach()
+
+    # Reference mode (F3 Task 5): the IBL port (CPU vs GPU, engine/renderer internals) and the reference-mode cvars,
+    # plus facade renders of degenerate scenes (Review Focus 5). Links the engine-internal renderer library as well.
+    add_executable(renderer_reference_tests renderer/test_reference_mode.cpp)
+    target_link_libraries(renderer_reference_tests PRIVATE engine::facade engine::renderer nlohmann_json::nlohmann_json
+        doctest::doctest)
+    target_compile_definitions(renderer_reference_tests PRIVATE DOCTEST_CONFIG_IMPLEMENT
+        ENG_TEST_SHADER_LIB_DIR="${ENG_SHADER_LIB_DIR}"
+        ENG_TEST_ASSET_DIR="${PROJECT_SOURCE_DIR}/tests/assets"
+        ENG_TEST_SAMPLE_MODELS="${PROJECT_SOURCE_DIR}/tests/assets/glTF-Sample-Assets/Models")
+    add_dependencies(renderer_reference_tests shaders)
+    if(MSVC)
+        target_compile_options(renderer_reference_tests PRIVATE /W4 /WX /permissive- /utf-8 /external:W0)
+    endif()
+    foreach(b IN LISTS renderer_backends)
+        add_test(NAME unit.reference.${b} COMMAND renderer_reference_tests --backend=${b} --no-version=true)
+        set_tests_properties(unit.reference.${b} PROPERTIES
             SKIP_RETURN_CODE 77
             FAIL_REGULAR_EXPRESSION "test cases: +0 \\|")
     endforeach()

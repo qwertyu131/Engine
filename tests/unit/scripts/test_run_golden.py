@@ -246,6 +246,78 @@ class F02CasesTest(unittest.TestCase):
         self.assertTrue(utf8[0]["out"].startswith("build/f2/çıktı klasörü/"), utf8[0]["out"])
 
 
+class PngChannelsTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="eng-rg-"))
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_png_channels_reaches_headless(self):
+        cmd = rg.headless_command(Path("headless"), render_case(pngChannels=3), Path("o.png"))
+        self.assertEqual(cmd[cmd.index("--png-channels") + 1], "3")
+        self.assertNotIn("--png-channels", rg.headless_command(Path("headless"), render_case(), Path("o.png")))
+
+    def test_png_channels_must_be_3_or_4(self):
+        with self.assertRaisesRegex(rg.DriverError, "pngChannels"):
+            rg.load_manifest(write_cases(self.tmp, [render_case(pngChannels=2)]))
+        rg.load_manifest(write_cases(self.tmp, [render_case(pngChannels=3)]))
+
+
+class ScenePathTest(unittest.TestCase):
+    def test_file_scene_is_repo_relative_builtin_unchanged(self):
+        self.assertEqual(rg.scene_arg({"scene": "builtin:triangle"}), "builtin:triangle")
+        self.assertEqual(rg.scene_arg({"scene": "tests/assets/x y.glb"}), str(REPO / "tests" / "assets" / "x y.glb"))
+
+
+class F03ReferenceCasesTest(unittest.TestCase):
+    """tests/golden/f03/cases.json, the plan F3 Task 5 reference-mode cases (spec K-B)."""
+
+    ASSETS = ["DamagedHelmet", "MetalRoughSpheres", "NormalTangentTest", "AlphaBlendModeTest", "TextureCoordinateTest"]
+
+    @classmethod
+    def setUpClass(cls):
+        cls.path = REPO / "tests" / "golden" / "f03" / "cases.json"
+        cls.manifest = rg.load_manifest(cls.path)
+        cls.cases = {c["name"]: c for c in cls.manifest["cases"]}
+        cls.settings = json.loads((REPO / "tests" / "golden" / "ref" / "sample-viewer" / "settings.json").read_text(
+            encoding="utf-8"))
+
+    def test_five_assets_on_vulkan_and_d3d11_at_512_in_reference_mode(self):
+        for asset in self.ASSETS:
+            for backend in ("vulkan", "d3d11"):
+                c = self.cases.get(f"{asset}.{backend}")
+                self.assertIsNotNone(c, f"{asset}.{backend}")
+                self.assertEqual(c["backend"], backend)
+                self.assertEqual((c["width"], c["height"]), (512, 512))
+                self.assertIn("r.ReferenceMode=1", c.get("cvars", []))
+                self.assertEqual(c.get("pngChannels"), 3)  # the references are RGB (refgen, canvas alpha: false)
+                self.assertEqual(c["ref"], f"../ref/sample-viewer/{asset}.png")
+
+    def test_scene_is_the_file_refgen_rendered(self):
+        models = {m["name"]: m for m in self.settings["models"]}
+        for asset in self.ASSETS:
+            m = models[asset]
+            for backend in ("vulkan", "d3d11"):
+                c = self.cases[f"{asset}.{backend}"]
+                self.assertEqual(c["scene"], f"tests/assets/glTF-Sample-Assets/Models/{asset}/{m['variant']}/{m['file']}")
+
+    def test_thresholds_at_most_0_05_unless_reasoned_never_above_0_10(self):
+        for c in self.cases.values():
+            if c["name"].split(".")[0] not in self.ASSETS:
+                continue
+            thr = c.get("thresholdFlip", 0.05)
+            self.assertLessEqual(thr, 0.10, c["name"])
+            self.assertTrue(c.get("thresholdReason", "").strip(), c["name"])
+
+    def test_references_are_the_committed_pngs(self):
+        import hashlib
+        models = {m["name"]: m for m in self.settings["models"]}
+        for asset in self.ASSETS:
+            png = REPO / "tests" / "golden" / "ref" / "sample-viewer" / f"{asset}.png"
+            self.assertEqual(hashlib.sha256(png.read_bytes()).hexdigest(), models[asset]["pngSha256"], asset)
+
+
 class PbrModelTest(unittest.TestCase):
     def test_unlit_colours_are_tonemap_identities(self):
         for c in model.UNLIT_COLORS:
