@@ -87,6 +87,7 @@ constexpr Variant kVariants[] = {
     {"FlightHelmet", "glTF-KTX-BasisU"},
     {"StainedGlassLamp", "glTF-KTX-BasisU"},
     // Combined / other decoder variants
+    {"ABeautifulGame", "glTF-Binary-KTX-ETC1S-Draco"}, // .glb: Draco streams and KTX2 images in bufferViews
     {"CarConcept", "glTF-KTX-BasisU-Draco"},
     {"CarConcept", "glTF-WEBP"},
     {"ChronographWatch", "glTF-WEBP", "KHR_materials_transmission is supported from F6"},
@@ -96,10 +97,35 @@ std::filesystem::path variantFile(const Variant& v) {
     return sampleFile(v.model, v.variant);
 }
 
-nlohmann::json readJson(const std::filesystem::path& p) {
+std::vector<char> readFile(const std::filesystem::path& p) {
     std::ifstream in(p, std::ios::binary);
     REQUIRE_MESSAGE(in.good(), "cannot open " << toUtf8(p));
-    return nlohmann::json::parse(in);
+    return std::vector<char>((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+}
+
+// GLB chunk `index` (0 JSON, 1 BIN) of a .glb, glTF 2.0 §4.4; empty for a .gltf.
+std::vector<char> glbChunk(const std::vector<char>& f, int index) {
+    if (f.size() < 12 || std::memcmp(f.data(), "glTF", 4) != 0) {
+        return {};
+    }
+    size_t pos = 12;
+    for (int i = 0; pos + 8 <= f.size(); ++i) {
+        uint32_t len = 0;
+        std::memcpy(&len, f.data() + pos, 4);
+        REQUIRE(pos + 8 + len <= f.size());
+        if (i == index) {
+            return std::vector<char>(f.begin() + static_cast<ptrdiff_t>(pos + 8),
+                                     f.begin() + static_cast<ptrdiff_t>(pos + 8 + len));
+        }
+        pos += 8 + len;
+    }
+    return {};
+}
+
+nlohmann::json readJson(const std::filesystem::path& p) {
+    const std::vector<char> f = readFile(p);
+    const std::vector<char> json = glbChunk(f, 0);
+    return json.empty() ? nlohmann::json::parse(f.begin(), f.end()) : nlohmann::json::parse(json.begin(), json.end());
 }
 
 // POSITION accessor count of every primitive (mesh order) and the total index count, from the JSON.
@@ -289,10 +315,12 @@ Box3 sceneBounds(const ModelData& m) {
 }
 
 // --- quantization step of a variant file, from the file itself ----------------------------------------------------
-// Bytes of bufferView `view` of a .gltf with external buffers.
-std::vector<char> bufferViewOf(const std::filesystem::path& gltf, const nlohmann::json& d, size_t view) {
-    const auto& bv = d.at("bufferViews").at(view);
-    const auto& buf = d.at("buffers").at(bv.at("buffer").get<size_t>());
+// The whole of buffer `buffer`: an external .bin (percent-decoded URI) or, without a URI, the GLB BIN chunk.
+std::vector<char> bufferBytes(const std::filesystem::path& gltf, const nlohmann::json& d, size_t buffer) {
+    const auto& buf = d.at("buffers").at(buffer);
+    if (!buf.contains("uri")) {
+        return glbChunk(readFile(gltf), 1);
+    }
     const std::string uri = buf.at("uri").get<std::string>();
     REQUIRE_MESSAGE(uri.rfind("data:", 0) != 0, "data-URI buffer");
     std::string decoded;
@@ -304,21 +332,22 @@ std::vector<char> bufferViewOf(const std::filesystem::path& gltf, const nlohmann
             decoded.push_back(uri[i]);
         }
     }
-    std::ifstream in(gltf.parent_path() / u8path(decoded), std::ios::binary);
-    REQUIRE(in.good());
-    std::vector<char> all((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    return readFile(gltf.parent_path() / u8path(decoded));
+}
+
+// Bytes of bufferView `view`.
+std::vector<char> bufferViewOf(const std::filesystem::path& gltf, const nlohmann::json& d, size_t view) {
+    const auto& bv = d.at("bufferViews").at(view);
+    const std::vector<char> all = bufferBytes(gltf, d, bv.at("buffer").get<size_t>());
     const size_t off = bv.value("byteOffset", size_t{0}), len = bv.at("byteLength").get<size_t>();
     REQUIRE(off + len <= all.size());
     return std::vector<char>(all.begin() + static_cast<ptrdiff_t>(off), all.begin() + static_cast<ptrdiff_t>(off + len));
 }
 
-// Bytes [offset, offset + length) of buffer `buffer` of a .gltf (external .bin).
+// Bytes [offset, offset + length) of buffer `buffer`.
 std::vector<char> bufferRange(const std::filesystem::path& gltf, const nlohmann::json& d, size_t buffer, size_t offset,
                               size_t length) {
-    const std::string uri = d.at("buffers").at(buffer).at("uri").get<std::string>();
-    std::ifstream in(gltf.parent_path() / u8path(uri), std::ios::binary);
-    REQUIRE(in.good());
-    std::vector<char> all((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    const std::vector<char> all = bufferBytes(gltf, d, buffer);
     REQUIRE(offset + length <= all.size());
     return std::vector<char>(all.begin() + static_cast<ptrdiff_t>(offset),
                              all.begin() + static_cast<ptrdiff_t>(offset + length));
@@ -528,8 +557,14 @@ TEST_CASE("decoded vertex counts = the file's accessor counts; index totals = th
         const nlohmann::json pj = readJson(sampleFile(v.model, "glTF"));
         const JsonCounts vc = jsonCounts(vj), pc = jsonCounts(pj);
         // The encoders keep every triangle: the index totals of the two files agree (checked on the JSON first, so a
-        // failure here is the file, not the decoder).
-        REQUIRE(vc.indices == pc.indices);
+        // failure here is the file, not the decoder). One file differs by design: ABeautifulGame's KTX-ETC1S-Draco .glb
+        // declares 1721856 indices, its plain glTF 1723584 (pinned here, so a change of either file is noticed).
+        if (std::string(v.model) == "ABeautifulGame") {
+            CHECK(vc.indices == 1721856u);
+            CHECK(pc.indices == 1723584u);
+        } else {
+            REQUIRE(vc.indices == pc.indices);
+        }
         const Loaded l = load(variantFile(v));
         const ModelData& m = ok(l);
         std::vector<uint64_t> decoded;
@@ -714,6 +749,59 @@ TEST_CASE("KTX2 -> BC1 / BC3 and RGBA8 transcodes; target choice from the device
     Image odd = img;
     odd.width = 30; // not a multiple of 4: block formats refused
     CHECK((chooseTranscodeTarget(s, odd) == TranscodeTarget::RGBA8));
+}
+
+TEST_CASE("KTX2 with alpha (StainedGlassLamp: UASTC RGBA, ETC1S RGB + A): BC1/BC3 -> BC3, BC7 alpha vs the PNG") {
+    const Loaded lk = load(sampleFile("StainedGlassLamp", "glTF-KTX-BasisU"));
+    const Loaded lp = load(sampleFile("StainedGlassLamp", "glTF"));
+    const ModelData& mk = ok(lk);
+    const ModelData& mp = ok(lp);
+    size_t withAlpha = 0;
+    for (const Image& k : mk.images) {
+        if (!ktx2HasAlpha(k.encoded)) {
+            continue;
+        }
+        CAPTURE(k.uri);
+        ++withAlpha;
+        auto bc = transcodeKtx2(k, TranscodeTarget::BC1);
+        REQUIRE(bc.has_value());
+        CHECK((bc->target == TranscodeTarget::BC3)); // an image with alpha never goes to BC1
+        auto bc7 = transcodeKtx2(k, TranscodeTarget::BC7);
+        REQUIRE(bc7.has_value());
+        // Reference: the plain variant's PNG when it has the KTX2's size (glass, 2048), else the RGBA8 transcode of the
+        // same KTX2 (grill: KTX2 1024 x 1024, PNG 2048 x 2048).
+        const auto png = std::find_if(mp.images.begin(), mp.images.end(),
+                                      [&](const Image& p) { return stem(p.uri) == stem(k.uri); });
+        REQUIRE(png != mp.images.end());
+        std::vector<uint8_t> ref;
+        std::string refName = "PNG";
+        if (png->width == bc7->levels[0].width && png->height == bc7->levels[0].height) {
+            ref = png->rgba8;
+        } else {
+            auto rgba = transcodeKtx2(k, TranscodeTarget::RGBA8);
+            REQUIRE(rgba.has_value());
+            ref = rgba->levels[0].data;
+            refName = "RGBA8 transcode";
+        }
+        const auto alphaError = [&](const std::vector<uint8_t>& q) {
+            REQUIRE(q.size() == ref.size());
+            double e = 0;
+            for (size_t i = 3; i < q.size(); i += 4) {
+                e += std::abs(int(q[i]) - int(ref[i]));
+            }
+            return e / double(q.size() / 4);
+        };
+        const std::vector<uint8_t> px = cpuDecode(bc7->levels[0], bc7->target);
+        const double err = meanAbsError(px, ref, 4);
+        const double bc7Alpha = alphaError(px);
+        const double bc3Alpha = alphaError(cpuDecode(bc->levels[0], bc->target));
+        MESSAGE(stem(k.uri) << " vs " << refName << ": BC7 mean abs error " << err << " / 255 over 4 channels, alpha "
+                            << bc7Alpha << "; BC3 alpha " << bc3Alpha);
+        CHECK(err <= 8.0);
+        CHECK(bc7Alpha <= 8.0);
+        CHECK(bc3Alpha <= 8.0);
+    }
+    CHECK(withAlpha == 2); // glass (UASTC RGBA) and grill (ETC1S RGB + AAA)
 }
 
 TEST_CASE("KTX2 with r.Asset.MaxTextureSize: larger mip levels are skipped with a warning") {

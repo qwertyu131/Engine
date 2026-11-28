@@ -33,10 +33,10 @@ inline std::filesystem::path sampleModels() {
     return p;
 }
 
-// Sample-Assets model file: Models/<model>/<variant>/<model>.gltf|.glb.
+// Sample-Assets model file: Models/<model>/<variant>/<model>.gltf|.glb (.glb for glTF-Binary*).
 inline std::filesystem::path sampleFile(std::string_view model, std::string_view variant) {
     const std::filesystem::path dir = sampleModels() / u8path(model) / u8path(variant);
-    const std::string ext = variant == "glTF-Binary" ? ".glb" : ".gltf";
+    const std::string ext = variant.starts_with("glTF-Binary") ? ".glb" : ".gltf";
     const std::filesystem::path p = dir / u8path(std::string(model) + ext);
     REQUIRE_MESSAGE(std::filesystem::is_regular_file(p), "missing sample asset " << toUtf8(p)
                                                                                     << " (run python scripts/fetch_assets.py)");
