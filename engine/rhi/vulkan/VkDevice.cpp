@@ -280,7 +280,8 @@ Result<void> VulkanDevice::pickPhysicalDevice(const DeviceDesc& desc) {
     return {};
 }
 
-// Plan F2 Task 7: what the physical device SUPPORTS (the RHI enables only dynamicRendering in F2).
+// Plan F2 Task 7: what the physical device SUPPORTS. The RHI enables dynamicRendering and (plan F3 Task 3) the
+// texture compression features the device has (createLogicalDevice).
 void VulkanDevice::queryCaps(const VkPhysicalDeviceProperties& props) {
     const VkPhysicalDeviceLimits& l = props.limits;
     caps_.maxTexture2D = l.maxImageDimension2D;
@@ -383,6 +384,11 @@ Result<void> VulkanDevice::createLogicalDevice() {
         f13.dynamicRendering = VK_TRUE;
         f2.pNext = &f13;
     }
+    // Plan F3 Task 3: block-compressed textures (KHR_texture_basisu transcode targets) need these core features
+    // enabled; each is enabled exactly when the device supports it (DeviceCaps bc / bc6h7 / etc2 / astc).
+    f2.features.textureCompressionBC = caps_.bc ? VK_TRUE : VK_FALSE;
+    f2.features.textureCompressionETC2 = caps_.etc2 ? VK_TRUE : VK_FALSE;
+    f2.features.textureCompressionASTC_LDR = caps_.astc ? VK_TRUE : VK_FALSE;
     VkDeviceCreateInfo ci{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
     ci.pNext = &f2;
     ci.queueCreateInfoCount = 1;

@@ -1,8 +1,9 @@
 // glTF extension policy (plan F3 Global Constraints; spec §7.2 extension list, §11 phase plan; registry status in
 // docs/gltf-extensions.md). Phase assignment:
-//   F3 now      KHR_lights_punctual (lights parsed), KHR_xmp_json_ld (metadata only);
-//   F3 Task 3   KHR_draco_mesh_compression, EXT_meshopt_compression, KHR_meshopt_compression, KHR_mesh_quantization,
-//               KHR_texture_basisu, EXT_texture_webp;
+//   F3          KHR_lights_punctual (lights parsed), KHR_xmp_json_ld (metadata only); the decoders of plan F3 Task 3:
+//               KHR_draco_mesh_compression (Draco.cpp), EXT_meshopt_compression / KHR_meshopt_compression
+//               (Meshopt.cpp), KHR_mesh_quantization (Accessors.cpp), KHR_texture_basisu (Ktx2.cpp),
+//               EXT_texture_webp (Webp.cpp);
 //   F4          KHR_animation_pointer (animation, spec §11 F4);
 //   F6          every KHR_materials_* of §7.2, KHR_texture_transform, KHR_materials_variants (§11 F6), and the
 //               render extensions §11 gives no own phase: EXT_mesh_gpu_instancing, KHR_node_visibility,
@@ -31,12 +32,12 @@ using S = ExtensionInfo::Status;
 constexpr std::array kTable = {
     Entry{"KHR_lights_punctual", {S::Supported, "F3", "punctual lights (rendered from plan F3 Task 7)"}},
     Entry{"KHR_xmp_json_ld", {S::Supported, "F3", "XMP metadata, no render effect"}},
-    Entry{"KHR_draco_mesh_compression", {S::Pending, "F3", "Draco mesh decoder"}},
-    Entry{"EXT_meshopt_compression", {S::Pending, "F3", "meshoptimizer buffer decoder"}},
-    Entry{"KHR_meshopt_compression", {S::Pending, "F3", "meshoptimizer buffer decoder"}},
-    Entry{"KHR_mesh_quantization", {S::Pending, "F3", "quantized vertex attributes"}},
-    Entry{"KHR_texture_basisu", {S::Pending, "F3", "KTX2 / Basis Universal textures"}},
-    Entry{"EXT_texture_webp", {S::Pending, "F3", "WebP textures"}},
+    Entry{"KHR_draco_mesh_compression", {S::Supported, "F3", "Draco mesh decoder"}},
+    Entry{"EXT_meshopt_compression", {S::Supported, "F3", "meshoptimizer buffer decoder"}},
+    Entry{"KHR_meshopt_compression", {S::Supported, "F3", "meshoptimizer buffer decoder"}},
+    Entry{"KHR_mesh_quantization", {S::Supported, "F3", "quantized vertex attributes"}},
+    Entry{"KHR_texture_basisu", {S::Supported, "F3", "KTX2 / Basis Universal textures"}},
+    Entry{"EXT_texture_webp", {S::Supported, "F3", "WebP textures"}},
     Entry{"KHR_animation_pointer", {S::LaterPhase, "F4", "animation of arbitrary properties"}},
     Entry{"KHR_materials_anisotropy", {S::LaterPhase, "F6", "material extension"}},
     Entry{"KHR_materials_clearcoat", {S::LaterPhase, "F6", "material extension"}},
@@ -88,9 +89,6 @@ Result<void> checkExtensions(const nlohmann::json& doc, std::vector<Diagnostic>*
         const ExtensionInfo i = extensionInfo(e);
         switch (i.status) {
         case S::Supported: break;
-        case S::Pending:
-            return std::unexpected(
-                Error{2, std::format("{} is supported from {} (decoder: plan F3 Task 3)", e, i.phase)});
         case S::LaterPhase: return std::unexpected(Error{2, std::format("{} is supported from {}", e, i.phase)});
         case S::Unknown: return std::unexpected(Error{2, "unsupported required extension " + e});
         }
@@ -102,11 +100,6 @@ Result<void> checkExtensions(const nlohmann::json& doc, std::vector<Diagnostic>*
         const ExtensionInfo i = extensionInfo(e);
         switch (i.status) {
         case S::Supported: break;
-        case S::Pending:
-            diags->push_back({Diagnostic::Info, std::format("{} ({}): decoder not implemented yet (plan F3 Task 3); "
-                                                            "the uncompressed / fallback data is used",
-                                                            e, i.purpose)});
-            break;
         case S::LaterPhase:
             diags->push_back(
                 {Diagnostic::Info, std::format("{} ({}): parsed and ignored, supported from {}", e, i.purpose, i.phase)});

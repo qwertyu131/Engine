@@ -5,8 +5,9 @@
 //   - the pinned Khronos glTF-Validator (tests/assets/tools, scripts/fetch_assets.py) validates the file;
 //   - the loader loads it. Expected outcome, decided here from the file's own extensionsRequired (independent of
 //     the loader's extension table):
-//       * every required extension is one the F3 Task 2 loader supports (KHR_lights_punctual, KHR_xmp_json_ld)
-//         -> loads with 0 errors;
+//       * every required extension is one the F3 loader supports (KHR_lights_punctual, KHR_xmp_json_ld; from plan
+//         F3 Task 3 the decoders KHR_draco_mesh_compression, EXT/KHR_meshopt_compression, KHR_mesh_quantization,
+//         KHR_texture_basisu, EXT_texture_webp) -> loads with 0 errors;
 //       * otherwise -> exit 2 naming the first such extension (plan F3 Global Constraints: a later-phase or
 //         unknown REQUIRED extension is an error). This overrides "loads with 0 errors" for those files; they are
 //         listed in conformance.json with expected = "exit2" and the reason;
@@ -56,10 +57,13 @@ struct Case {
     std::string why;
 };
 
-// Extensions the Task 2 loader supports when REQUIRED (spec §7.2 / plan F3): KHR_lights_punctual (parsed into
-// ModelData::lights) and KHR_xmp_json_ld (metadata, no render effect). Every other required extension is an exit 2.
+// Extensions the F3 loader supports when REQUIRED (spec §7.2 / plan F3): KHR_lights_punctual (parsed into
+// ModelData::lights), KHR_xmp_json_ld (metadata, no render effect) and the decoders of plan F3 Task 3. Every other
+// required extension is an exit 2.
 bool supportedRequired(const std::string& e) {
-    return e == "KHR_lights_punctual" || e == "KHR_xmp_json_ld";
+    return e == "KHR_lights_punctual" || e == "KHR_xmp_json_ld" || e == "KHR_draco_mesh_compression" ||
+           e == "EXT_meshopt_compression" || e == "KHR_meshopt_compression" || e == "KHR_mesh_quantization" ||
+           e == "KHR_texture_basisu" || e == "EXT_texture_webp";
 }
 
 // Extensions with a planned phase F4..F16 (spec §11 / §7.2): in extensionsUsed they must give an info message.
@@ -254,7 +258,7 @@ TEST_CASE("glTF-Sample-Assets glTF / glTF-Binary / glTF-Embedded: loader result 
             }
         } else if (unsupported != c.required.end()) {
             c.expected = "exit2";
-            c.expectedReason = "extensionsRequired has " + *unsupported + " (not supported by the F3 Task 2 loader)";
+            c.expectedReason = "extensionsRequired has " + *unsupported + " (not supported by the F3 loader)";
             ++expectedExit2;
             c.pass = !c.loaded && r.error().exitCode == 2 && c.loaderMessage.find(*unsupported) != std::string::npos;
             if (!c.pass) {

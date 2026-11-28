@@ -1,10 +1,14 @@
-// Images (plan F3 Task 2): every glTF image is resolved (external file, bufferView, data URI) and decoded to RGBA8:
-// PNG with stb_image, JPEG with libjpeg-turbo's TurboJPEG API (both pinned in cmake/Dependencies.cmake; stb_image
-// rejects two valid progressive JPEGs of ABeautifulGame, see there). A libjpeg-turbo warning (corrupt but decodable
-// data) is a Diagnostic::Warning naming the image; a fatal decoder error is exit 2. KTX2 and WebP keep their payload for the
-// decoders of plan F3 Task 3. Colour space from usage (Review Focus 3): baseColor / emissive sRGB, the other
-// texture slots linear. r.Asset.MaxTextureSize: a larger image is halved (2 x 2 box filter, in linear light for sRGB
-// images) until it fits, with a warning. A PNG / JPEG that fails to decode is an error (exit 2, Review Focus 1).
+// Images (plan F3 Tasks 2-3): every glTF image is resolved (external file, bufferView, data URI) and decoded:
+//   PNG   stb_image -> RGBA8;
+//   JPEG  libjpeg-turbo's TurboJPEG API -> RGBA8 (stb_image rejects two valid progressive JPEGs of ABeautifulGame,
+//         see cmake/Dependencies.cmake); a libjpeg-turbo warning (corrupt but decodable data) is a
+//         Diagnostic::Warning naming the image, a fatal decoder error is exit 2;
+//   WebP  libwebp -> RGBA8 (EXT_texture_webp, Webp.cpp);
+//   KTX2  parsed and validated, kept compressed for the upload-time transcode (KHR_texture_basisu, Ktx2.cpp).
+// Colour space from usage (Review Focus 3): baseColor / emissive sRGB, the other texture slots linear; a KTX2 image's
+// own DFD transfer function overrides it. r.Asset.MaxTextureSize: a larger decoded image is halved (2 x 2 box filter,
+// in linear light for sRGB images) until it fits, with a warning (KTX2: larger mip levels are skipped). An image that
+// fails to decode is an error (exit 2, Review Focus 1).
 #include "Internal.h"
 
 #include "core/Log.h"
@@ -30,9 +34,6 @@
 namespace eng::asset::detail {
 
 namespace {
-
-// Decoded pixel budget: larger images are refused (warning, image left undecoded) instead of allocating gigabytes.
-constexpr uint64_t kMaxDecodePixels = uint64_t{16384} * 16384;
 
 std::string sniffMime(std::span<const std::byte> b) {
     const auto at = [&](size_t i) { return i < b.size() ? static_cast<unsigned char>(b[i]) : 0u; };
@@ -99,14 +100,6 @@ void halve(Image& img, bool srgb) {
     img.height = nh;
 }
 
-bool overBudget(const Context& c, const std::string& what, int w, int h) {
-    if (static_cast<uint64_t>(w) * static_cast<uint64_t>(h) > kMaxDecodePixels) {
-        c.warn(std::format("{}: {}x{} exceeds the decode budget ({} pixels): not decoded", what, w, h, kMaxDecodePixels));
-        return true;
-    }
-    return false;
-}
-
 Result<void> decodePng(const Context& c, std::span<const std::byte> bytes, const std::string& what, Image& img) {
     const auto* data = reinterpret_cast<const stbi_uc*>(bytes.data());
     const int len = static_cast<int>(bytes.size());
@@ -114,7 +107,7 @@ Result<void> decodePng(const Context& c, std::span<const std::byte> bytes, const
     if (!stbi_info_from_memory(data, len, &w, &h, &comp)) {
         return std::unexpected(fail(std::format("{} ({}): cannot decode: {}", what, img.mimeType, stbi_failure_reason())));
     }
-    if (overBudget(c, what, w, h)) {
+    if (overDecodeBudget(c, what, uint64_t(w), uint64_t(h))) {
         return {};
     }
     stbi_uc* px = stbi_load_from_memory(data, len, &w, &h, &comp, 4);
@@ -146,7 +139,7 @@ Result<void> decodeJpeg(const Context& c, std::span<const std::byte> bytes, cons
     if (w <= 0 || h <= 0) {
         return std::unexpected(fail(std::format("{} ({}): cannot decode: bad size {}x{}", what, img.mimeType, w, h)));
     }
-    if (overBudget(c, what, w, h)) {
+    if (overDecodeBudget(c, what, uint64_t(w), uint64_t(h))) {
         return {};
     }
     std::vector<uint8_t> px(size_t(w) * size_t(h) * 4u, 0); // zeroed: a warning may leave rows undecoded
@@ -164,6 +157,26 @@ Result<void> decodeJpeg(const Context& c, std::span<const std::byte> bytes, cons
 }
 
 } // namespace
+
+bool overDecodeBudget(const Context& c, const std::string& what, uint64_t w, uint64_t h) {
+    if (w * h > kMaxDecodePixels) {
+        c.warn(std::format("{}: {}x{} exceeds the decode budget ({} pixels): not decoded", what, w, h, kMaxDecodePixels));
+        return true;
+    }
+    return false;
+}
+
+void fitTextureSize(const Context& c, const std::string& what, Image& img) {
+    if (img.width <= c.options.maxTextureSize && img.height <= c.options.maxTextureSize) {
+        return;
+    }
+    const uint32_t ow = img.width, oh = img.height;
+    while (img.width > c.options.maxTextureSize || img.height > c.options.maxTextureSize) {
+        halve(img, img.colorSpace == ColorSpace::Srgb);
+    }
+    c.warn(std::format("{}: {}x{} exceeds r.Asset.MaxTextureSize ({}): downscaled to {}x{}", what, ow, oh,
+                       c.options.maxTextureSize, img.width, img.height));
+}
 
 Result<void> loadImages(const Context& c, ModelData& model) {
     const auto& images = c.asset.images;
@@ -236,13 +249,14 @@ Result<void> loadImages(const Context& c, ModelData& model) {
         }
         const std::string sniffed = sniffMime(bytes);
         img.mimeType = !sniffed.empty() ? sniffed : declared;
-        if (img.mimeType != "image/png" && img.mimeType != "image/jpeg") {
-            if (img.mimeType == "image/ktx2" || img.mimeType == "image/webp") {
-                img.encoded.assign(reinterpret_cast<const uint8_t*>(bytes.data()),
-                                   reinterpret_cast<const uint8_t*>(bytes.data()) + bytes.size());
-                c.info(std::format("{} ({}): kept encoded, decoder in plan F3 Task 3", what, img.mimeType));
-                continue;
+        if (img.mimeType == "image/ktx2" || img.mimeType == "image/webp") {
+            auto r = img.mimeType == "image/ktx2" ? inspectKtx2(c, bytes, what, img) : decodeWebp(c, bytes, what, img);
+            if (!r) {
+                return std::unexpected(r.error());
             }
+            continue;
+        }
+        if (img.mimeType != "image/png" && img.mimeType != "image/jpeg") {
             return std::unexpected(fail(std::format("{}: unrecognised image data ({} bytes, mimeType '{}'): cannot "
                                                     "decode",
                                                     what, bytes.size(), declared)));
@@ -257,14 +271,7 @@ Result<void> loadImages(const Context& c, ModelData& model) {
         if (!img.decoded) {
             continue; // over the decode budget (warned)
         }
-        if (img.width > c.options.maxTextureSize || img.height > c.options.maxTextureSize) {
-            const uint32_t ow = img.width, oh = img.height;
-            while (img.width > c.options.maxTextureSize || img.height > c.options.maxTextureSize) {
-                halve(img, img.colorSpace == ColorSpace::Srgb);
-            }
-            c.warn(std::format("{}: {}x{} exceeds r.Asset.MaxTextureSize ({}): downscaled to {}x{}", what, ow, oh,
-                               c.options.maxTextureSize, img.width, img.height));
-        }
+        fitTextureSize(c, what, img);
     }
     return {};
 }

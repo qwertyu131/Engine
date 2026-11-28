@@ -168,10 +168,11 @@ TextureRef textureRef(const Context& c, const fastgltf::TextureInfo& t, float sc
         return r;
     }
     const fastgltf::Texture& tex = c.asset.textures[t.textureIndex];
-    // The core source; KHR_texture_basisu / EXT_texture_webp sources are used from plan F3 Task 3 on.
-    const auto src = tex.imageIndex    ? tex.imageIndex
-                     : tex.basisuImageIndex ? tex.basisuImageIndex
-                                            : tex.webpImageIndex;
+    // KHR_texture_basisu / EXT_texture_webp (plan F3 Task 3, both decoded here): the extension's source is preferred;
+    // the core `source`, when present, is the fallback for loaders without the extension.
+    const auto src = tex.basisuImageIndex ? tex.basisuImageIndex
+                     : tex.webpImageIndex ? tex.webpImageIndex
+                                          : tex.imageIndex;
     if (src) {
         if (*src >= c.asset.images.size()) {
             err = std::unexpected(fail(std::format("{}: texture {} image {} does not exist", what, t.textureIndex, *src)));
@@ -676,7 +677,7 @@ Result<ModelData> loadGltf(const std::filesystem::path& path, const LoadOptions&
                 c.owned.push_back(std::move(*f));
                 s = c.owned.back();
             } else if (std::holds_alternative<fastgltf::sources::Fallback>(b.data)) {
-                c.buffers.emplace_back(); // EXT_meshopt_compression fallback buffer: no data (plan F3 Task 3)
+                c.buffers.emplace_back(); // EXT / KHR_meshopt_compression fallback buffer: no data (Meshopt.cpp)
                 continue;
             } else {
                 return std::unexpected(fail(what + ": no data (a GLB without a BIN chunk, or no uri)"));
@@ -686,6 +687,10 @@ Result<ModelData> loadGltf(const std::filesystem::path& path, const LoadOptions&
                                                         s.size(), b.byteLength)));
             }
             c.buffers.push_back(s.first(b.byteLength));
+        }
+        // EXT / KHR_meshopt_compression views (plan F3 Task 3): decoded once, before any accessor is read.
+        if (auto r = decodeMeshoptViews(c); !r) {
+            return std::unexpected(r.error());
         }
         return convert(c);
     } catch (const std::bad_alloc&) {

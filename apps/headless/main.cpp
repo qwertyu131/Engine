@@ -266,8 +266,8 @@ std::string capsNote(const eng::rhi::DeviceCaps& c, const Options& o) {
         }
     } else {
         n = "Vulkan physical device '" + c.adapterName + "' (API " + c.apiVersion +
-            "): limits, formats and features the device SUPPORTS (vkGetPhysicalDevice*); the F2 RHI enables only "
-            "dynamicRendering.";
+            "): limits, formats and features the device SUPPORTS (vkGetPhysicalDevice*); the RHI enables "
+            "dynamicRendering and the texture compression features the device has (plan F3 Task 3).";
     }
     return n + " Written by headless --dump-caps (plan F2 Task 7).";
 }

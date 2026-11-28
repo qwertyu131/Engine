@@ -171,6 +171,126 @@
       "blend": false,
       "depth": false,
       "vertex": true
+    },
+    "BC1_UNORM": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC1_SRGB": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC2_UNORM": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC2_SRGB": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC3_UNORM": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC3_SRGB": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC4_UNORM": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC5_UNORM": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC6H_UFLOAT": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC7_UNORM": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC7_SRGB": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "ETC2_RGBA8_UNORM": {
+      "sample": false,
+      "filter": false,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "ETC2_RGBA8_SRGB": {
+      "sample": false,
+      "filter": false,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "ASTC_4x4_UNORM": {
+      "sample": false,
+      "filter": false,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "ASTC_4x4_SRGB": {
+      "sample": false,
+      "filter": false,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
     }
   },
   "bc": true,

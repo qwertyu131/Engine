@@ -4,6 +4,9 @@
 // in overflow-safe 64-bit arithmetic, BEFORE the output is allocated, so a huge count (e.g. 2^31) is rejected
 // arithmetically. Sparse substitution (glTF 2.0 §3.6.2.3): indices strictly < count, both views range-checked.
 // An accessor without bufferView is zeros (sparse-only); its size is capped by r.Asset.MaxFileBytes.
+// Plan F3 Task 3: a KHR_draco_mesh_compression accessor reads its Draco-decoded elements (Context::accessorData), a
+// meshopt-compressed bufferView its decoded bytes (Context::meshoptViews); KHR_mesh_quantization needs nothing more
+// (every component type of an attribute is decoded to float here).
 // Normalized integers: glTF 2.0 §3.11 (signed: max(c / (2^(b-1) - 1), -1), unsigned: c / (2^b - 1)).
 // Matrices of 1- and 2-byte components have each column padded to 4 bytes (§3.6.2.4).
 #include "Internal.h"
@@ -136,6 +139,17 @@ Result<Source> checkAccessor(const Context& c, size_t index) {
     }
     s.count = a.count;
     const uint64_t count = a.count;
+    if (const auto d = c.accessorData.find(index); d != c.accessorData.end()) {
+        // KHR_draco_mesh_compression (Draco.cpp): decoded elements, tightly packed in this accessor's layout.
+        uint64_t bytes = 0;
+        if (!mulAdd(count, s.layout.elementBytes, 0, bytes) || bytes != d->second.size()) {
+            return std::unexpected(fail(std::format("accessor {}: {} Draco-decoded bytes for {} elements of {} bytes",
+                                                    index, d->second.size(), count, s.layout.elementBytes)));
+        }
+        s.base = d->second.data();
+        s.stride = s.layout.elementBytes;
+        return s;
+    }
     if (!a.bufferViewIndex) {
         // Zeros (+ sparse): nothing bounds the count by file data, so it is bounded by r.Asset.MaxVertices (such
         // accessors are sparse morph targets / attributes, one element per vertex) and the decoded output size by
@@ -247,6 +261,9 @@ Result<std::span<const std::byte>> bufferViewBytes(const Context& c, size_t view
     if (view >= views.size()) {
         return std::unexpected(fail(std::format("{}: bufferView {} does not exist ({} bufferViews)", what, view,
                                                 views.size())));
+    }
+    if (view < c.meshoptDecoded.size() && c.meshoptDecoded[view]) {
+        return std::span<const std::byte>(c.meshoptViews[view]); // EXT / KHR_meshopt_compression (Meshopt.cpp)
     }
     const fastgltf::BufferView& bv = views[view];
     if (bv.bufferIndex >= c.buffers.size()) {

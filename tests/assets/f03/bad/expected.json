@@ -75,6 +75,36 @@
    "file": "later_phase_required_extension.gltf",
    "message": "KHR_materials_clearcoat is supported from F6",
    "reviewFocus": "spec 7.2 later-phase required extension"
+  },
+  {
+   "file": "draco_truncated.gltf",
+   "message": "Draco",
+   "reviewFocus": "truncated Draco stream (KHR_draco_mesh_compression)"
+  },
+  {
+   "file": "draco_count_mismatch.gltf",
+   "message": "decoded Draco points",
+   "reviewFocus": "Draco point count != accessor count"
+  },
+  {
+   "file": "meshopt_truncated.gltf",
+   "message": "meshopt",
+   "reviewFocus": "truncated meshopt stream (KHR_meshopt_compression)"
+  },
+  {
+   "file": "meshopt_bad_stride.gltf",
+   "message": "byteStride",
+   "reviewFocus": "meshopt ATTRIBUTES stride the codec does not allow"
+  },
+  {
+   "file": "ktx2_truncated.gltf",
+   "message": "image/ktx2",
+   "reviewFocus": "truncated KTX2 image (KHR_texture_basisu)"
+  },
+  {
+   "file": "webp_truncated.gltf",
+   "message": "WebP",
+   "reviewFocus": "truncated WebP image (EXT_texture_webp)"
   }
  ]
 }

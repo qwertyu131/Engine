@@ -89,7 +89,26 @@ Result<TextureHandle> D3D11Device::createTexture(const TextureDesc& desc, std::s
     t.desc = desc;
     t.format = toDxgiFormat(desc.format);
     if (t.format == DXGI_FORMAT_UNKNOWN) {
-        return std::unexpected(Error{kExitUsage, "d3d11: createTexture with format Unknown"});
+        return std::unexpected(Error{kExitUsage, std::format("d3d11: createTexture: format {} has no DXGI format",
+                                                             toString(desc.format))});
+    }
+    if (isCompressed(desc.format)) {
+        // Block-compressed (plan F3 Task 3): sample-only, supported by this feature level, base level a multiple of
+        // the 4 x 4 block (D3D11 requirement for BC textures).
+        if (!caps_.format(desc.format).sample) {
+            return std::unexpected(Error{kExitUsage, std::format("d3d11: createTexture: {} is not supported by this "
+                                                                 "device",
+                                                                 toString(desc.format))});
+        }
+        if (any(desc.usage, TextureUsage::RenderTarget | TextureUsage::DepthStencil | TextureUsage::Storage)) {
+            return std::unexpected(Error{kExitUsage, std::format("d3d11: createTexture: {} can only be sampled",
+                                                                 toString(desc.format))});
+        }
+        if (desc.width % 4 != 0 || desc.height % 4 != 0) {
+            return std::unexpected(Error{kExitUsage, std::format("d3d11: createTexture: {} needs a base level whose "
+                                                                 "size is a multiple of 4 ({}x{})",
+                                                                 toString(desc.format), desc.width, desc.height)});
+        }
     }
     D3D11_TEXTURE2D_DESC td{};
     td.Width = desc.width;
@@ -120,12 +139,13 @@ Result<TextureHandle> D3D11Device::createTexture(const TextureDesc& desc, std::s
                                                                  "texture has {} (mips x layers)",
                                                                  init.size(), desc.mipLevels * desc.arrayLayers)});
         }
-        const uint32_t bpp = formatBytes(desc.format);
         for (size_t i = 0; i < init.size(); ++i) {
             const uint32_t mip = static_cast<uint32_t>(i % desc.mipLevels);
             const uint32_t w = std::max(1u, desc.width >> mip), h = std::max(1u, desc.height >> mip);
-            const uint32_t pitch = init[i].rowPitch ? init[i].rowPitch : w * bpp;
-            if (pitch < w * bpp || init[i].data.size() < size_t(pitch) * (h - 1) + size_t(w) * bpp) {
+            // Rows of texels, or of 4 x 4 blocks for a compressed format.
+            const uint32_t rowBytes = subresourceRowBytes(desc.format, w), rows = subresourceRows(desc.format, h);
+            const uint32_t pitch = init[i].rowPitch ? init[i].rowPitch : rowBytes;
+            if (pitch < rowBytes || init[i].data.size() < size_t(pitch) * (rows - 1) + rowBytes) {
                 return std::unexpected(Error{kExitUsage, std::format("d3d11: createTexture: initial data of "
                                                                      "subresource {} is too small ({} bytes for {}x{})",
                                                                      i, init[i].data.size(), w, h)});

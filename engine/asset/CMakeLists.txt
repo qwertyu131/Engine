@@ -1,4 +1,5 @@
-# engine_asset: glTF 2.0 loader -> CPU ModelData (plan F3 Task 2). No GPU types. C++23 (std::expected via
+# engine_asset: glTF 2.0 loader -> CPU ModelData (plan F3 Task 2) + the F3 decoders (Task 3: Draco, meshopt,
+# quantization, KTX2 / Basis, WebP). No GPU types. C++23 (std::expected via
 # core/Result.h), like engine_rhi.
 add_library(engine_asset STATIC
     ModelData.h
@@ -11,13 +12,19 @@ add_library(engine_asset STATIC
     Tangents.cpp
     Images.cpp
     Extensions.h
-    Extensions.cpp)
+    Extensions.cpp
+    Draco.cpp
+    Meshopt.cpp
+    Ktx2.h
+    Ktx2.cpp
+    Webp.cpp)
 add_library(engine::asset ALIAS engine_asset)
 target_compile_features(engine_asset PUBLIC cxx_std_23)
 target_include_directories(engine_asset PUBLIC "${PROJECT_SOURCE_DIR}/engine")
 target_link_libraries(engine_asset
     PUBLIC engine::engine
-    PRIVATE fastgltf::fastgltf eng_mikktspace eng_stb eng_turbojpeg nlohmann_json::nlohmann_json)
+    PRIVATE fastgltf::fastgltf eng_mikktspace eng_stb eng_turbojpeg nlohmann_json::nlohmann_json
+            meshoptimizer eng_draco eng_webp ktx_read)
 if(MSVC)
     target_compile_options(engine_asset PRIVATE /W4 /WX /permissive- /utf-8 /external:W0)
     target_compile_definitions(engine_asset PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)

@@ -32,6 +32,22 @@ VkFormat toVkFormat(Format f) {
     case Format::RGBA32_SINT: return VK_FORMAT_R32G32B32A32_SINT;
     case Format::RGBA16_UINT: return VK_FORMAT_R16G16B16A16_UINT;
     case Format::RGBA8_UINT: return VK_FORMAT_R8G8B8A8_UINT;
+    // BC1 as RGBA (the DXGI BC1 meaning): the transcoder never writes 3-colour blocks (asset/Ktx2.h).
+    case Format::BC1_UNORM: return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+    case Format::BC1_SRGB: return VK_FORMAT_BC1_RGBA_SRGB_BLOCK;
+    case Format::BC2_UNORM: return VK_FORMAT_BC2_UNORM_BLOCK;
+    case Format::BC2_SRGB: return VK_FORMAT_BC2_SRGB_BLOCK;
+    case Format::BC3_UNORM: return VK_FORMAT_BC3_UNORM_BLOCK;
+    case Format::BC3_SRGB: return VK_FORMAT_BC3_SRGB_BLOCK;
+    case Format::BC4_UNORM: return VK_FORMAT_BC4_UNORM_BLOCK;
+    case Format::BC5_UNORM: return VK_FORMAT_BC5_UNORM_BLOCK;
+    case Format::BC6H_UFLOAT: return VK_FORMAT_BC6H_UFLOAT_BLOCK;
+    case Format::BC7_UNORM: return VK_FORMAT_BC7_UNORM_BLOCK;
+    case Format::BC7_SRGB: return VK_FORMAT_BC7_SRGB_BLOCK;
+    case Format::ETC2_RGBA8_UNORM: return VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK;
+    case Format::ETC2_RGBA8_SRGB: return VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK;
+    case Format::ASTC_4x4_UNORM: return VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
+    case Format::ASTC_4x4_SRGB: return VK_FORMAT_ASTC_4x4_SRGB_BLOCK;
     }
     return VK_FORMAT_UNDEFINED;
 }
@@ -148,6 +164,19 @@ Result<TextureHandle> VulkanDevice::createTexture(const TextureDesc& desc, std::
     t.format = toVkFormat(desc.format);
     if (t.format == VK_FORMAT_UNDEFINED) {
         return std::unexpected(Error{kExitUsage, "vulkan: createTexture with format Unknown"});
+    }
+    if (isCompressed(desc.format)) {
+        // Block-compressed (plan F3 Task 3): sample-only and supported by the device (the matching
+        // textureCompression* feature is enabled at device creation when the device has it).
+        if (!caps_.format(desc.format).sample) {
+            return std::unexpected(Error{kExitUsage, std::format("vulkan: createTexture: {} is not supported by this "
+                                                                 "device",
+                                                                 toString(desc.format))});
+        }
+        if (any(desc.usage, TextureUsage::RenderTarget | TextureUsage::DepthStencil | TextureUsage::Storage)) {
+            return std::unexpected(Error{kExitUsage, std::format("vulkan: createTexture: {} can only be sampled",
+                                                                 toString(desc.format))});
+        }
     }
     const bool depth = isDepthFormat(desc.format);
     VkImageCreateInfo ici{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};

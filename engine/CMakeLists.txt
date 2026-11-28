@@ -34,6 +34,9 @@ add_subdirectory(rhi)
 # glTF loader (plan F3 Task 2): separate target, C++23, no GPU types.
 add_subdirectory(asset)
 
+# Renderer (plan F3 Tasks 3-4): GPU upload, draw lists, passes, facade.
+add_subdirectory(renderer)
+
 # Window + UI (plan F2 Task 6).
 add_subdirectory(platform)
 add_subdirectory(ui)

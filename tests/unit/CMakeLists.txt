@@ -38,8 +38,9 @@ add_executable(asset_unit_tests
     asset/AssetTestEnv.h
     asset/test_loader.cpp
     asset/test_bad_files.cpp
-    asset/test_conformance.cpp)
-target_link_libraries(asset_unit_tests PRIVATE engine::asset nlohmann_json::nlohmann_json doctest::doctest)
+    asset/test_conformance.cpp
+    asset/test_decoders.cpp)
+target_link_libraries(asset_unit_tests PRIVATE engine::asset nlohmann_json::nlohmann_json doctest::doctest eng_draco meshoptimizer eng_bcdec)
 target_compile_definitions(asset_unit_tests PRIVATE
     ENG_TEST_F03_ASSETS="${PROJECT_SOURCE_DIR}/tests/assets/f03"
     ENG_TEST_SAMPLE_MODELS="${PROJECT_SOURCE_DIR}/tests/assets/glTF-Sample-Assets/Models"
@@ -48,15 +49,15 @@ target_compile_definitions(asset_unit_tests PRIVATE
 if(MSVC)
     target_compile_options(asset_unit_tests PRIVATE /W4 /WX /permissive- /utf-8 /external:W0)
 endif()
-foreach(suite loader missing paths bad conformance)
+foreach(suite loader missing paths bad conformance decoders)
     add_test(NAME unit.asset.${suite} COMMAND asset_unit_tests --test-suite=asset.${suite} --no-version=true)
     set_tests_properties(unit.asset.${suite} PROPERTIES FAIL_REGULAR_EXPRESSION "test cases: +0 \\|")
 endforeach()
-set_tests_properties(unit.asset.conformance PROPERTIES TIMEOUT 1200)
+set_tests_properties(unit.asset.conformance unit.asset.decoders PROPERTIES TIMEOUT 1200)
 if(ENG_ASAN AND MSVC)
     # The MSVC ASan runtime DLL (clang_rt.asan_dynamic-x86_64.dll) sits next to cl.exe.
     get_filename_component(_eng_cl_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
-    foreach(suite loader missing paths bad conformance)
+    foreach(suite loader missing paths bad conformance decoders)
         set_tests_properties(unit.asset.${suite} PROPERTIES ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${_eng_cl_dir}")
     endforeach()
 endif()
@@ -184,8 +185,10 @@ if(TARGET shaders)
         rhi/test_cross_backend.cpp
         rhi/test_pbr_spheres.cpp
         rhi/test_caps.cpp
+        rhi/test_texture_upload.cpp
         rhi/SceneProbes.h)
-    target_link_libraries(rhi_unit_tests PRIVATE engine::rhi headless_core nlohmann_json::nlohmann_json doctest::doctest)
+    target_link_libraries(rhi_unit_tests PRIVATE engine::rhi engine::renderer headless_core nlohmann_json::nlohmann_json doctest::doctest
+    eng_bcdec)
     if(ENG_RHI_VULKAN)
         # test_caps.cpp calls Vulkan through volk (the loaded entry points live in engine_rhi, VkLibs.cpp).
         target_link_libraries(rhi_unit_tests PRIVATE eng_volk)

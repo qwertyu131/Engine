@@ -46,11 +46,50 @@ enum class Format : uint16_t {
     RGBA32_SINT,
     RGBA16_UINT,
     RGBA8_UINT,
+    // Block-compressed texture formats (plan F3 Task 3): 4 x 4 texel blocks, sample-only (no render target, no
+    // vertex use). BC1..BC7 = DXGI BC* / VK_FORMAT_BC*; ETC2 / ASTC have no DXGI format (Vulkan / mobile, F11).
+    BC1_UNORM,
+    BC1_SRGB,
+    BC2_UNORM,
+    BC2_SRGB,
+    BC3_UNORM,
+    BC3_SRGB,
+    BC4_UNORM,
+    BC5_UNORM,
+    BC6H_UFLOAT,
+    BC7_UNORM,
+    BC7_SRGB,
+    ETC2_RGBA8_UNORM,
+    ETC2_RGBA8_SRGB,
+    ASTC_4x4_UNORM,
+    ASTC_4x4_SRGB,
 };
 
 const char* toString(Format f);
-uint32_t formatBytes(Format f); // bytes per texel / vertex element; 0 for Unknown
+// Bytes per texel / vertex element, or per 4 x 4 block of a block-compressed format; 0 for Unknown.
+uint32_t formatBytes(Format f);
 std::span<const Format> allFormats(); // every Format except Unknown, in declaration order (DeviceCaps table)
+
+// Block layout of a format: compressed formats 4 x 4 texels per `bytes`-byte block, every other format 1 x 1.
+struct FormatBlock {
+    uint32_t width = 1;
+    uint32_t height = 1;
+    uint32_t bytes = 0;
+};
+FormatBlock formatBlock(Format f);
+inline bool isCompressed(Format f) {
+    return formatBlock(f).width > 1;
+}
+bool isSrgbFormat(Format f); // the sRGB-encoded formats (RGBA8 / BGRA8 / BC1 / BC2 / BC3 / BC7 / ETC2 / ASTC _SRGB)
+// Bytes of one row of texels / blocks of a w x h subresource, and the number of such rows.
+inline uint32_t subresourceRowBytes(Format f, uint32_t w) {
+    const FormatBlock b = formatBlock(f);
+    return (w + b.width - 1) / b.width * b.bytes;
+}
+inline uint32_t subresourceRows(Format f, uint32_t h) {
+    const FormatBlock b = formatBlock(f);
+    return (h + b.height - 1) / b.height;
+}
 
 // --- errors ---------------------------------------------------------------------------------------
 

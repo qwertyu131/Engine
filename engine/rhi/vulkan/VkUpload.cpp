@@ -49,16 +49,17 @@ Result<void> VulkanDevice::uploadBuffer(const Buffer& dst, std::span<const std::
 
 Result<void> VulkanDevice::uploadTexture(Texture& dst, std::span<const SubresourceData> init) {
     const TextureDesc& d = dst.desc;
-    const uint32_t bpp = formatBytes(d.format);
-    // Tightly packed copy of every subresource, in SubresourceData order (layer-major, then mip).
+    // Tightly packed copy of every subresource, in SubresourceData order (layer-major, then mip). Rows are rows of
+    // texels, or of 4 x 4 blocks for a compressed format (bufferRowLength 0 = tightly packed in both cases).
     std::vector<VkBufferImageCopy> regions;
     VkDeviceSize total = 0;
     for (uint32_t layer = 0; layer < d.arrayLayers; ++layer) {
         for (uint32_t mip = 0; mip < d.mipLevels; ++mip) {
             const uint32_t w = std::max(1u, d.width >> mip), h = std::max(1u, d.height >> mip);
             const SubresourceData& sd = init[size_t(layer) * d.mipLevels + mip];
-            const uint32_t pitch = sd.rowPitch ? sd.rowPitch : w * bpp;
-            if (pitch < w * bpp || sd.data.size() < size_t(pitch) * (h - 1) + size_t(w) * bpp) {
+            const uint32_t rowBytes = subresourceRowBytes(d.format, w), rows = subresourceRows(d.format, h);
+            const uint32_t pitch = sd.rowPitch ? sd.rowPitch : rowBytes;
+            if (pitch < rowBytes || sd.data.size() < size_t(pitch) * (rows - 1) + rowBytes) {
                 return std::unexpected(Error{kExitUsage, std::format("vulkan: createTexture: initial data of layer {} "
                                                                      "mip {} is too small ({} bytes for {}x{})",
                                                                      layer, mip, sd.data.size(), w, h)});
@@ -68,7 +69,7 @@ Result<void> VulkanDevice::uploadTexture(Texture& dst, std::span<const Subresour
             region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, mip, layer, 1};
             region.imageExtent = {w, h, 1};
             regions.push_back(region);
-            total += VkDeviceSize(w) * h * bpp;
+            total += VkDeviceSize(rowBytes) * rows;
         }
     }
     VkBufferCreateInfo bci{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
@@ -88,10 +89,11 @@ Result<void> VulkanDevice::uploadTexture(Texture& dst, std::span<const Subresour
         for (uint32_t mip = 0; mip < d.mipLevels; ++mip, ++i) {
             const uint32_t w = std::max(1u, d.width >> mip), h = std::max(1u, d.height >> mip);
             const SubresourceData& sd = init[i];
-            const uint32_t pitch = sd.rowPitch ? sd.rowPitch : w * bpp;
-            for (uint32_t y = 0; y < h; ++y) {
-                std::memcpy(out + regions[i].bufferOffset + size_t(y) * w * bpp, sd.data.data() + size_t(y) * pitch,
-                            size_t(w) * bpp);
+            const uint32_t rowBytes = subresourceRowBytes(d.format, w), rows = subresourceRows(d.format, h);
+            const uint32_t pitch = sd.rowPitch ? sd.rowPitch : rowBytes;
+            for (uint32_t y = 0; y < rows; ++y) {
+                std::memcpy(out + regions[i].bufferOffset + size_t(y) * rowBytes, sd.data.data() + size_t(y) * pitch,
+                            rowBytes);
             }
         }
     }

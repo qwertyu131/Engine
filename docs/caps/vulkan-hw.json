@@ -171,6 +171,126 @@
       "blend": false,
       "depth": false,
       "vertex": true
+    },
+    "BC1_UNORM": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC1_SRGB": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC2_UNORM": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC2_SRGB": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC3_UNORM": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC3_SRGB": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC4_UNORM": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC5_UNORM": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC6H_UFLOAT": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC7_UNORM": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "BC7_SRGB": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "ETC2_RGBA8_UNORM": {
+      "sample": false,
+      "filter": false,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "ETC2_RGBA8_SRGB": {
+      "sample": false,
+      "filter": false,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "ASTC_4x4_UNORM": {
+      "sample": false,
+      "filter": false,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
+    },
+    "ASTC_4x4_SRGB": {
+      "sample": false,
+      "filter": false,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": false
     }
   },
   "bc": true,
@@ -183,5 +303,5 @@
   "rayTracing": true,
   "bindless": true,
   "timestampQueries": true,
-  "note": "Vulkan physical device 'NVIDIA GeForce RTX 3070 Ti' (API 1.4.357): limits, formats and features the device SUPPORTS (vkGetPhysicalDevice*); the F2 RHI enables only dynamicRendering. Written by headless --dump-caps (plan F2 Task 7)."
+  "note": "Vulkan physical device 'NVIDIA GeForce RTX 3070 Ti' (API 1.4.357): limits, formats and features the device SUPPORTS (vkGetPhysicalDevice*); the RHI enables dynamicRendering and the texture compression features the device has (plan F3 Task 3). Written by headless --dump-caps (plan F2 Task 7)."
 }

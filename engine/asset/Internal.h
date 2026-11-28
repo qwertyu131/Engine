@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <span>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace eng::asset::detail {
@@ -40,6 +41,14 @@ struct Context {
     // Per glTF buffer: its bytes, exactly byteLength long (empty for an EXT_meshopt fallback buffer).
     std::vector<std::span<const std::byte>> buffers;
     std::vector<std::vector<std::byte>> owned; // external .bin storage behind `buffers`
+    // Per bufferView (plan F3 Task 3, Meshopt.cpp): the decoded bytes of an EXT_meshopt_compression /
+    // KHR_meshopt_compression view (byteLength long); bufferViewBytes() returns them instead of the buffer range.
+    std::vector<std::vector<std::byte>> meshoptViews;
+    std::vector<uint8_t> meshoptDecoded; // 1 = meshoptViews[i] holds view i
+    // Per accessor (plan F3 Task 3, Draco.cpp): the decoded elements of a KHR_draco_mesh_compression accessor, in the
+    // accessor's own componentType / type, tightly packed, exactly count elements. checkAccessor() reads them
+    // instead of a bufferView. Filled by buildPrimitive before any accessor of the primitive is read.
+    mutable std::unordered_map<size_t, std::vector<std::byte>> accessorData;
 
     void warn(std::string m) const {
         if (diags) {
@@ -81,5 +90,28 @@ Result<bool> buildPrimitive(const Context& c, const ModelData& model, size_t mes
 // --- Images.cpp ------------------------------------------------------------------------------------------
 // model.images from the asset's images; materials must be converted first (colour space by usage).
 Result<void> loadImages(const Context& c, ModelData& model);
+// Decoded pixel budget: larger images are refused (warning, image left undecoded) instead of allocating gigabytes.
+inline constexpr uint64_t kMaxDecodePixels = uint64_t{16384} * 16384;
+bool overDecodeBudget(const Context& c, const std::string& what, uint64_t w, uint64_t h); // warns when true
+// r.Asset.MaxTextureSize for a decoded RGBA8 image: halved (2 x 2 box, linear light for sRGB) until it fits, warning.
+void fitTextureSize(const Context& c, const std::string& what, Image& img);
+
+// --- Meshopt.cpp (plan F3 Task 3) ------------------------------------------------------------------------
+// Decodes every EXT_meshopt_compression / KHR_meshopt_compression buffer view into c.meshoptViews (after the
+// buffers are set up, before any accessor is read). Errors name the view: "bufferView <i> (meshopt): ...".
+Result<void> decodeMeshoptViews(Context& c);
+
+// --- Draco.cpp (plan F3 Task 3) --------------------------------------------------------------------------
+// KHR_draco_mesh_compression: decodes the primitive's Draco bufferView and stores every mapped attribute accessor and
+// the indices accessor in c.accessorData. No-op for a primitive without the extension.
+Result<void> decodeDracoPrimitive(const Context& c, const fastgltf::Primitive& in, const std::string& where);
+
+// --- Webp.cpp / Ktx2.cpp (plan F3 Task 3) ----------------------------------------------------------------
+// EXT_texture_webp: decoded to RGBA8 (budget, r.Asset.MaxTextureSize as PNG / JPEG). Error = exit 2.
+Result<void> decodeWebp(const Context& c, std::span<const std::byte> bytes, const std::string& what, Image& img);
+// KHR_texture_basisu: the KTX2 file is parsed and validated (2D, Basis Universal ETC1S / UASTC payload), kept in
+// img.encoded with its levels and DFD transfer function; r.Asset.MaxTextureSize skips the larger mip levels, or,
+// without enough levels, transcodes to RGBA8 and halves. Error = exit 2.
+Result<void> inspectKtx2(const Context& c, std::span<const std::byte> bytes, const std::string& what, Image& img);
 
 } // namespace eng::asset::detail

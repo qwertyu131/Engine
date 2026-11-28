@@ -157,6 +157,11 @@ Result<bool> buildPrimitive(const Context& c, const ModelData& model, size_t mes
         c.warn(where + ": no POSITION attribute: primitive skipped");
         return false;
     }
+    // KHR_draco_mesh_compression (plan F3 Task 3): the Draco stream is decoded first; its attribute and index
+    // accessors then read the decoded elements (Context::accessorData) like any other accessor.
+    if (auto r = decodeDracoPrimitive(c, in, where); !r) {
+        return std::unexpected(r.error());
+    }
     // Every accessor of the primitive is range-checked first (Review Focus 1: an out-of-range or huge accessor is an
     // error even when the primitive would then be dropped by the r.Asset.MaxVertices cap).
     for (const fastgltf::Attribute& a : in.attributes) {

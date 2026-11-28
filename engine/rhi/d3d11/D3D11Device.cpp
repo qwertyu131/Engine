@@ -54,6 +54,22 @@ DXGI_FORMAT toDxgiFormat(Format f) {
     case Format::RGBA32_SINT: return DXGI_FORMAT_R32G32B32A32_SINT;
     case Format::RGBA16_UINT: return DXGI_FORMAT_R16G16B16A16_UINT;
     case Format::RGBA8_UINT: return DXGI_FORMAT_R8G8B8A8_UINT;
+    case Format::BC1_UNORM: return DXGI_FORMAT_BC1_UNORM;
+    case Format::BC1_SRGB: return DXGI_FORMAT_BC1_UNORM_SRGB;
+    case Format::BC2_UNORM: return DXGI_FORMAT_BC2_UNORM;
+    case Format::BC2_SRGB: return DXGI_FORMAT_BC2_UNORM_SRGB;
+    case Format::BC3_UNORM: return DXGI_FORMAT_BC3_UNORM;
+    case Format::BC3_SRGB: return DXGI_FORMAT_BC3_UNORM_SRGB;
+    case Format::BC4_UNORM: return DXGI_FORMAT_BC4_UNORM;
+    case Format::BC5_UNORM: return DXGI_FORMAT_BC5_UNORM;
+    case Format::BC6H_UFLOAT: return DXGI_FORMAT_BC6H_UF16;
+    case Format::BC7_UNORM: return DXGI_FORMAT_BC7_UNORM;
+    case Format::BC7_SRGB: return DXGI_FORMAT_BC7_UNORM_SRGB;
+    // ETC2 / ASTC are not DXGI formats: the caps report them unsupported and createTexture refuses them.
+    case Format::ETC2_RGBA8_UNORM:
+    case Format::ETC2_RGBA8_SRGB:
+    case Format::ASTC_4x4_UNORM:
+    case Format::ASTC_4x4_SRGB: return DXGI_FORMAT_UNKNOWN;
     }
     return DXGI_FORMAT_UNKNOWN;
 }

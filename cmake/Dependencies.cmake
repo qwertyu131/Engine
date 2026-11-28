@@ -299,3 +299,88 @@ if(NOT TARGET eng_turbojpeg)
     target_link_libraries(eng_turbojpeg INTERFACE "${_ljt_lib}")
     add_dependencies(eng_turbojpeg eng_libjpeg_turbo_ep)
 endif()
+
+# --- asset decoders (engine/asset, F3 Task 3) -------------------------------------------------------------------------
+# Every tag commit resolved with `git ls-remote` (2026-11-28). Built through their own CMake as static libraries,
+# EXCLUDE_FROM_ALL (only what engine_asset links is built), SYSTEM includes; the ENG_ASAN flags of the top-level
+# CMakeLists.txt apply to them too (they parse hostile bytes).
+#   meshoptimizer v1.3 (commit 9e1f07b159d3cb777f1c67ed31fc11fd117986f4), MIT: EXT_meshopt_compression and
+#     KHR_meshopt_compression buffer views (vertex codec v0 / v1, index / sequence codecs, the four filters).
+#   Draco 1.5.9 (commit 554628821c3448319d7d4ae48db170b8c63e1aaf), Apache-2.0: KHR_draco_mesh_compression. Only the
+#     decoder API is called (draco::Decoder); Draco's CMake has no decoder-only library, so the static `draco` library
+#     is built whole and the linker keeps the decoder objects.
+#   KTX-Software v4.4.2 (tag commit 4d6fc70eaf62ad0558e63e8d97eb9766118327a6), Apache-2.0 (+ the bundled Basis
+#     Universal transcoder, Apache-2.0): libktx's read-only library `ktx_read` (KTX2 parse, DFD, Basis ETC1S / UASTC
+#     transcode) for KHR_texture_basisu. Tools, tests, docs, GL / Vulkan upload are off; KTX1 stays on (ktx_read
+#     does not link without it).
+#   libwebp v1.6.0 (tag commit 4fa21912338357f89e4fd51cf2368325b59e9bd9), BSD-3-Clause: `webpdecoder` (decode only)
+#     for EXT_texture_webp. Tools, mux, extras off.
+set(MESHOPT_INSTALL OFF CACHE BOOL "" FORCE)
+set(MESHOPT_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(meshoptimizer
+    GIT_REPOSITORY https://github.com/zeux/meshoptimizer.git
+    GIT_TAG        9e1f07b159d3cb777f1c67ed31fc11fd117986f4 # v1.3
+    EXCLUDE_FROM_ALL
+    SYSTEM)
+set(DRACO_BUILD_EXECUTABLES OFF CACHE BOOL "" FORCE)
+set(DRACO_TESTS OFF CACHE BOOL "" FORCE)
+set(DRACO_INSTALL OFF CACHE BOOL "" FORCE)
+set(DRACO_JS_GLUE OFF CACHE BOOL "" FORCE)
+set(DRACO_TRANSCODER_SUPPORTED OFF CACHE BOOL "" FORCE)
+set(DRACO_UNITY_PLUGIN OFF CACHE BOOL "" FORCE)
+set(DRACO_MAYA_PLUGIN OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(draco
+    GIT_REPOSITORY https://github.com/google/draco.git
+    GIT_TAG        554628821c3448319d7d4ae48db170b8c63e1aaf # 1.5.9
+    EXCLUDE_FROM_ALL
+    SYSTEM)
+foreach(_eng_webp_opt ANIM_UTILS CWEBP DWEBP GIF2WEBP IMG2WEBP VWEBP WEBPINFO LIBWEBPMUX WEBPMUX EXTRAS)
+    set(WEBP_BUILD_${_eng_webp_opt} OFF CACHE BOOL "" FORCE)
+endforeach()
+FetchContent_Declare(libwebp
+    GIT_REPOSITORY https://github.com/webmproject/libwebp.git
+    GIT_TAG        4fa21912338357f89e4fd51cf2368325b59e9bd9 # v1.6.0
+    EXCLUDE_FROM_ALL
+    SYSTEM)
+set(KTX_FEATURE_TESTS OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_TOOLS OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_DOC OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_JNI OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_PY OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_GL_UPLOAD OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_VK_UPLOAD OFF CACHE BOOL "" FORCE)
+set(KTX_FEATURE_KTX1 ON CACHE BOOL "" FORCE)
+set(KTX_FEATURE_KTX2 ON CACHE BOOL "" FORCE)
+set(KTX_FEATURE_LOADTEST_APPS "" CACHE STRING "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Static libraries (dependencies)" FORCE)
+FetchContent_Declare(ktx_software
+    GIT_REPOSITORY https://github.com/KhronosGroup/KTX-Software.git
+    GIT_TAG        4d6fc70eaf62ad0558e63e8d97eb9766118327a6 # v4.4.2
+    GIT_SHALLOW    FALSE
+    EXCLUDE_FROM_ALL
+    SYSTEM)
+FetchContent_MakeAvailable(meshoptimizer draco libwebp ktx_software)
+if(NOT TARGET eng_draco)
+    add_library(eng_draco INTERFACE)
+    target_link_libraries(eng_draco INTERFACE draco::draco)
+    # draco/draco_features.h is generated into the build tree.
+    target_include_directories(eng_draco SYSTEM INTERFACE "${draco_SOURCE_DIR}/src" "${draco_BINARY_DIR}")
+    add_library(eng_webp INTERFACE)
+    target_link_libraries(eng_webp INTERFACE webpdecoder)
+    target_include_directories(eng_webp SYSTEM INTERFACE "${libwebp_SOURCE_DIR}/src")
+endif()
+
+if(ENG_BUILD_TESTS)
+    # bcdec (iOrange/bcdec master, commit 80859ed3b7afb1c527a2a99d70c61457bea72d0c, v0.985; the repo has no tags),
+    # MIT / Unlicense: CPU BC1..BC7 block decoder of the tests only (plan F3 Task 3: KTX2 -> BC7 -> CPU decode).
+    FetchContent_Declare(bcdec
+        URL      https://raw.githubusercontent.com/iOrange/bcdec/80859ed3b7afb1c527a2a99d70c61457bea72d0c/bcdec.h
+        URL_HASH SHA256=134520764d96f70a27db814173616c89ad85db95fbd3328417c7a8c77e7ca189
+        DOWNLOAD_NO_EXTRACT TRUE
+        SOURCE_SUBDIR _no_cmake_)
+    FetchContent_MakeAvailable(bcdec)
+    if(NOT TARGET eng_bcdec)
+        add_library(eng_bcdec INTERFACE)
+        target_include_directories(eng_bcdec SYSTEM INTERFACE "${bcdec_SOURCE_DIR}")
+    endif()
+endif()

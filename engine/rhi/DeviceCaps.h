@@ -4,7 +4,8 @@
 // and the viewer's DeviceCaps panel, which both list the fields through forEachCapsField().
 //
 // Meaning of the feature fields: what the device / feature level SUPPORTS (as reported by the API), not
-// what the RHI enables. In F2 the Vulkan backend enables only dynamicRendering; the D3D11 backend gets a
+// what the RHI enables. The Vulkan backend enables dynamicRendering and (plan F3 Task 3) the texture compression
+// features (BC / ETC2 / ASTC LDR) the device has; the D3D11 backend gets a
 // feature level's whole feature set implicitly.
 #include "Types.h"
 

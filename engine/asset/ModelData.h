@@ -126,8 +126,16 @@ struct Image {
     bool usedAsLinear = false;
     bool decoded = false;          // rgba8 holds the pixels
     uint32_t width = 0, height = 0;
-    std::vector<uint8_t> rgba8;    // decoded PNG / JPEG, rows top-down
-    std::vector<uint8_t> encoded;  // the payload when not decoded here (KTX2 / WebP: plan F3 Task 3)
+    std::vector<uint8_t> rgba8;    // decoded PNG / JPEG / WebP, rows top-down
+    // KHR_texture_basisu (plan F3 Task 3): `encoded` is the whole KTX2 file (Basis Universal ETC1S or UASTC payload),
+    // kept compressed and transcoded at upload to a format the device samples (Ktx2.h). width / height are those of
+    // level ktx2BaseLevel (r.Asset.MaxTextureSize skips larger levels), ktx2Levels the mip levels from there on.
+    // ktx2Srgb = the DFD transfer function is sRGB: it decides the GPU view (sRGB or UNORM), not the usage flags.
+    bool ktx2 = false;
+    bool ktx2Srgb = false;
+    uint32_t ktx2BaseLevel = 0;
+    uint32_t ktx2Levels = 0;
+    std::vector<uint8_t> encoded;
 };
 
 enum class Filter : uint8_t { Nearest, Linear };

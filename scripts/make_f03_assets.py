@@ -8,10 +8,13 @@ Layout:
     bad/       malformed / hostile files (Review Focus 1). Each must make the loader exit 2 with a message;
                bad/expected.json lists every fixture with the message substring the test requires.
     missing/   valid files with missing attributes / material (Review Focus 4) and extension handling.
+    colorspace/ the crafted TextureLinearInterpolationTest variant of the Review Focus 3 colour-space probe (Task 3).
     paths/     .gltf files with external .bin / .png in the same and in a sibling directory, non-ASCII names
                with spaces, URI-encoded (%20, UTF-8 percent escapes) (Review Focus 2).
 
-Every fixture is one triangle: POSITION (0,0,0) (1,0,0) (0,1,0), optional NORMAL +Z, TEXCOORD_0 (0,0) (1,0) (0,1),
+The decoder fixtures of bad/ (plan F3 Task 3) are cut from small glTF-Sample-Assets files (Box/glTF-Draco,
+MeshoptCubeTest/glTF-Meshopt, CarConcept KTX2 / WebP images), so writing or checking them needs the Sample-Assets
+checkout (scripts/fetch_assets.py). Every other fixture is one triangle: POSITION (0,0,0) (1,0,0) (0,1,0), optional NORMAL +Z, TEXCOORD_0 (0,0) (1,0) (0,1),
 uint16 indices 0 1 2. Images are 2 x 2 RGBA PNGs written here (stdlib zlib; the bytes depend on the zlib build, so
 --check compares decoded JSON / binary payloads, not the PNG deflate stream). Stdlib only.
 """
@@ -208,6 +211,57 @@ def fixtures() -> dict[str, bytes]:
                        extra={"extensionsUsed": ["KHR_materials_clearcoat"],
                               "extensionsRequired": ["KHR_materials_clearcoat"]})),
         "KHR_materials_clearcoat is supported from F6", "spec 7.2 later-phase required extension")
+    # --- bad/ decoder inputs (plan F3 Task 3, Review Focus 1): built from small Sample-Assets files --------------------
+    sample = REPO / "tests" / "assets" / "glTF-Sample-Assets" / "Models"
+    if not sample.is_dir():
+        raise SystemExit(f"make_f03_assets: {sample} missing (run python scripts/fetch_assets.py)")
+    box = json.loads((sample / "Box" / "glTF-Draco" / "Box.gltf").read_text(encoding="utf-8"))
+    box_bin = (sample / "Box" / "glTF-Draco" / "Box.bin").read_bytes()
+    box["buffers"][0]["uri"] = data_uri("application/octet-stream", box_bin)
+    box["asset"]["generator"] = "scripts/make_f03_assets.py (from glTF-Sample-Assets Box/glTF-Draco)"
+    d = json.loads(json.dumps(box))
+    d["bufferViews"][0]["byteLength"] = 40  # 118-byte Draco stream cut to 40 bytes
+    bad("draco_truncated.gltf", dumps(d), "Draco", "truncated Draco stream (KHR_draco_mesh_compression)")
+    d = json.loads(json.dumps(box))
+    d["accessors"][2]["count"] = 23  # POSITION accessor: the stream decodes 24 points
+    bad("draco_count_mismatch.gltf", dumps(d), "decoded Draco points",
+        "Draco point count != accessor count")
+
+    cube = json.loads((sample / "MeshoptCubeTest" / "glTF-Meshopt" / "MeshoptCubeTest.gltf").read_text(encoding="utf-8"))
+    cube_bin = (sample / "MeshoptCubeTest" / "glTF-Meshopt" / "MeshoptCubeTest.bin").read_bytes()
+    for key in ("images", "textures", "samplers", "materials", "animations"):
+        cube.pop(key, None)
+    for mesh in cube["meshes"]:
+        for prim in mesh["primitives"]:
+            prim.pop("material", None)
+    cube["buffers"][0]["uri"] = data_uri("application/octet-stream", cube_bin)
+    cube["asset"]["generator"] = "scripts/make_f03_assets.py (from glTF-Sample-Assets MeshoptCubeTest/glTF-Meshopt)"
+    first = next(i for i, v in enumerate(cube["bufferViews"]) if "KHR_meshopt_compression" in v.get("extensions", {}))
+    d = json.loads(json.dumps(cube))
+    ext = d["bufferViews"][first]["extensions"]["KHR_meshopt_compression"]
+    ext["byteLength"] = max(1, ext["byteLength"] // 2)  # compressed stream cut in half
+    bad("meshopt_truncated.gltf", dumps(d), "meshopt", "truncated meshopt stream (KHR_meshopt_compression)")
+    d = json.loads(json.dumps(cube))
+    attr = next(i for i, v in enumerate(d["bufferViews"])
+                if v.get("extensions", {}).get("KHR_meshopt_compression", {}).get("mode") == "ATTRIBUTES")
+    d["bufferViews"][attr]["extensions"]["KHR_meshopt_compression"]["byteStride"] = 6  # not a multiple of 4
+    bad("meshopt_bad_stride.gltf", dumps(d), "byteStride", "meshopt ATTRIBUTES stride the codec does not allow")
+
+    def tex_ext_doc(ext_name: str, mime: str, payload: bytes) -> bytes:
+        doc = gltf_doc(layout, embedded, len(tri), {"pbrMetallicRoughness": {"baseColorTexture": {"index": 0}}})
+        doc["images"] = [{"uri": data_uri(mime, payload)}]
+        doc["textures"] = [{"extensions": {ext_name: {"source": 0}}}]
+        doc["extensionsUsed"] = [ext_name]
+        doc["extensionsRequired"] = [ext_name]
+        return dumps(doc)
+
+    ktx2 = (sample / "CarConcept" / "glTF-KTX-BasisU-Draco" / "Rib_N.ktx2").read_bytes()
+    bad("ktx2_truncated.gltf", tex_ext_doc("KHR_texture_basisu", "image/ktx2", ktx2[:len(ktx2) // 2]), "image/ktx2",
+        "truncated KTX2 image (KHR_texture_basisu)")
+    webp = (sample / "CarConcept" / "glTF-WEBP" / "Hex_N.webp").read_bytes()
+    bad("webp_truncated.gltf", tex_ext_doc("EXT_texture_webp", "image/webp", webp[:len(webp) // 2]), "WebP",
+        "truncated WebP image (EXT_texture_webp)")
+
     files["bad/expected.json"] = (json.dumps({"comment": "Generated by scripts/make_f03_assets.py: every bad/ fixture "
                                               "and the substring of the exit-2 message the loader must give.",
                                               "fixtures": expected}, indent=1) + "\n").encode("utf-8")
@@ -238,6 +292,24 @@ def fixtures() -> dict[str, bytes]:
         gltf_doc(layout, embedded, len(tri),
                  {"extensions": {"KHR_materials_clearcoat": {"clearcoatFactor": 0.5}}},
                  extra={"extensionsUsed": ["KHR_materials_clearcoat"]}))
+
+    # --- colorspace/ (Review Focus 3, plan F3 Task 3) --------------------------------------------------------------
+    # TextureLinearInterpolationTest's 2 x 1 emissive texture is (0, 0, 0) - (0, 255, 0): both texels are fixed points
+    # of the sRGB curve, so an sRGB <-> linear view swap leaves its midpoint at 0.5 and no probe of it can see the swap.
+    # The crafted variant keeps the asset's design (a 2 x 1 texture sampled midway, bilinear) with a second texel of
+    # (0, 188, 0): sRGB view -> midpoint (0 + srgbToLinear(188 / 255)) / 2 = 0.251; UNORM view -> 0.369. The same PNG is
+    # also used as an occlusion (linear) texture through its own image, so both directions of the swap are probed.
+    px = bytes([0, 0, 0, 255, 0, 188, 0, 255])
+    png_2x1 = png_bytes(2, 1, px)
+    cs = gltf_doc(layout, embedded, len(tri), {"emissiveTexture": {"index": 0}, "emissiveFactor": [1.0, 1.0, 1.0]},
+                  [{"uri": data_uri("image/png", png_2x1)}, {"uri": data_uri("image/png", png_2x1)}])
+    cs["materials"].append({"occlusionTexture": {"index": 1}})
+    cs["samplers"] = [{"magFilter": 9729, "minFilter": 9729, "wrapS": 33071, "wrapT": 33071}]
+    cs["meshes"].append({"primitives": [{"attributes": layout["attributes"], "indices": layout["indices"],
+                                         "material": 1}]})
+    cs["nodes"].append({"mesh": 1, "translation": [2.0, 0.0, 0.0]})
+    cs["scenes"][0]["nodes"] = [0, 1]
+    files["colorspace/linear_interpolation_crafted.gltf"] = dumps(cs)
 
     # --- paths/ (Review Focus 2) ---------------------------------------------------------------------------
     mat = {"pbrMetallicRoughness": {"baseColorTexture": {"index": 0}}}
