@@ -248,6 +248,32 @@ def fixtures() -> dict[str, bytes]:
                 if v.get("extensions", {}).get("KHR_meshopt_compression", {}).get("mode") == "ATTRIBUTES")
     d["bufferViews"][attr]["extensions"]["KHR_meshopt_compression"]["byteStride"] = 6  # not a multiple of 4
     bad("meshopt_bad_stride.gltf", dumps(d), "byteStride", "meshopt ATTRIBUTES stride the codec does not allow")
+    # Unbounded inputs capped by r.Asset.MaxFileBytes (default 2 GiB): the decoded size of a compressed view comes from
+    # the file, not from bytes in it. 3 GiB = just above the default cap (a loader without the cap allocates it).
+    over_cap = 3 << 30
+    d = json.loads(json.dumps(cube))
+    d["bufferViews"][first]["byteLength"] = over_cap
+    bad("meshopt_huge_view.gltf", dumps(d), "declared byteLength 3221225472 exceeds r.Asset.MaxFileBytes",
+        "meshopt view whose declared (decoded) byteLength is above r.Asset.MaxFileBytes")
+    d = json.loads(json.dumps(cube))
+    fallback = next(i for i, b in enumerate(d["buffers"])
+                    if b.get("extensions", {}).get("KHR_meshopt_compression", {}).get("fallback"))
+    d["buffers"][fallback]["byteLength"] = over_cap
+    bad("meshopt_huge_fallback.gltf", dumps(d), "fallback buffer byteLength 3221225472 exceeds r.Asset.MaxFileBytes",
+        "meshopt fallback buffer (no data) whose declared byteLength is above r.Asset.MaxFileBytes")
+    # Two stride-20 ATTRIBUTES views of 1.5 GiB each (each under the cap) over one 1.5 GiB fallback buffer: together
+    # they decode to 3 GiB, above the cap; refused before any of it is allocated.
+    d = json.loads(json.dumps(cube))
+    d["buffers"][fallback]["byteLength"] = 3 << 29
+    big = [i for i, v in enumerate(d["bufferViews"])
+           if v.get("extensions", {}).get("KHR_meshopt_compression", {}).get("byteStride") == 20][:2]
+    for i in big:
+        v = d["bufferViews"][i]
+        v["byteOffset"] = 0
+        v["byteLength"] = 3 << 29
+        v["extensions"]["KHR_meshopt_compression"]["count"] = (3 << 29) // 20
+    bad("meshopt_total_decoded.gltf", dumps(d), "meshopt views decode to more than r.Asset.MaxFileBytes",
+        "many meshopt views, each under r.Asset.MaxFileBytes, whose decoded total is above it")
 
     def tex_ext_doc(ext_name: str, mime: str, payload: bytes) -> bytes:
         doc = gltf_doc(layout, embedded, len(tri), {"pbrMetallicRoughness": {"baseColorTexture": {"index": 0}}})

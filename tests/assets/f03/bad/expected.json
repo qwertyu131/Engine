@@ -97,6 +97,21 @@
    "reviewFocus": "meshopt ATTRIBUTES stride the codec does not allow"
   },
   {
+   "file": "meshopt_huge_view.gltf",
+   "message": "declared byteLength 3221225472 exceeds r.Asset.MaxFileBytes",
+   "reviewFocus": "meshopt view whose declared (decoded) byteLength is above r.Asset.MaxFileBytes"
+  },
+  {
+   "file": "meshopt_huge_fallback.gltf",
+   "message": "fallback buffer byteLength 3221225472 exceeds r.Asset.MaxFileBytes",
+   "reviewFocus": "meshopt fallback buffer (no data) whose declared byteLength is above r.Asset.MaxFileBytes"
+  },
+  {
+   "file": "meshopt_total_decoded.gltf",
+   "message": "meshopt views decode to more than r.Asset.MaxFileBytes",
+   "reviewFocus": "many meshopt views, each under r.Asset.MaxFileBytes, whose decoded total is above it"
+  },
+  {
    "file": "ktx2_truncated.gltf",
    "message": "image/ktx2",
    "reviewFocus": "truncated KTX2 image (KHR_texture_basisu)"

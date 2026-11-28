@@ -54,6 +54,11 @@ foreach(suite loader missing paths bad conformance decoders)
     set_tests_properties(unit.asset.${suite} PROPERTIES FAIL_REGULAR_EXPRESSION "test cases: +0 \\|")
 endforeach()
 set_tests_properties(unit.asset.conformance unit.asset.decoders PROPERTIES TIMEOUT 1200)
+if(ENG_ASAN)
+    # Every Sample-Assets decoder variant under ASan: ~980 s Debug on the dev machine (review of f03.t03), too close to
+    # 1200 s; 3600 s leaves a 3.5x margin.
+    set_tests_properties(unit.asset.conformance unit.asset.decoders PROPERTIES TIMEOUT 3600)
+endif()
 if(ENG_ASAN AND MSVC)
     # The MSVC ASan runtime DLL (clang_rt.asan_dynamic-x86_64.dll) sits next to cl.exe.
     get_filename_component(_eng_cl_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)

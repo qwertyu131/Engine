@@ -677,7 +677,14 @@ Result<ModelData> loadGltf(const std::filesystem::path& path, const LoadOptions&
                 c.owned.push_back(std::move(*f));
                 s = c.owned.back();
             } else if (std::holds_alternative<fastgltf::sources::Fallback>(b.data)) {
-                c.buffers.emplace_back(); // EXT / KHR_meshopt_compression fallback buffer: no data (Meshopt.cpp)
+                // EXT / KHR_meshopt_compression fallback buffer: no data (Meshopt.cpp). Its byteLength still bounds
+                // the compressed views placed in it, so it is capped like a buffer with data.
+                if (b.byteLength > opts.maxFileBytes) {
+                    return std::unexpected(fail(std::format("{}: fallback buffer byteLength {} exceeds "
+                                                            "r.Asset.MaxFileBytes ({} bytes)",
+                                                            what, b.byteLength, opts.maxFileBytes)));
+                }
+                c.buffers.emplace_back();
                 continue;
             } else {
                 return std::unexpected(fail(what + ": no data (a GLB without a BIN chunk, or no uri)"));

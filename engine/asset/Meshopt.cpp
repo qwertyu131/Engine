@@ -10,6 +10,11 @@
 // Errors (exit 2): the compressed range outside its buffer, a stride / count the mode does not allow (checked before
 // meshoptimizer is called: its asserts are not input validation), count * byteStride above the view's byteLength or
 // r.Asset.MaxFileBytes, a stream the decoder rejects.
+// Sizes declared by the file are capped before anything is allocated (Global Constraint: unbounded inputs are capped
+// by r.Asset.MaxFileBytes): the view's declared byteLength, the view inside its (often data-less fallback) buffer's
+// declared byteLength, and the sum of count * byteStride over every compressed view. The decoded view is exactly
+// count * byteStride bytes (the size the decoder writes), never the declared byteLength: accessors are range-checked
+// against the decoded span (bufferViewBytes).
 #include "Internal.h"
 
 #include <format>
@@ -28,6 +33,42 @@ Result<void> decodeMeshoptViews(Context& c) {
     const auto& views = c.asset.bufferViews;
     c.meshoptViews.assign(views.size(), {});
     c.meshoptDecoded.assign(views.size(), 0);
+    const uint64_t cap = c.options.maxFileBytes;
+    // Pass 1: every declared size against the cap, before any decode buffer is allocated.
+    uint64_t total = 0;
+    for (size_t i = 0; i < views.size(); ++i) {
+        if (!views[i].meshoptCompression) {
+            continue;
+        }
+        const fastgltf::CompressedBufferView& m = *views[i].meshoptCompression;
+        const std::string what = std::format("bufferView {} (meshopt)", i);
+        if (views[i].byteLength > cap) {
+            return std::unexpected(fail(std::format("{}: declared byteLength {} exceeds r.Asset.MaxFileBytes ({} bytes)",
+                                                    what, views[i].byteLength, cap)));
+        }
+        if (views[i].bufferIndex < c.asset.buffers.size()) {
+            uint64_t viewEnd = 0;
+            const uint64_t bufferBytes = c.asset.buffers[views[i].bufferIndex].byteLength;
+            if (!mulAdd(1, views[i].byteOffset, views[i].byteLength, viewEnd) || viewEnd > bufferBytes) {
+                return std::unexpected(fail(std::format("{}: bytes [{}, {}) exceed the declared byteLength {} of buffer {}",
+                                                        what, views[i].byteOffset, viewEnd, bufferBytes,
+                                                        views[i].bufferIndex)));
+            }
+        }
+        uint64_t decodedBytes = 0;
+        if (!mulAdd(m.count, m.byteStride, 0, decodedBytes) || decodedBytes > views[i].byteLength) {
+            return std::unexpected(fail(std::format("{}: count {} x byteStride {} exceeds the view's byteLength {} / "
+                                                    "r.Asset.MaxFileBytes",
+                                                    what, m.count, m.byteStride, views[i].byteLength)));
+        }
+        total += decodedBytes; // total <= cap and decodedBytes <= cap before the add: no overflow
+        if (total > cap) {
+            return std::unexpected(fail(std::format("bufferViews 0..{}: meshopt views decode to more than "
+                                                    "r.Asset.MaxFileBytes ({} bytes)",
+                                                    i, cap)));
+        }
+    }
+    // Pass 2: decode.
     for (size_t i = 0; i < views.size(); ++i) {
         if (!views[i].meshoptCompression) {
             continue;
@@ -44,16 +85,9 @@ Result<void> decodeMeshoptViews(Context& c) {
                                                     m.byteOffset, uint64_t(m.byteOffset) + m.byteLength, m.bufferIndex,
                                                     buffer.size())));
         }
-        uint64_t decodedBytes = 0;
-        if (!mulAdd(m.count, m.byteStride, 0, decodedBytes) || decodedBytes > views[i].byteLength ||
-            decodedBytes > c.options.maxFileBytes) {
-            return std::unexpected(fail(std::format("{}: count {} x byteStride {} exceeds the view's byteLength {} / "
-                                                    "r.Asset.MaxFileBytes",
-                                                    what, m.count, m.byteStride, views[i].byteLength)));
-        }
         const auto* src = reinterpret_cast<const unsigned char*>(buffer.data() + m.byteOffset);
-        // Zero-filled to the view's byteLength (the decoded data is count * byteStride of it).
-        std::vector<std::byte> out(views[i].byteLength);
+        // count * byteStride (pass 1: <= the view's byteLength and the cap), the bytes the decoder writes.
+        std::vector<std::byte> out(size_t(m.count) * m.byteStride);
         int rc = -1;
         switch (m.mode) {
         case fastgltf::MeshoptCompressionMode::Attributes:
