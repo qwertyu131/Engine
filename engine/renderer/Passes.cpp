@@ -22,6 +22,24 @@ void copyMat(float* dst, const scene::Mat4& m) {
     std::memcpy(dst, m.m.data(), 64);
 }
 
+// The built-in IBL is a pure function of the constants above: its CPU data (prefiltered specular, irradiance, BRDF
+// LUT) is built once per process and shared by every ModelRenderer (each Renderer / scene used to rebuild it: ~10 s
+// per Debug renderer test case). GPU textures stay per device.
+struct BuiltinIbl {
+    scenes::ibl::Cube specular;
+    scenes::ibl::Cube irradiance;
+    std::vector<float> lut;
+};
+const BuiltinIbl& builtinIbl() {
+    static const BuiltinIbl data = [] {
+        namespace ibl = scenes::ibl;
+        const ibl::Cube env = ibl::environmentCube(kEnvSize);
+        return BuiltinIbl{ibl::prefilterGgx(env, kEnvMips), ibl::irradiance(env, kIrradianceSize),
+                          ibl::brdfLut(kLutSize, kLutSamples)};
+    }();
+    return data;
+}
+
 std::vector<uint16_t> toHalf(std::span<const float> v) {
     std::vector<uint16_t> out(v.size());
     for (size_t i = 0; i < v.size(); ++i) {
@@ -94,10 +112,10 @@ Result<void> ModelRenderer::init(const std::filesystem::path& shaderDir, std::ve
 
 Result<void> ModelRenderer::makeIbl() {
     namespace ibl = scenes::ibl;
-    const ibl::Cube env = ibl::environmentCube(kEnvSize);
-    const ibl::Cube specular = ibl::prefilterGgx(env, kEnvMips);
-    const ibl::Cube irr = ibl::irradiance(env, kIrradianceSize);
-    const std::vector<float> lut = ibl::brdfLut(kLutSize, kLutSamples);
+    const BuiltinIbl& data = builtinIbl();
+    const ibl::Cube& specular = data.specular;
+    const ibl::Cube& irr = data.irradiance;
+    const std::vector<float>& lut = data.lut;
     specularMips_ = kEnvMips;
     const auto cube = [&](const ibl::Cube& c, const char* name) -> Result<TextureHandle> {
         const auto mips = static_cast<uint32_t>(c.levels.size());

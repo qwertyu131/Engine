@@ -22,6 +22,8 @@
 //                        drawn at the displaced place, nothing at the origin;
 //   f03/colorspace/emissive_view  the renderer's slot -> view table (Review Focus 3): an emissive texture sampled
 //                        midway equals the emissiveFactor of its sRGB-decoded midpoint;
+//   f03/colorspace/slot_views  the same for baseColor (sRGB view: texture quad = factor quad) and occlusion (linear
+//                        view: a 2 x 1 texture's midpoint = a 1 x 1 texture of that value);
 //   f03/missing          Review Focus 4: no material (default material), no normals, no tangents with a normal map, no
 //                        UVs with a texture: each drawn; non-finite tangent input: renders with validation 0.
 // Every case ends with finish() (every GPU object released, GPU idle) and validation 0.
@@ -458,6 +460,41 @@ TEST_CASE("Review Focus 3 in the renderer: the emissive texture's view decodes s
     CHECK(std::abs(a[1] - b[1]) <= 3);
     CHECK(std::abs(a[0] - b[0]) <= 3);
     CHECK(std::abs(a[2] - b[2]) <= 3);
+    done(f);
+}
+
+TEST_CASE("Review Focus 3 in the renderer: baseColor is an sRGB view, occlusion a linear view") {
+    // f03/colorspace/slot_views.gltf (scripts/make_f03_assets.py): top row = baseColor factor quad A vs baseColor
+    // texture quad B, bottom row = 1 x 1 occlusion quad C vs 2 x 1 occlusion midpoint quad D; each pair matches only
+    // when GpuModel's slot table gives baseColor an sRGB view and occlusion a linear (UNORM) view. A distant
+    // camera with a narrow field keeps the view vectors of the probes (+-0.6, +-0.6) nearly equal.
+    Fixture f = open(u8(ENG_TEST_ASSET_DIR) / "f03" / "colorspace" / "slot_views.gltf");
+    eng::Camera c;
+    c.position = {0.0f, 0.0f, 40.0f};
+    c.target = {0.0f, 0.0f, 0.0f};
+    c.yfov = 2.0f * std::atan(1.4f / 40.0f);
+    c.znear = 1.0f;
+    c.zfar = 100.0f;
+    f.r->setCamera(c);
+    const eng::Image img = render(f);
+    const M4 vp = viewProj(c, 1.0);
+    const auto probe = [&](double x, double y) {
+        const auto p = project(vp, {x, y, 0.0});
+        return pixel(img, p[0], p[1]);
+    };
+    const auto a = probe(-0.6, 0.6), b = probe(0.6, 0.6), cq = probe(-0.6, -0.6), d = probe(0.6, -0.6);
+    MESSAGE("baseColor factor " << a[0] << "," << a[1] << "," << a[2] << " / texture " << b[0] << "," << b[1] << ","
+                                << b[2]);
+    MESSAGE("occlusion 1 x 1 " << cq[0] << "," << cq[1] << "," << cq[2] << " / 2 x 1 midpoint " << d[0] << ","
+                               << d[1] << "," << d[2]);
+    for (const auto& p : {a, b, cq, d}) {
+        CHECK_FALSE(isBackground(p));
+    }
+    for (int ch = 0; ch < 3; ++ch) {
+        CAPTURE(ch);
+        CHECK(std::abs(a[ch] - b[ch]) <= 3);
+        CHECK(std::abs(cq[ch] - d[ch]) <= 3);
+    }
     done(f);
 }
 

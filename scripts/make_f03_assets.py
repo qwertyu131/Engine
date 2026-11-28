@@ -477,6 +477,62 @@ def fixtures() -> dict[str, bytes]:
             {"bufferView": 3, "byteOffset": 12, "componentType": 5123, "count": 6, "type": "SCALAR"}]}
     files["colorspace/emissive_view.gltf"] = dumps(ev_doc)
 
+    # --- colorspace/slot_views.gltf (Review Focus 3 through the slot -> view table: baseColor sRGB, occlusion linear) ---
+    # Four quads, normal +z, every UV = (0.5, 0.5) (LINEAR, clamp: the 2 x 1 texture's midpoint), metallic 0,
+    # roughness 1:
+    #   top row (y 0.1 .. 1.1): quad A (x -1.1 .. -0.1) baseColorFactor (0, srgbToLinear(188 / 255) / 2, 0) and no
+    #     texture; quad B (x 0.1 .. 1.1) baseColorFactor 1 and the 2 x 1 baseColor texture (0, 0, 0) - (0, 188, 0).
+    #     An sRGB view gives both the same base colour; a linear view makes B brighter.
+    #   bottom row (y -1.1 .. -0.1), white base colour: quad C has the 1 x 1 occlusion texture (94, 94, 94), quad D the
+    #     2 x 1 occlusion texture (0, 0, 0) - (188, 188, 188) sampled midway. Linear views: both 94 / 255 = 188 / 510.
+    #     sRGB views: C srgbToLinear(94 / 255) = 0.112, D srgbToLinear(188 / 255) / 2 = 0.251, so the pair splits.
+    #     (A metallic pair cannot see the swap: with a white base and roughness 1 the diffuse energy metallic removes
+    #     comes back as specular, measured equal to the pixel.)
+    # Same normal, same roughness: the probes at (+-0.6, +-0.6) differ only by the view vector (a distant camera).
+    occ_mid_png = png_bytes(1, 1, bytes([94, 94, 94, 255]))
+    occ_png = png_bytes(2, 1, bytes([0, 0, 0, 255, 188, 188, 188, 255]))
+    sv_quads = [(-1.1, 0.1), (0.1, 0.1), (-1.1, -1.1), (0.1, -1.1)]  # (x0, y0); each quad is 1 x 1
+    sv_pos = [(x0 + dx, y0 + dy, 0.0) for x0, y0 in sv_quads for dx, dy in ((0, 0), (1, 0), (1, 1), (0, 1))]
+    sv_blob = (f32(sv_pos) + f32([(0.0, 0.0, 1.0)] * 16) + f32([(0.5, 0.5)] * 16) +
+               b"".join(struct.pack("<H", i) for i in [0, 1, 2, 0, 2, 3] * 4))
+    sv_acc = []
+    sv_meshes = []
+    for q, (x0, y0) in enumerate(sv_quads):
+        base = len(sv_acc)
+        sv_acc += [
+            {"bufferView": 0, "byteOffset": 48 * q, "componentType": 5126, "count": 4, "type": "VEC3",
+             "min": [x0, y0, 0.0], "max": [round(x0 + 1, 6), round(y0 + 1, 6), 0.0]},
+            {"bufferView": 1, "byteOffset": 48 * q, "componentType": 5126, "count": 4, "type": "VEC3"},
+            {"bufferView": 2, "byteOffset": 32 * q, "componentType": 5126, "count": 4, "type": "VEC2"},
+            {"bufferView": 3, "byteOffset": 12 * q, "componentType": 5123, "count": 6, "type": "SCALAR"}]
+        sv_meshes.append({"primitives": [{"attributes": {"POSITION": base, "NORMAL": base + 1, "TEXCOORD_0": base + 2},
+                                          "indices": base + 3, "material": q}]})
+    white = [1.0, 1.0, 1.0, 1.0]
+    sv_doc = {
+        "asset": {"version": "2.0", "generator": "scripts/make_f03_assets.py"},
+        "scene": 0, "scenes": [{"nodes": [0, 1, 2, 3]}], "nodes": [{"mesh": q} for q in range(4)],
+        "meshes": sv_meshes,
+        "materials": [
+            {"pbrMetallicRoughness": {"baseColorFactor": [0.0, g, 0.0, 1.0], "metallicFactor": 0.0,
+                                      "roughnessFactor": 1.0}},
+            {"pbrMetallicRoughness": {"baseColorFactor": white, "baseColorTexture": {"index": 0},
+                                      "metallicFactor": 0.0, "roughnessFactor": 1.0}},
+            {"occlusionTexture": {"index": 1},
+             "pbrMetallicRoughness": {"baseColorFactor": white, "metallicFactor": 0.0, "roughnessFactor": 1.0}},
+            {"occlusionTexture": {"index": 2},
+             "pbrMetallicRoughness": {"baseColorFactor": white, "metallicFactor": 0.0, "roughnessFactor": 1.0}}],
+        "images": [{"uri": data_uri("image/png", png_2x1)}, {"uri": data_uri("image/png", occ_mid_png)},
+                   {"uri": data_uri("image/png", occ_png)}],
+        "samplers": [{"magFilter": 9729, "minFilter": 9729, "wrapS": 33071, "wrapT": 33071}],
+        "textures": [{"source": 0, "sampler": 0}, {"source": 1, "sampler": 0}, {"source": 2, "sampler": 0}],
+        "buffers": [{"byteLength": len(sv_blob), "uri": data_uri("application/octet-stream", sv_blob)}],
+        "bufferViews": [{"buffer": 0, "byteOffset": 0, "byteLength": 192, "byteStride": 12},
+                        {"buffer": 0, "byteOffset": 192, "byteLength": 192, "byteStride": 12},
+                        {"buffer": 0, "byteOffset": 384, "byteLength": 128, "byteStride": 8},
+                        {"buffer": 0, "byteOffset": 512, "byteLength": 48}],
+        "accessors": sv_acc}
+    files["colorspace/slot_views.gltf"] = dumps(sv_doc)
+
     # --- paths/ (Review Focus 2) ---------------------------------------------------------------------------
     mat = {"pbrMetallicRoughness": {"baseColorTexture": {"index": 0}}}
     same = "çıktı klasörü"
