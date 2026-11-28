@@ -110,12 +110,21 @@ Result<TextureHandle> D3D11Device::createTexture(const TextureDesc& desc, std::s
                                                                  toString(desc.format), desc.width, desc.height)});
         }
     }
+    // A sampled depth texture (plan F3 Task 7: the shadow atlas) is typeless, with a depth view for the attachment and
+    // a float colour view for sampling (D3D11 cannot bind D32_FLOAT / D24S8 as a shader resource).
+    const bool sampledDepth = (desc.format == Format::D32_FLOAT || desc.format == Format::D24_UNORM_S8_UINT) &&
+                              any(desc.usage, TextureUsage::Sampled);
+    if (sampledDepth && (desc.arrayLayers > 1 || desc.mipLevels > 1)) {
+        return std::unexpected(Error{kExitUsage, "d3d11: createTexture: a sampled depth texture must be 2D with one "
+                                                 "layer and one mip"});
+    }
     D3D11_TEXTURE2D_DESC td{};
     td.Width = desc.width;
     td.Height = desc.height;
     td.MipLevels = desc.mipLevels;
     td.ArraySize = desc.arrayLayers;
-    td.Format = t.format;
+    td.Format = !sampledDepth ? t.format
+                : desc.format == Format::D32_FLOAT ? DXGI_FORMAT_R32_TYPELESS : DXGI_FORMAT_R24G8_TYPELESS;
     td.SampleDesc.Count = 1;
     td.Usage = D3D11_USAGE_DEFAULT;
     td.MiscFlags = desc.cube ? D3D11_RESOURCE_MISC_TEXTURECUBE : 0;
@@ -180,12 +189,21 @@ Result<TextureHandle> D3D11Device::createTexture(const TextureDesc& desc, std::s
         }
     }
     if (td.BindFlags & D3D11_BIND_DEPTH_STENCIL) {
-        if (HRESULT hr = device_->CreateDepthStencilView(t.texture.Get(), nullptr, &t.dsv); FAILED(hr)) {
+        D3D11_DEPTH_STENCIL_VIEW_DESC dv{};
+        dv.Format = t.format;
+        dv.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+        if (HRESULT hr = device_->CreateDepthStencilView(t.texture.Get(), sampledDepth ? &dv : nullptr, &t.dsv);
+            FAILED(hr)) {
             return std::unexpected(hrError("CreateDepthStencilView", hr));
         }
     }
     if (td.BindFlags & D3D11_BIND_SHADER_RESOURCE) {
-        if (HRESULT hr = device_->CreateShaderResourceView(t.texture.Get(), nullptr, &t.srv); FAILED(hr)) {
+        D3D11_SHADER_RESOURCE_VIEW_DESC sv{};
+        sv.Format = desc.format == Format::D32_FLOAT ? DXGI_FORMAT_R32_FLOAT : DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+        sv.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+        sv.Texture2D.MipLevels = desc.mipLevels;
+        if (HRESULT hr = device_->CreateShaderResourceView(t.texture.Get(), sampledDepth ? &sv : nullptr, &t.srv);
+            FAILED(hr)) {
             return std::unexpected(hrError("CreateShaderResourceView", hr));
         }
     }

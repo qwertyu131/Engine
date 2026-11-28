@@ -56,3 +56,11 @@ Renderer cvars (`engine/renderer/RenderSettings.h`, registered by `Renderer::cre
 Task 4 `r.Background` / `r.Background.Color`. `r.ReferenceMode=1` forces the `tests/golden/ref/sample-viewer/settings.json`
 values at `CVarSource::Code` (each change logged). The engine-internal `rhi::IDevice` gained
 `readbackSubresource(texture, mip, layer)` (raw texels; not part of the facade).
+
+## F3 (plan F3 Task 7): punctual lights
+
+| Addition | Why |
+|---|---|
+| `Scene.h`: `LightType`, `LightInfo` | a scene's punctual lights as the host sees them (world space) |
+| `lights(SceneHandle)`, `setLightEnabled(SceneHandle, index, bool)` | the viewer's lights panel (list + toggles, plan F3 Task 8) |
+| `addLight(SceneHandle, const LightInfo&)` | lights for an asset without any: the Task 8 bench (Sponza, 1 directional + 8 point lights through `headless --light`) and the viewer |

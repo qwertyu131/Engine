@@ -26,9 +26,15 @@ Render case (rendered by headless, compared against a reference PNG):
                                        #   {"x", "y", "rgba": [r,g,b,a], "tol": int}  |max channel diff| <= tol
                                        #   {"x", "y", "darkerThan": {"x", "y"}, "margin": int}
                                        #        R+G+B at (x, y) + margin <= R+G+B at darkerThan
+                                       #   {"x", "y", "darkerThan": {"x", "y"}, "ratio": number in (0, 1]}
+                                       #        R+G+B at (x, y) <= ratio x R+G+B at darkerThan (plan F3 Task 7:
+                                       #        a shadowed probe >= 40 % darker than a lit one = ratio 0.6)
                                        #   {"x", "y", "channelGreater": [a, b], "margin": int}
                                        #        channel a >= channel b + margin (0 R, 1 G, 2 B)
                                        #   plus free-form "name" / "kind"
+
+Optional top-level "include": [path, ...] (plan F3 Task 7): manifests whose cases are appended, paths and their
+"ref" values relative to the including / included file; case names stay unique across all of them.
 
 Compare case (no render: one case's output against another's, e.g. Vulkan vs D3D11):
     "name": str, "test": <render case name>, "compareWith": <render case name>,
@@ -51,6 +57,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import struct
@@ -106,6 +113,11 @@ def _check_probe(name: str, i: int, p, w: int, h: int) -> None:
         if not isinstance(o, dict) or not _int(o.get("x")) or not _int(o.get("y")) or \
                 not (0 <= o["x"] < w and 0 <= o["y"] < h):
             raise DriverError(f"{where}: 'darkerThan' must be {{x, y}} inside the image")
+        if "ratio" in p:
+            r = p["ratio"]
+            if not isinstance(r, (int, float)) or isinstance(r, bool) or not (0.0 < r <= 1.0) or "margin" in p:
+                raise DriverError(f"{where}: 'ratio' must be a number in (0, 1] (and no 'margin' with it)")
+            return
         if not _int(p.get("margin")) or p["margin"] < 0:
             raise DriverError(f"{where}: 'margin' must be an integer >= 0")
         return
@@ -123,13 +135,29 @@ def _check_probe(name: str, i: int, p, w: int, h: int) -> None:
         raise DriverError(f"{where}: 'tol' must be an integer >= 0")
 
 
-def load_manifest(path: Path) -> dict:
+def _read_manifest(path: Path) -> dict:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
         raise DriverError(f"cannot read manifest '{path}': {e}") from e
     if not isinstance(data, dict) or not isinstance(data.get("phase"), str) or not isinstance(data.get("cases"), list):
-        raise DriverError("manifest must be an object with string 'phase' and array 'cases'")
+        raise DriverError(f"manifest '{path}' must be an object with string 'phase' and array 'cases'")
+    return data
+
+
+def load_manifest(path: Path) -> dict:
+    data = _read_manifest(path)
+    includes = data.get("include", [])
+    if not isinstance(includes, list) or not all(isinstance(i, str) for i in includes):
+        raise DriverError("'include' must be a list of manifest paths")
+    for inc in includes:
+        ipath = (path.parent / inc).resolve()
+        sub = _read_manifest(ipath)
+        for c in sub["cases"]:
+            if isinstance(c, dict) and isinstance(c.get("ref"), str):
+                c = dict(c)
+                c["ref"] = os.path.relpath(ipath.parent / c["ref"], path.parent.resolve()).replace("\\", "/")
+            data["cases"].append(c)
     seen = set()
     renders = set()
     compares = []
@@ -304,7 +332,10 @@ def check_probes(w: int, h: int, px: bytes, probes: list[dict]) -> list[dict]:
         if "darkerThan" in p:
             other = at(p["darkerThan"]["x"], p["darkerThan"]["y"])
             r["gotOther"] = other
-            r["pass"] = got is not None and other is not None and sum(got[:3]) + p["margin"] <= sum(other[:3])
+            if "ratio" in p:
+                r["pass"] = got is not None and other is not None and sum(got[:3]) <= p["ratio"] * sum(other[:3])
+            else:
+                r["pass"] = got is not None and other is not None and sum(got[:3]) + p["margin"] <= sum(other[:3])
         elif "channelGreater" in p:
             a, b = p["channelGreater"]
             r["pass"] = got is not None and got[a] >= got[b] + p["margin"]

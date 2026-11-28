@@ -22,6 +22,23 @@ void D3D11CommandList::barrier(std::span<const TextureBarrier>) {}
 void D3D11CommandList::beginRenderPass(const RenderPassDesc& desc) {
     ENG_ASSERT_MSG(!inRenderPass_, "beginRenderPass inside a render pass");
     ID3D11DeviceContext1* ctx = dev_.context();
+    // A texture that is both an attachment and sampled (plan F3 Task 7: the shadow atlas, rendered as depth every frame
+    // and read by the lit pass) may still be bound as a shader resource from an earlier pass; D3D11 would unbind it with
+    // a debug-layer warning. Every VS / PS shader-resource slot is cleared first (bind groups are set again per pass).
+    bool attachmentSampled = false;
+    for (const ColorAttachment& c : desc.colors) {
+        const Texture* t = dev_.textures().get(c.texture.id);
+        attachmentSampled = attachmentSampled || (t && t->srv);
+    }
+    if (desc.depth.texture) {
+        const Texture* t = dev_.textures().get(desc.depth.texture.id);
+        attachmentSampled = attachmentSampled || (t && t->srv);
+    }
+    if (attachmentSampled) {
+        ID3D11ShaderResourceView* none[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT] = {};
+        ctx->VSSetShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, none);
+        ctx->PSSetShaderResources(0, D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, none);
+    }
     std::vector<ID3D11RenderTargetView*> rtvs;
     for (const ColorAttachment& c : desc.colors) {
         Texture* t = dev_.textures().get(c.texture.id);

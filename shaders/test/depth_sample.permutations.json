@@ -1,0 +1,15 @@
+{
+  "comment": "Sampled depth texture test shader (plan F3 Task 7, tests/unit/rhi/test_depth_sample.cpp): a depth-only pass with a void pixel stage, then a colour pass that Loads the depth texture. No permutation axes: key 'default'; dxbc tier0Variant: also SM 4.0 under 'default-t0' for D3D11 FL10_x (T0).",
+  "source": "shaders/test/depth_sample.hlsl",
+  "entries": [
+    { "entry": "VSDepth", "stage": "vs" },
+    { "entry": "PSDepth", "stage": "fs" },
+    { "entry": "VSMain", "stage": "vs" },
+    { "entry": "PSMain", "stage": "fs" }
+  ],
+  "axes": {},
+  "targets": {
+    "spirv": { "backend": "Vulkan" },
+    "dxbc":  { "backend": "D3D11", "tier0Variant": true }
+  }
+}

@@ -5,7 +5,11 @@
 //   2. environment background (r.Background=Environment): Skybox.h, shaders/ibl/background.hlsl, depth test off;
 //   3. opaque + mask front-to-back (MASK discards below alphaCutoff in pbr.hlsl);
 //   4. blend back-to-front (standard alpha blending, depth test, no depth write).
-// The tonemap runs in the fragment shaders (shaders/post/tonemap.hlsl). Shadows (normal mode) are Task 7.
+// The tonemap runs in the fragment shaders (shaders/post/tonemap.hlsl).
+// Punctual lights and shadows (plan F3 Task 7, Lights.h / Shadows.h): before the render pass, a depth-only pass renders
+// the casters (OPAQUE + MASK triangles; BLEND casts none) of every shadow tile into the D32 shadow atlas
+// (shaders/shadow/shadow.hlsl, cull none, frustum-culled per tile); the lit pass binds space1 = the object's light list
+// (cbuffer Lights, one per distinct per-object selection), the tiles (cbuffer Shadows) and the atlas.
 // IBL (Ibl.h): the environment of EnvironmentDesc: an .hdr filtered as Sample-Renderer's iblSampler (GPU passes on
 // T1 / T2, the CPU twin at T0), or "builtin", the deterministic CPU gradient of builtin:pbr-spheres (builtin/Ibl.h:
 // 32 x 32 sky / ground cube, GGX prefilter, Lambertian irradiance, GGX BRDF LUT).
@@ -18,6 +22,9 @@
 #include "DrawList.h"
 #include "GpuModel.h"
 #include "Ibl.h"
+#include "Lights.h"
+#include "RenderSettings.h"
+#include "Shadows.h"
 #include "Skybox.h"
 #include "scene/Scene.h"
 
@@ -43,6 +50,8 @@ struct FrameParams {
     float rotationDeg = 0.0f;      // r.IBL.Rotation (about +Y, gl-matrix rotateY)
     float backgroundBlur = 0.0f;   // r.Background.Blur (u_EnvBlurNormalized)
     uint32_t tonemap = 0;          // TonemapOp
+    float znear = 0.01f, zfar = 100.0f; // the camera's planes (cascade splits)
+    LightingSettings lighting;     // effectiveLighting() of this frame (punctual lights / shadows)
 };
 
 // The IBL environment of a scene: "builtin" or an .hdr file, filtered with `params`.
@@ -69,6 +78,10 @@ public:
     const EnvironmentDesc& environment() const { return environment_; }
     // Records the scene into `color` (state RenderTarget on entry and exit; size = the last resize).
     Result<void> record(rhi::ICommandList& cmd, rhi::TextureHandle color, const FrameParams& frame);
+    // The scene's punctual lights (Lights.h): the asset's, then added ones; the facade toggles / appends them.
+    std::vector<SceneLight>& lights() { return lights_; }
+    // Shadow tiles drawn by the last record() (0 without shadows).
+    uint32_t lastShadowTiles() const { return lastShadowTiles_; }
 
 private:
     using Resource = std::variant<rhi::BufferBinding, rhi::TextureHandle, rhi::SamplerHandle>;
@@ -92,8 +105,16 @@ private:
     Result<const Permutation*> permutation(bool skin, bool morph);
     Result<const Pipeline*> pipeline(const DrawItem& item);
     Result<rhi::BindGroupHandle> group(const Pipeline& p, uint32_t space, const std::map<std::string, Resource>& res);
-    Result<rhi::BindGroupHandle> materialGroup(const Pipeline& p, const DrawItem& item, bool skin, bool morph);
-    Result<rhi::BindGroupHandle> drawGroup(const Pipeline& p, const DrawItem& item, bool skin, bool morph);
+    using MaterialGroups = std::map<std::tuple<int, bool, bool>, rhi::BindGroupHandle>;
+    using DrawGroups = std::map<std::tuple<uint32_t, uint32_t, bool, bool>, rhi::BindGroupHandle>;
+    Result<rhi::BindGroupHandle> materialGroup(const Pipeline& p, const DrawItem& item, MaterialGroups& cache);
+    Result<rhi::BindGroupHandle> drawGroup(const Pipeline& p, const DrawItem& item, DrawGroups& cache);
+    rhi::VertexLayout vertexLayout(const DrawItem& item) const;
+    Result<const Permutation*> shadowPermutation(bool skin, bool morph);
+    Result<const Pipeline*> shadowPipeline(const DrawItem& item);
+    // Depth-only pass of `plan` into the atlas (outside the lit render pass); the atlas ends in ShaderRead.
+    Result<void> recordShadows(rhi::ICommandList& cmd, const ShadowPlan& plan, const DrawLists& lists,
+                               std::vector<rhi::BindGroupHandle>& transient);
     template <class H>
     H keep(H h) {
         owned_.push_back(h);
@@ -120,8 +141,26 @@ private:
         rhi::BufferHandle object, joints, morphWeights;
     };
     std::map<std::pair<uint32_t, uint32_t>, DrawResources> drawRes_;
-    std::map<std::tuple<int, bool, bool>, rhi::BindGroupHandle> materialGroups_;
-    std::map<std::tuple<uint32_t, uint32_t, bool, bool>, rhi::BindGroupHandle> drawGroups_;
+    MaterialGroups materialGroups_;
+    DrawGroups drawGroups_;
+    // Punctual lights and shadows (plan F3 Task 7).
+    std::vector<SceneLight> lights_;
+    uint32_t tierMaxLights_ = kMaxLightsT12;
+    std::map<std::pair<uint32_t, uint32_t>, std::pair<scene::Vec3, float>> drawSpheres_; // world bounding spheres
+    ShadowSceneBounds sceneBounds_;
+    std::map<std::pair<bool, bool>, Permutation> shadowPermutations_;
+    using ShadowPipelineKey = std::tuple<bool, bool, rhi::PrimitiveTopology>;
+    std::map<ShadowPipelineKey, Pipeline> shadowPipelines_;
+    MaterialGroups shadowMaterialGroups_;
+    DrawGroups shadowDrawGroups_;
+    rhi::TextureHandle atlas_;
+    uint32_t atlasSize_ = 0;
+    rhi::ResourceState atlasState_ = rhi::ResourceState::Undefined;
+    rhi::TextureHandle noShadowTexture_; // 1 x 1 white, bound when no tile is drawn
+    rhi::SamplerHandle shadowSampler_;   // nearest, clamp
+    uint32_t lastShadowTiles_ = 0;
+    bool truncatedWarned_ = false;
+    bool maxLightsWarned_ = false;
     rhi::TextureHandle depth_;
     rhi::ResourceState depthState_ = rhi::ResourceState::Undefined;
     uint32_t width_ = 0, height_ = 0;

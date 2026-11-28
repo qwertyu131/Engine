@@ -12,6 +12,8 @@ Layout:
     limits/    files within the structural checks but over a decode limit: they load with a warning.
     alpha/     MASK and BLEND quads over the bare background (Task 4 facade probes).
     rest/      a quad displaced +2 in x by a skin or by a morph target at rest pose (Task 4 facade probes).
+    lights/    a wall + box lit by one KHR_lights_punctual light (directional / spot / point) whose shadow falls on
+               the wall at a known place (Task 7 normal-mode goldens and facade tests).
     paths/     .gltf files with external .bin / .png in the same and in a sibling directory, non-ASCII names
                with spaces, URI-encoded (%20, UTF-8 percent escapes) (Review Focus 2).
 
@@ -690,6 +692,100 @@ def fixtures() -> dict[str, bytes]:
         "accessors": [{"bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3",
                        "min": [0.0, 0.0, 0.0], "max": [0.0, 0.0, 0.0]},
                       {"bufferView": 1, "componentType": 5123, "count": 3, "type": "SCALAR"}]})
+    # --- lights/ (plan F3 Task 7): one punctual light, a box casting its shadow onto a wall ---------------------------
+    # Wall: x, y in [-2, 2] at z = 0, facing +Z (towards the fit camera at (0, 0, 6.83)); box: x, y in [-0.3, 0.3],
+    # z in [0.5, 1.1]. Both white-ish dielectrics (roughness 1). The light comes from -x / +z so the box's shadow falls
+    # on the wall to the right of the box, around (0.75, 0, 0), while (-0.75, 0, 0) is lit (mirror point; same normal
+    # and, for the directional light, the same NdotL). tests/golden/f03/lights_cases.json probes those two points.
+    #   directional: node rotation about Y by -35 deg: light direction (-Z rotated) = (sin 35, 0, -cos 35) =
+    #                (0.574, 0, -0.819); the box's shadow spans x in [0.35 - 0.3, 0.9 + 0.3] on the wall.
+    #   spot / point: position (-1.2, 0, 3); the spot points at the origin (rotation about Y by -atan(1.2 / 3) =
+    #                -21.8 deg), outer cone 0.6 rad, inner 0.4; the ray to (0.75, 0, 0) crosses the box at z ~ 0.9,
+    #                the ray to (-0.75, 0, 0) misses it (x ~ -0.9 at the box's depth).
+    def box_mesh(lo, hi):
+        """24 vertices (4 per face, outward normals), 36 uint16 indices, counter-clockwise from outside."""
+        pos, nrm, idx = [], [], []
+        faces = [((1, 0, 0), 0), ((-1, 0, 0), 0), ((0, 1, 0), 1), ((0, -1, 0), 1), ((0, 0, 1), 2), ((0, 0, -1), 2)]
+        for n, axis in faces:
+            u_axis = (axis + 1) % 3
+            v_axis = (axis + 2) % 3
+            sign = sum(n)
+            corners = []
+            for (a, b) in ((0, 0), (1, 0), (1, 1), (0, 1)):
+                c = [0.0, 0.0, 0.0]
+                c[axis] = hi[axis] if sign > 0 else lo[axis]
+                c[u_axis] = hi[u_axis] if a else lo[u_axis]
+                c[v_axis] = hi[v_axis] if b else lo[v_axis]
+                corners.append(tuple(c))
+            base = len(pos)
+            pos += corners
+            nrm += [tuple(float(x) for x in n)] * 4
+            # (u, v, n) is right-handed for +axis faces: corners 0 1 2 3 are counter-clockwise seen from outside;
+            # the -axis faces are mirrored, so their winding is reversed.
+            if sign > 0:
+                idx += [base, base + 1, base + 2, base, base + 2, base + 3]
+            else:
+                idx += [base, base + 2, base + 1, base, base + 3, base + 2]
+        return pos, nrm, idx
+
+    def lights_doc(light: dict, light_node: dict) -> bytes:
+        wall_pos = [(-2.0, -2.0, 0.0), (2.0, -2.0, 0.0), (2.0, 2.0, 0.0), (-2.0, 2.0, 0.0)]
+        wall_nrm = [(0.0, 0.0, 1.0)] * 4
+        wall_idx = [0, 1, 2, 0, 2, 3]
+        box_pos, box_nrm, box_idx = box_mesh((-0.3, -0.3, 0.5), (0.3, 0.3, 1.1))
+        chunks, views, accs = [], [], []
+
+        def add(data: bytes, acc: dict):
+            off = sum(len(c) for c in chunks)
+            chunks.append(data + b"\0" * ((4 - len(data) % 4) % 4))
+            views.append({"buffer": 0, "byteOffset": off, "byteLength": len(data)})
+            acc = dict(acc)
+            acc["bufferView"] = len(views) - 1
+            accs.append(acc)
+            return len(accs) - 1
+
+        def prim(p, n, i, material):
+            lo = [min(v[k] for v in p) for k in range(3)]
+            hi = [max(v[k] for v in p) for k in range(3)]
+            a_p = add(f32(p), {"componentType": 5126, "count": len(p), "type": "VEC3", "min": lo, "max": hi})
+            a_n = add(f32(n), {"componentType": 5126, "count": len(n), "type": "VEC3"})
+            a_i = add(b"".join(struct.pack("<H", x) for x in i), {"componentType": 5123, "count": len(i),
+                                                                   "type": "SCALAR"})
+            return {"attributes": {"POSITION": a_p, "NORMAL": a_n}, "indices": a_i, "material": material}
+
+        meshes = [{"name": "wall", "primitives": [prim(wall_pos, wall_nrm, wall_idx, 0)]},
+                  {"name": "box", "primitives": [prim(box_pos, box_nrm, box_idx, 1)]}]
+        data = b"".join(chunks)
+        node = {"name": "light", "extensions": {"KHR_lights_punctual": {"light": 0}}}
+        node.update(light_node)
+        doc = {"asset": {"version": "2.0", "generator": "scripts/make_f03_assets.py"},
+               "extensionsUsed": ["KHR_lights_punctual"], "scene": 0,
+               "scenes": [{"nodes": [0, 1, 2]}],
+               "nodes": [{"name": "wall", "mesh": 0}, {"name": "box", "mesh": 1}, node],
+               "meshes": meshes,
+               "materials": [{"name": "wall", "pbrMetallicRoughness": {"baseColorFactor": [0.8, 0.8, 0.8, 1.0],
+                                                                       "metallicFactor": 0.0, "roughnessFactor": 1.0}},
+                             {"name": "box", "pbrMetallicRoughness": {"baseColorFactor": [0.8, 0.3, 0.2, 1.0],
+                                                                      "metallicFactor": 0.0, "roughnessFactor": 0.6}}],
+               "extensions": {"KHR_lights_punctual": {"lights": [light]}},
+               "buffers": [{"byteLength": len(data), "uri": data_uri("application/octet-stream", data)}],
+               "bufferViews": views, "accessors": accs}
+        return dumps(doc)
+
+    import math
+    dir_rot = [0.0, math.sin(math.radians(-35.0) / 2), 0.0, math.cos(math.radians(-35.0) / 2)]
+    spot_angle = -math.atan2(1.2, 3.0)
+    spot_rot = [0.0, math.sin(spot_angle / 2), 0.0, math.cos(spot_angle / 2)]
+    files["lights/directional.gltf"] = lights_doc(
+        {"name": "sun", "type": "directional", "color": [1.0, 0.95, 0.9], "intensity": 4.0}, {"rotation": dir_rot})
+    files["lights/spot.gltf"] = lights_doc(
+        {"name": "spot", "type": "spot", "color": [1.0, 1.0, 1.0], "intensity": 40.0,
+         "spot": {"innerConeAngle": 0.4, "outerConeAngle": 0.6}},
+        {"translation": [-1.2, 0.0, 3.0], "rotation": spot_rot})
+    files["lights/point.gltf"] = lights_doc(
+        {"name": "bulb", "type": "point", "color": [1.0, 1.0, 1.0], "intensity": 40.0},
+        {"translation": [-1.2, 0.0, 3.0]})
+
     files["degenerate/empty_scene.gltf"] = dumps({
         "asset": {"version": "2.0", "generator": "scripts/make_f03_assets.py"},
         "scene": 0, "scenes": [{"name": "empty"}]})

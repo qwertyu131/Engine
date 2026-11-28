@@ -1,5 +1,8 @@
 {
   "phase": "f03",
+  "include": [
+    "lights_cases.json"
+  ],
   "comment": "Plan F3 Task 5: reference mode (r.ReferenceMode=1, spec K-B) vs the committed glTF-Sample-Viewer references tests/golden/ref/sample-viewer/<asset>.png (tools/refgen, settings.json). Scene = the file refgen rendered (settings.json models[].variant / file). pngChannels 3: the references are RGB (refgen; the Sample-Viewer canvas has alpha: false). Thresholds: plan F3 Task 5 gate mean FLIP <= 0.05; a case may only be lowered below that gate with a reason naming the formula difference found, never above 0.10 without a BLOCKED worklist entry.",
   "cases": [
     {

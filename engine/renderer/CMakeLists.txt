@@ -18,6 +18,10 @@ add_library(engine_renderer STATIC
     Tonemap.cpp
     RenderSettings.h
     RenderSettings.cpp
+    Lights.h
+    Lights.cpp
+    Shadows.h
+    Shadows.cpp
     builtin/Scenes.h
     builtin/Scenes.cpp
     builtin/SceneUtil.h
@@ -26,6 +30,11 @@ add_library(engine_renderer STATIC
     builtin/Ibl.cpp
     builtin/PbrSpheresScene.cpp)
 add_library(engine::renderer ALIAS engine_renderer)
+# Config/DefaultScalability.ini (sg.* table, plan F3 Task 7) embedded as a string: no run-time file lookup.
+file(READ "${PROJECT_SOURCE_DIR}/Config/DefaultScalability.ini" ENG_SCALABILITY_INI)
+configure_file(ScalabilityIni.h.in "${CMAKE_CURRENT_BINARY_DIR}/generated/ScalabilityIni.h" @ONLY)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/Config/DefaultScalability.ini")
+target_include_directories(engine_renderer PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_compile_features(engine_renderer PUBLIC cxx_std_23)
 target_include_directories(engine_renderer PUBLIC "${PROJECT_SOURCE_DIR}/engine")
 # golden_core: PNG loading of builtin:textured-cube's atlas (as in F2).

@@ -11,6 +11,8 @@
     "shaders/ibl/prefilter_ggx.permutations.json",
     "shaders/ibl/prefilter_lambert.permutations.json",
     "shaders/ibl/brdf_lut.permutations.json",
-    "shaders/ibl/background.permutations.json"
+    "shaders/ibl/background.permutations.json",
+    "shaders/test/depth_sample.permutations.json",
+    "shaders/shadow/permutations.json"
   ]
 }

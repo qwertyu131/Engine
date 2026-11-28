@@ -156,4 +156,16 @@ inline Mat4 perspectiveRhZo(float fovY, float aspect, float zNear, float zFar) {
     return x;
 }
 
+// Right-handed orthographic projection of the view-space box [l, r] x [b, t] x [-zFar, -zNear], clip Z in [0, 1].
+inline Mat4 orthoRhZo(float l, float r, float b, float t, float zNear, float zFar) {
+    Mat4 x;
+    x.at(0, 0) = 2.0f / (r - l);
+    x.at(1, 1) = 2.0f / (t - b);
+    x.at(2, 2) = 1.0f / (zNear - zFar);
+    x.at(0, 3) = -(r + l) / (r - l);
+    x.at(1, 3) = -(t + b) / (t - b);
+    x.at(2, 3) = zNear / (zNear - zFar);
+    return x;
+}
+
 } // namespace eng::scene

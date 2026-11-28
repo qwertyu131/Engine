@@ -8,6 +8,7 @@
 
 #include "Ibl.h"
 #include "SceneUtil.h"
+#include "../Lights.h"
 
 #include <algorithm>
 #include <cmath>
@@ -26,6 +27,10 @@ namespace {
 
 using namespace rhi;
 using namespace detail;
+using renderer::kMaxLightsT0;
+using renderer::kMaxLightsT12;
+using renderer::lightsCBSize;
+using renderer::ShadowsCB;
 
 // --- scene constants (must equal scripts/f02_pbr_model.py) -------------------------------------
 constexpr float kEyeZ = 12.0f;
@@ -341,6 +346,9 @@ public:
             }
             cmd.setVertexBuffer(0, vb_, 0);
             cmd.setIndexBuffer(ib_, IndexType::Uint16, 0);
+            if (!unlit && lightsGroup_) {
+                cmd.setBindGroup(1, lightsGroup_);
+            }
             for (const Sphere& s : spheres_) {
                 if (s.unlit != unlit) {
                     continue;
@@ -593,6 +601,38 @@ private:
                     return std::unexpected(mg.error());
                 }
                 auto og = makeGroup(dev_, pi, 3, {{"Object", *ob}});
+                if (!unlit && !lightsGroup_) {
+                    // space1 of the lit permutation (plan F3 Task 7): no punctual light, no shadow tile (the F2
+                    // golden scene is IBL-only; an empty light list leaves the shading bit-identical).
+                    const bool t0 = dev_.caps().backend != Backend::Vulkan && dev_.caps().tier == 0;
+                    const size_t lightsBytes = lightsCBSize(t0 ? kMaxLightsT0 : kMaxLightsT12);
+                    std::vector<std::byte> zeros(std::max(lightsBytes, sizeof(ShadowsCB)));
+                    auto lb = makeUniform(zeros.data(), lightsBytes, "pbr-spheres lights (none)");
+                    if (!lb) {
+                        return std::unexpected(lb.error());
+                    }
+                    auto sb = makeUniform(zeros.data(), sizeof(ShadowsCB), "pbr-spheres shadows (none)");
+                    if (!sb) {
+                        return std::unexpected(sb.error());
+                    }
+                    SamplerDesc nd;
+                    nd.minFilter = nd.magFilter = nd.mipFilter = Filter::Nearest;
+                    nd.addressU = nd.addressV = nd.addressW = AddressMode::ClampToEdge;
+                    auto nearest = dev_.createSampler(nd);
+                    if (!nearest) {
+                        return std::unexpected(nearest.error());
+                    }
+                    own_.keep(*nearest);
+                    auto lg = makeGroup(dev_, pi, 1,
+                                        {{"Lights", *lb}, {"Shadows", *sb}, {"shadowAtlas", *whiteTex},
+                                         {"shadowSampler", *nearest}});
+                    if (!lg) {
+                        return std::unexpected(lg.error());
+                    }
+                    if (*lg) {
+                        lightsGroup_ = own_.keep(*lg);
+                    }
+                }
                 if (!og) {
                     return std::unexpected(og.error());
                 }
@@ -615,6 +655,7 @@ private:
     BufferHandle vb_, ib_;
     uint32_t indexCount_ = 0;
     std::vector<Sphere> spheres_;
+    BindGroupHandle lightsGroup_; // space1 of the lit pipeline: no lights (plan F3 Task 7)
     TextureHandle depth_;
     ResourceState depthState_ = ResourceState::Undefined;
 };

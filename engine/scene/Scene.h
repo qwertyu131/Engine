@@ -37,10 +37,20 @@ struct DrawNode {
     std::vector<float> morphWeights; // one per morph target of the mesh (zeros when the file has none)
 };
 
+// A KHR_lights_punctual light placed by a node of the scene (plan F3 Task 7), world matrix at t = 0.
+struct LightNode {
+    int node = -1;
+    int light = -1; // index into ModelData::lights
+    Mat4 world;
+};
+
 struct SceneInstance {
     int sceneIndex = 0;
     std::vector<Mat4> world;     // every node of the model at t = 0 (nodes outside the scene: their own hierarchy)
     std::vector<DrawNode> draws; // mesh nodes of the scene, in depth-first scene order
+    // Light nodes of the scene in glTF-Sample-Renderer renderer.js getVisibleLights order: for each node of a list,
+    // the lights of its children (recursively) first, then its own (post-order).
+    std::vector<LightNode> lights;
     Vec3 extentMin{0, 0, 0}, extentMax{0, 0, 0};
     bool extentsValid = false; // false: no mesh with POSITION bounds (empty scene)
 };

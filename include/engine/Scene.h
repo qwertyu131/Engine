@@ -17,6 +17,25 @@ struct AssetInfo {
     std::vector<std::string> messages;       // loader / upload diagnostics: "[info] ..." / "[warning] ..."
 };
 
+// A punctual light of a scene (plan F3 Task 7): a KHR_lights_punctual light of the asset (in the scene's node
+// hierarchy, world space at t = 0) or one added by the host (Renderer::addLight). Units as KHR_lights_punctual:
+// intensity in lux (directional) or candela (point / spot), range 0 = infinite, cone angles in radians.
+enum class LightType : uint8_t { Directional, Point, Spot };
+
+struct LightInfo {
+    std::string name;
+    LightType type = LightType::Point;
+    std::array<float, 3> color{1.0f, 1.0f, 1.0f}; // linear
+    float intensity = 1.0f;
+    float range = 0.0f;
+    float innerConeAngle = 0.0f;
+    float outerConeAngle = 0.785398163f;          // pi / 4
+    std::array<float, 3> position{0.0f, 0.0f, 0.0f};
+    std::array<float, 3> direction{0.0f, 0.0f, -1.0f}; // the way the light points (the node's -Z), normalized
+    bool enabled = true;
+    bool fromAsset = true; // false: added with Renderer::addLight (ignored by addLight)
+};
+
 struct SceneInfo {
     uint32_t drawCount = 0;    // node-primitive draws
     bool extentsValid = false; // false: nothing with bounds (empty scene)

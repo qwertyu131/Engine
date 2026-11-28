@@ -2,6 +2,11 @@
 //
 //   node tools/refgen/render.mjs --models DamagedHelmet,MetalRoughSpheres --out tests/golden/ref/sample-viewer
 //   node tools/refgen/render.mjs --models all --out <dir> --width 512 --height 512
+//   node tools/refgen/render.mjs --models LightsPunctualLamp --out tests/golden/ref/sample-viewer-punctual --use-punctual
+//
+// --use-punctual (plan F3 Task 7) renders with KHR_lights_punctual on (Sample-Viewer's own default; RENDER_SETTINGS
+// keeps it off). Write those references into their own directory: its settings.json then records usePunctual: true,
+// and the punctual-off references and their settings.json are left alone.
 //
 // Drives the official Khronos glTF sample renderer (npm @khronosgroup/gltf-viewer, pinned in
 // package-lock.json) inside the installed Firefox (Puppeteer, WebDriver BiDi; no browser download).
@@ -328,6 +333,10 @@ async function main() {
 
   await ensurePinnedFiles();
   const settings = { ...RENDER_SETTINGS, width: args.width, height: args.height };
+  if (args.usePunctual) {
+    settings.usePunctual = true;
+    settings.usePunctualNote = 'refgen --use-punctual (plan F3 Task 7): KHR_lights_punctual on, every light of the scene (renderer.js getVisibleLights), Sample-Viewer has no shadows';
+  }
   const server = await startServer(settings);
   const baseUrl = `http://127.0.0.1:${server.address().port}/`;
   const outDir = path.resolve(args.out);

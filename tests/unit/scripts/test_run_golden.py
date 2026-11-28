@@ -359,6 +359,72 @@ class F03ReferenceCasesTest(unittest.TestCase):
             self.assertEqual(hashlib.sha256(png.read_bytes()).hexdigest(), models[asset]["pngSha256"], asset)
 
 
+class LightsTest(unittest.TestCase):
+    """Plan F3 Task 7: ratio probes, manifest "include" (tests/golden/f03/lights_cases.json runs under --phase f03)."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="eng-rg-"))
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_darker_than_ratio_probe(self):
+        # (0, 0) = (0, 0, 200) sum 200; (3, 3) = (30, 30, 200) sum 260: 200 <= 0.8 * 260 = 208, not <= 0.7 * 260
+        px = bytearray()
+        for y in range(4):
+            for x in range(4):
+                px += bytes((10 * x, 10 * y, 200, 255))
+        res = rg.check_probes(4, 4, bytes(px), [
+            {"x": 0, "y": 0, "darkerThan": {"x": 3, "y": 3}, "ratio": 0.8},
+            {"x": 0, "y": 0, "darkerThan": {"x": 3, "y": 3}, "ratio": 0.7}])
+        self.assertEqual([r["pass"] for r in res], [True, False])
+
+    def test_ratio_probe_schema(self):
+        rg.load_manifest(write_cases(self.tmp, [render_case(probes=[
+            {"x": 1, "y": 2, "darkerThan": {"x": 3, "y": 3}, "ratio": 0.6}])]))
+        for bad in (0.0, 1.5, "x"):
+            with self.assertRaisesRegex(rg.DriverError, "ratio"):
+                rg.load_manifest(write_cases(self.tmp, [render_case(probes=[
+                    {"x": 1, "y": 2, "darkerThan": {"x": 3, "y": 3}, "ratio": bad}])]))
+
+    def test_include_merges_cases_with_refs_relative_to_the_included_file(self):
+        sub = self.tmp / "more"
+        sub.mkdir()
+        (sub / "extra.json").write_text(json.dumps({"phase": "fx", "cases": [render_case("b", ref="r/b.png")]}),
+                                        encoding="utf-8")
+        p = self.tmp / "cases.json"
+        p.write_text(json.dumps({"phase": "fx", "include": ["more/extra.json"], "cases": [render_case("a")]}),
+                     encoding="utf-8")
+        m = rg.load_manifest(p)
+        self.assertEqual([c["name"] for c in m["cases"]], ["a", "b"])
+        self.assertEqual((p.parent / m["cases"][1]["ref"]).resolve(), (sub / "r" / "b.png").resolve())
+        # duplicate names across files are refused
+        (sub / "extra.json").write_text(json.dumps({"phase": "fx", "cases": [render_case("a")]}), encoding="utf-8")
+        with self.assertRaisesRegex(rg.DriverError, "duplicate case name"):
+            rg.load_manifest(p)
+        # a missing include is an error
+        p.write_text(json.dumps({"phase": "fx", "include": ["nope.json"], "cases": []}), encoding="utf-8")
+        with self.assertRaisesRegex(rg.DriverError, "nope.json"):
+            rg.load_manifest(p)
+
+    def test_f03_includes_the_lights_cases(self):
+        m = rg.load_manifest(REPO / "tests" / "golden" / "f03" / "cases.json")
+        names = {c["name"] for c in m["cases"]}
+        for b in ("vulkan", "d3d11"):
+            self.assertIn(f"lights.LightsPunctualLamp.punctual.{b}", names)
+            self.assertIn(f"lights.DirectionalLight.punctual.{b}", names)
+            for kind in ("directional", "spot", "point"):
+                self.assertIn(f"lights.{kind}.shadow.{b}", names)
+        for c in m["cases"]:
+            if c["name"].startswith("lights.") and ".punctual." in c["name"]:
+                self.assertIn("r.ReferenceMode=1", c["cvars"])
+                self.assertIn("r.ReferenceMode.Punctual=1", c["cvars"])
+                self.assertTrue(c["ref"].startswith("../ref/sample-viewer-punctual/"), c["ref"])
+            if ".shadow." in c["name"] and "compareWith" not in c:
+                ratio = [p for p in c["probes"] if "ratio" in p]
+                self.assertTrue(ratio and all(p["ratio"] <= 0.6 for p in ratio), c["name"])  # >= 40 % darker
+
+
 class PbrModelTest(unittest.TestCase):
     def test_unlit_colours_are_tonemap_identities(self):
         for c in model.UNLIT_COLORS:

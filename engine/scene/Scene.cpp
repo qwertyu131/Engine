@@ -339,6 +339,32 @@ Result<SceneInstance> instantiate(const asset::ModelData& model, int sceneIndex)
         }
         s.draws.push_back(std::move(d));
     }
+    // Lights (renderer.js getVisibleLights, iterative post-order: a deep hierarchy must not overflow the stack).
+    {
+        struct Item {
+            int node;
+            bool expanded;
+        };
+        std::vector<Item> work;
+        for (auto it = model.scenes[idx].nodes.rbegin(); it != model.scenes[idx].nodes.rend(); ++it) {
+            work.push_back({*it, false});
+        }
+        while (!work.empty()) {
+            const Item item = work.back();
+            work.pop_back();
+            const asset::Node& node = posed[item.node];
+            if (!item.expanded) {
+                work.push_back({item.node, true}); // its own light after every child's
+                for (auto it = node.children.rbegin(); it != node.children.rend(); ++it) {
+                    work.push_back({*it, false});
+                }
+                continue;
+            }
+            if (node.light >= 0 && static_cast<size_t>(node.light) < model.lights.size()) {
+                s.lights.push_back({item.node, node.light, s.world[item.node]});
+            }
+        }
+    }
     if (std::isfinite(lo[0]) && std::isfinite(lo[1]) && std::isfinite(lo[2]) && std::isfinite(hi[0]) &&
         std::isfinite(hi[1]) && std::isfinite(hi[2])) {
         s.extentMin = lo;

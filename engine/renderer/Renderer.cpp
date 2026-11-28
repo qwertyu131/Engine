@@ -269,6 +269,9 @@ struct Renderer::Impl {
         fp.rotationDeg = rc.rotation->getFloat();
         fp.backgroundBlur = rc.backgroundBlur->getFloat();
         fp.tonemap = static_cast<uint32_t>(renderer::tonemapFromCVar());
+        fp.znear = camera.znear;
+        fp.zfar = camera.zfar;
+        fp.lighting = renderer::effectiveLighting();
         clearValue(f, fp.clear);
         return s.model->record(cmd, color, fp);
     }
@@ -622,6 +625,78 @@ SceneInfo Renderer::sceneInfo(SceneHandle handle) const {
     info.extentMin = s.extentMin;
     info.extentMax = s.extentMax;
     return info;
+}
+
+std::vector<LightInfo> Renderer::lights(SceneHandle handle) const {
+    std::vector<LightInfo> out;
+    auto it = impl_->scenes.find(handle.id);
+    if (it == impl_->scenes.end() || !it->second.model) {
+        return out;
+    }
+    for (const renderer::SceneLight& l : it->second.model->lights()) {
+        LightInfo i;
+        i.name = l.name;
+        i.type = l.type == asset::Light::Type::Directional ? LightType::Directional
+                 : l.type == asset::Light::Type::Spot      ? LightType::Spot
+                                                           : LightType::Point;
+        i.color = l.color;
+        i.intensity = l.intensity;
+        i.range = l.range > 0.0f ? l.range : 0.0f;
+        i.innerConeAngle = l.innerConeAngle;
+        i.outerConeAngle = l.outerConeAngle;
+        i.position = l.position;
+        i.direction = l.direction;
+        i.enabled = l.enabled;
+        i.fromAsset = l.fromAsset;
+        out.push_back(std::move(i));
+    }
+    return out;
+}
+
+bool Renderer::setLightEnabled(SceneHandle handle, uint32_t index, bool enabled) {
+    auto it = impl_->scenes.find(handle.id);
+    if (it == impl_->scenes.end() || !it->second.model) {
+        return false;
+    }
+    std::vector<renderer::SceneLight>& lights = it->second.model->lights();
+    if (index >= lights.size()) {
+        return false;
+    }
+    lights[index].enabled = enabled;
+    return true;
+}
+
+Result<uint32_t> Renderer::addLight(SceneHandle handle, const LightInfo& light) {
+    auto it = impl_->scenes.find(handle.id);
+    if (it == impl_->scenes.end() || !it->second.model) {
+        return std::unexpected(Error{2, std::format("addLight: scene {} is not a glTF scene", handle.id)});
+    }
+    const auto finite3 = [](const std::array<float, 3>& v) {
+        return std::isfinite(v[0]) && std::isfinite(v[1]) && std::isfinite(v[2]);
+    };
+    if (!finite3(light.color) || !finite3(light.position) || !finite3(light.direction) ||
+        !std::isfinite(light.intensity) || !std::isfinite(light.range) || !std::isfinite(light.innerConeAngle) ||
+        !std::isfinite(light.outerConeAngle)) {
+        return std::unexpected(Error{2, "addLight: non-finite light value"});
+    }
+    renderer::SceneLight l;
+    l.name = light.name;
+    l.type = light.type == LightType::Directional ? asset::Light::Type::Directional
+             : light.type == LightType::Spot      ? asset::Light::Type::Spot
+                                                  : asset::Light::Type::Point;
+    l.color = light.color;
+    l.intensity = light.intensity;
+    l.range = light.range > 0.0f ? light.range : -1.0f;
+    l.innerConeAngle = light.innerConeAngle;
+    l.outerConeAngle = light.outerConeAngle;
+    l.position = light.position;
+    const scene::Vec3 d = scene::normalize(light.direction);
+    l.direction = (d[0] == 0.0f && d[1] == 0.0f && d[2] == 0.0f) ? scene::Vec3{0.0f, 0.0f, -1.0f} : d;
+    l.enabled = light.enabled;
+    l.fromAsset = false;
+    std::vector<renderer::SceneLight>& lights = it->second.model->lights();
+    lights.push_back(std::move(l));
+    return static_cast<uint32_t>(lights.size() - 1);
 }
 
 uint32_t Renderer::validationErrorCount() const {

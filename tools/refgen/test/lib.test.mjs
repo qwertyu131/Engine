@@ -14,6 +14,11 @@ test('parseArgs reads models list, out, size and defaults', () => {
   assert.equal(a.mode, 'auto');
 });
 
+test('parseArgs --use-punctual turns KHR_lights_punctual on (default off, plan F3 Task 7)', () => {
+  assert.equal(parseArgs(['--models', 'A', '--out', 'o']).usePunctual, false);
+  assert.equal(parseArgs(['--models', 'A', '--out', 'o', '--use-punctual']).usePunctual, true);
+});
+
 test('parseArgs rejects unknown flags and bad sizes', () => {
   assert.throws(() => parseArgs(['--bogus']), /unknown argument/);
   assert.throws(() => parseArgs(['--width', '0']), /--width/);

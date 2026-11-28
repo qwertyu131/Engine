@@ -1,0 +1,216 @@
+{
+  "phase": "f03",
+  "comment": "Plan F3 Task 7 (included by cases.json). (1) KHR_lights_punctual in reference mode against glTF-Sample-Viewer with usePunctual on (tools/refgen --use-punctual, tests/golden/ref/sample-viewer-punctual/settings.json); shadows are off in reference mode (Sample-Viewer has none). (2) Normal mode (shadows on, sg defaults) against our own D3D11 goldens tests/golden/ref/f03/lights_<kind>.png (spec K-C): tests/assets/f03/lights/<kind>.gltf, a box shadowing a wall; the probe checks the shadowed wall point is >= 40 % darker (R+G+B) than its lit mirror point. r.IBL.Intensity 0.3 keeps the environment's fill light from hiding the shadow.",
+  "cases": [
+    {
+      "name": "lights.LightsPunctualLamp.punctual.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/LightsPunctualLamp/glTF-Binary/LightsPunctualLamp.glb",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1",
+        "r.ReferenceMode.Punctual=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer-punctual/LightsPunctualLamp.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 5 / 7 gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "lights.LightsPunctualLamp.punctual.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/LightsPunctualLamp/glTF-Binary/LightsPunctualLamp.glb",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1",
+        "r.ReferenceMode.Punctual=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer-punctual/LightsPunctualLamp.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 5 / 7 gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "lights.DirectionalLight.punctual.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/DirectionalLight/glTF-Binary/DirectionalLight.glb",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1",
+        "r.ReferenceMode.Punctual=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer-punctual/DirectionalLight.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 5 / 7 gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "lights.DirectionalLight.punctual.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/glTF-Sample-Assets/Models/DirectionalLight/glTF-Binary/DirectionalLight.glb",
+      "width": 512,
+      "height": 512,
+      "cvars": [
+        "r.ReferenceMode=1",
+        "r.ReferenceMode.Punctual=1"
+      ],
+      "pngChannels": 3,
+      "ref": "../ref/sample-viewer-punctual/DirectionalLight.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "plan F3 Task 5 / 7 gate (mean FLIP <= 0.05)"
+    },
+    {
+      "name": "lights.directional.shadow.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/f03/lights/directional.gltf",
+      "width": 256,
+      "height": 256,
+      "cvars": [
+        "r.IBL.Intensity=0.3"
+      ],
+      "ref": "../ref/f03/lights_directional.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "normal mode vs our own D3D11 golden (spec K-C), default gate",
+      "probes": [
+        {
+          "name": "shadowed wall point >= 40 % darker than the lit mirror point",
+          "x": 162,
+          "y": 128,
+          "darkerThan": {
+            "x": 94,
+            "y": 128
+          },
+          "ratio": 0.6
+        }
+      ]
+    },
+    {
+      "name": "lights.directional.shadow.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/f03/lights/directional.gltf",
+      "width": 256,
+      "height": 256,
+      "cvars": [
+        "r.IBL.Intensity=0.3"
+      ],
+      "ref": "../ref/f03/lights_directional.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "normal mode vs our own D3D11 golden (spec K-C), default gate",
+      "probes": [
+        {
+          "name": "shadowed wall point >= 40 % darker than the lit mirror point",
+          "x": 162,
+          "y": 128,
+          "darkerThan": {
+            "x": 94,
+            "y": 128
+          },
+          "ratio": 0.6
+        }
+      ]
+    },
+    {
+      "name": "lights.spot.shadow.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/f03/lights/spot.gltf",
+      "width": 256,
+      "height": 256,
+      "cvars": [
+        "r.IBL.Intensity=0.3"
+      ],
+      "ref": "../ref/f03/lights_spot.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "normal mode vs our own D3D11 golden (spec K-C), default gate",
+      "probes": [
+        {
+          "name": "shadowed wall point >= 40 % darker than the lit mirror point",
+          "x": 162,
+          "y": 128,
+          "darkerThan": {
+            "x": 94,
+            "y": 128
+          },
+          "ratio": 0.6
+        }
+      ]
+    },
+    {
+      "name": "lights.spot.shadow.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/f03/lights/spot.gltf",
+      "width": 256,
+      "height": 256,
+      "cvars": [
+        "r.IBL.Intensity=0.3"
+      ],
+      "ref": "../ref/f03/lights_spot.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "normal mode vs our own D3D11 golden (spec K-C), default gate",
+      "probes": [
+        {
+          "name": "shadowed wall point >= 40 % darker than the lit mirror point",
+          "x": 162,
+          "y": 128,
+          "darkerThan": {
+            "x": 94,
+            "y": 128
+          },
+          "ratio": 0.6
+        }
+      ]
+    },
+    {
+      "name": "lights.point.shadow.d3d11",
+      "backend": "d3d11",
+      "scene": "tests/assets/f03/lights/point.gltf",
+      "width": 256,
+      "height": 256,
+      "cvars": [
+        "r.IBL.Intensity=0.3"
+      ],
+      "ref": "../ref/f03/lights_point.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "normal mode vs our own D3D11 golden (spec K-C), default gate",
+      "probes": [
+        {
+          "name": "shadowed wall point >= 40 % darker than the lit mirror point",
+          "x": 162,
+          "y": 128,
+          "darkerThan": {
+            "x": 94,
+            "y": 128
+          },
+          "ratio": 0.6
+        }
+      ]
+    },
+    {
+      "name": "lights.point.shadow.vulkan",
+      "backend": "vulkan",
+      "scene": "tests/assets/f03/lights/point.gltf",
+      "width": 256,
+      "height": 256,
+      "cvars": [
+        "r.IBL.Intensity=0.3"
+      ],
+      "ref": "../ref/f03/lights_point.png",
+      "thresholdFlip": 0.05,
+      "thresholdReason": "normal mode vs our own D3D11 golden (spec K-C), default gate",
+      "probes": [
+        {
+          "name": "shadowed wall point >= 40 % darker than the lit mirror point",
+          "x": 162,
+          "y": 128,
+          "darkerThan": {
+            "x": 94,
+            "y": 128
+          },
+          "ratio": 0.6
+        }
+      ]
+    }
+  ]
+}

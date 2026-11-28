@@ -1,7 +1,7 @@
 // glTF 2.0 core metal-roughness PBR (plan F1 Task 4, spec 5.4 / K-A / K-B).
 // One source for all 7 shaderc targets. Matches Khronos glTF-Sample-Viewer (@khronosgroup/gltf-viewer
-// 1.1.0, primitive.vert + pbr.frag) with USE_IBL, TONEMAP_KHR_PBR_NEUTRAL and no punctual lights
-// (the K-B reference images are rendered with punctual lights off; punctual lights come in F3).
+// 1.1.0, primitive.vert + pbr.frag) with USE_IBL, TONEMAP_KHR_PBR_NEUTRAL and USE_PUNCTUAL (plan F3 Task 7:
+// shaders/pbr/lights.hlsli; the space-1 light list is empty when punctual lights are off, as for the K-B references).
 //
 // Permutations (shaders/pbr/permutations.json): TIER=0|1|2 x FG_SKIN x FG_MORPH x FG_UNLIT.
 // FG_CLEARCOAT_SHEEN_SPEC and FG_TRANSMISSION_VOLUME are reserved (F6) and compile as no-ops.
@@ -12,6 +12,7 @@
 #include "../common/skin.hlsli"
 #include "../common/morph.hlsli"
 #include "../common/brdf.hlsli"
+#include "lights.hlsli"
 #include "../post/tonemap.hlsl"
 
 // ----------------------------------------------------------------------------------------------
@@ -137,6 +138,12 @@ float4 PSMain(VSOutput input, bool frontFacing : SV_IsFrontFace) : SV_Target0
     // Occlusion applies to the IBL term only.
     const float ao = occlusionTexture.Sample(occlusionSampler, textureUV(input, TEX_OCCLUSION, texCoordSets.w)).r;
     color = color * (1.0 + pbrParams.w * (ao - 1.0));
+
+    // USE_PUNCTUAL (pbr.frag): every light of this draw's space-1 list (none in reference mode unless
+    // r.ReferenceMode.Punctual), times its shadow visibility in normal mode (lights.hlsli).
+    const float alphaRoughness = perceptualRoughness * perceptualRoughness;
+    color += punctualLighting(input.worldPosition, n, ng, v, baseColor.rgb, metallic, alphaRoughness, f0Dielectric,
+                              specularWeight);
 
     const float3 emissiveSample =
         emissiveTexture.Sample(emissiveSampler, textureUV(input, TEX_EMISSIVE, texCoordSets2.x)).rgb;

@@ -1,0 +1,211 @@
+{
+ "asset": {
+  "version": "2.0",
+  "generator": "scripts/make_f03_assets.py"
+ },
+ "extensionsUsed": [
+  "KHR_lights_punctual"
+ ],
+ "scene": 0,
+ "scenes": [
+  {
+   "nodes": [
+    0,
+    1,
+    2
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "name": "wall",
+   "mesh": 0
+  },
+  {
+   "name": "box",
+   "mesh": 1
+  },
+  {
+   "name": "light",
+   "extensions": {
+    "KHR_lights_punctual": {
+     "light": 0
+    }
+   },
+   "rotation": [
+    0.0,
+    -0.3007057995042731,
+    0.0,
+    0.9537169507482269
+   ]
+  }
+ ],
+ "meshes": [
+  {
+   "name": "wall",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1
+     },
+     "indices": 2,
+     "material": 0
+    }
+   ]
+  },
+  {
+   "name": "box",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 3,
+      "NORMAL": 4
+     },
+     "indices": 5,
+     "material": 1
+    }
+   ]
+  }
+ ],
+ "materials": [
+  {
+   "name": "wall",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.8,
+     0.8,
+     0.8,
+     1.0
+    ],
+    "metallicFactor": 0.0,
+    "roughnessFactor": 1.0
+   }
+  },
+  {
+   "name": "box",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.8,
+     0.3,
+     0.2,
+     1.0
+    ],
+    "metallicFactor": 0.0,
+    "roughnessFactor": 0.6
+   }
+  }
+ ],
+ "extensions": {
+  "KHR_lights_punctual": {
+   "lights": [
+    {
+     "name": "sun",
+     "type": "directional",
+     "color": [
+      1.0,
+      0.95,
+      0.9
+     ],
+     "intensity": 4.0
+    }
+   ]
+  }
+ },
+ "buffers": [
+  {
+   "byteLength": 756,
+   "uri": "data:application/octet-stream;base64,AAAAwAAAAMAAAAAAAAAAQAAAAMAAAAAAAAAAQAAAAEAAAAAAAAAAwAAAAEAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAABAAIAAAACAAMAmpmZPpqZmb4AAAA/mpmZPpqZmT4AAAA/mpmZPpqZmT7NzIw/mpmZPpqZmb7NzIw/mpmZvpqZmb4AAAA/mpmZvpqZmT4AAAA/mpmZvpqZmT7NzIw/mpmZvpqZmb7NzIw/mpmZvpqZmT4AAAA/mpmZvpqZmT7NzIw/mpmZPpqZmT7NzIw/mpmZPpqZmT4AAAA/mpmZvpqZmb4AAAA/mpmZvpqZmb7NzIw/mpmZPpqZmb7NzIw/mpmZPpqZmb4AAAA/mpmZvpqZmb7NzIw/mpmZPpqZmb7NzIw/mpmZPpqZmT7NzIw/mpmZvpqZmT7NzIw/mpmZvpqZmb4AAAA/mpmZPpqZmb4AAAA/mpmZPpqZmT4AAAA/mpmZvpqZmT4AAAA/AACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAACAvwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAgL8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIC/AAABAAIAAAACAAMABAAGAAUABAAHAAYACAAJAAoACAAKAAsADAAOAA0ADAAPAA4AEAARABIAEAASABMAFAAWABUAFAAXABYA"
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 48
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 48,
+   "byteLength": 48
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 96,
+   "byteLength": 12
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 108,
+   "byteLength": 288
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 396,
+   "byteLength": 288
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 684,
+   "byteLength": 72
+  }
+ ],
+ "accessors": [
+  {
+   "componentType": 5126,
+   "count": 4,
+   "type": "VEC3",
+   "min": [
+    -2.0,
+    -2.0,
+    0.0
+   ],
+   "max": [
+    2.0,
+    2.0,
+    0.0
+   ],
+   "bufferView": 0
+  },
+  {
+   "componentType": 5126,
+   "count": 4,
+   "type": "VEC3",
+   "bufferView": 1
+  },
+  {
+   "componentType": 5123,
+   "count": 6,
+   "type": "SCALAR",
+   "bufferView": 2
+  },
+  {
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3",
+   "min": [
+    -0.3,
+    -0.3,
+    0.5
+   ],
+   "max": [
+    0.3,
+    0.3,
+    1.1
+   ],
+   "bufferView": 3
+  },
+  {
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3",
+   "bufferView": 4
+  },
+  {
+   "componentType": 5123,
+   "count": 36,
+   "type": "SCALAR",
+   "bufferView": 5
+  }
+ ]
+}

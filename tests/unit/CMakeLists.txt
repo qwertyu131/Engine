@@ -192,6 +192,7 @@ if(TARGET shaders)
         rhi/test_caps.cpp
         rhi/test_texture_upload.cpp
         rhi/test_subresource.cpp
+        rhi/test_depth_sample.cpp
         rhi/SceneProbes.h)
     target_link_libraries(rhi_unit_tests PRIVATE engine::rhi engine::renderer golden_core nlohmann_json::nlohmann_json doctest::doctest
     eng_bcdec)
@@ -241,9 +242,11 @@ endif()
 # renderer_unit_tests links only engine::facade (include/engine/*.h, spec K-D) + nlohmann/json + doctest: no
 # engine-internal include path. One ctest entry per backend; an absent backend is exit 77 = ctest Skipped.
 if(TARGET shaders)
-    add_executable(renderer_unit_tests renderer/test_facade.cpp)
+    add_executable(renderer_unit_tests renderer/test_facade.cpp renderer/test_lights.cpp renderer/FacadeTestUtil.h)
     target_link_libraries(renderer_unit_tests PRIVATE engine::facade nlohmann_json::nlohmann_json doctest::doctest)
-    target_compile_definitions(renderer_unit_tests PRIVATE DOCTEST_CONFIG_IMPLEMENT
+    # doctest's implementation + main live in test_facade.cpp only (test_lights.cpp shares FacadeTestUtil.h).
+    set_source_files_properties(renderer/test_facade.cpp PROPERTIES COMPILE_DEFINITIONS DOCTEST_CONFIG_IMPLEMENT)
+    target_compile_definitions(renderer_unit_tests PRIVATE
         ENG_TEST_SHADER_LIB_DIR="${ENG_SHADER_LIB_DIR}"
         ENG_TEST_ASSET_DIR="${PROJECT_SOURCE_DIR}/tests/assets"
         ENG_TEST_SAMPLE_MODELS="${PROJECT_SOURCE_DIR}/tests/assets/glTF-Sample-Assets/Models")

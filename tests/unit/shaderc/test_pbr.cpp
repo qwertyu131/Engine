@@ -104,7 +104,12 @@ std::set<Binding> expectedBindings(Stage stage, const Perm& p) {
                   {"metallicRoughnessSampler", "sampler", 2, 7},
                   {"normalSampler", "sampler", 2, 8},
                   {"occlusionSampler", "sampler", 2, 9},
-                  {"emissiveSampler", "sampler", 2, 10}});
+                  {"emissiveSampler", "sampler", 2, 10},
+                  // space1: punctual lights and shadows (plan F3 Task 7, shaders/pbr/lights.hlsli)
+                  {"Lights", "cbuffer", 1, 0},
+                  {"Shadows", "cbuffer", 1, 1},
+                  {"shadowAtlas", "texture", 1, 2},
+                  {"shadowSampler", "sampler", 1, 3}});
     }
     return s;
 }

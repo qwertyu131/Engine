@@ -157,7 +157,21 @@ TEST_CASE("the reference-mode cvar table reproduces tests/golden/ref/sample-view
     CHECK(table.at("r.Background") == "Environment");
     CHECK(s.at("blurEnvironmentMap").get<bool>());
     CHECK(table.at("r.Background.Blur") == "0.6"); // cubemap.frag u_EnvBlurNormalized when blurEnvironmentMap
-    CHECK_FALSE(s.at("usePunctual").get<bool>());   // punctual lights: Task 7 adds the cvar; none in F3 Task 5
+    // Punctual lights (plan F3 Task 7): reference mode draws them only with r.ReferenceMode.Punctual (default off,
+    // = these references' usePunctual); the usePunctual references live in their own directory and settings.json.
+    CHECK_FALSE(s.at("usePunctual").get<bool>());
+    CHECK(eng::renderer::renderCVars().referencePunctual->defaultValue() == eng::CVarValue{false});
+    {
+        std::ifstream pf(assets().parent_path() / "golden" / "ref" / "sample-viewer-punctual" / "settings.json");
+        REQUIRE(pf);
+        const nlohmann::json pj = nlohmann::json::parse(pf);
+        CHECK(pj.at("settings").at("usePunctual").get<bool>());
+        for (const char* key : {"environment", "environmentRotationDeg", "iblIntensity", "exposure", "toneMap",
+                                "renderEnvironmentMap", "blurEnvironmentMap", "width", "height"}) {
+            CAPTURE(key);
+            CHECK(pj.at("settings").at(key) == s.at(key)); // everything else as the punctual-off references
+        }
+    }
     CHECK(s.at("width").get<int>() == 512);
     CHECK(s.at("height").get<int>() == 512);
     const eng::renderer::ibl::Params p;
@@ -166,6 +180,55 @@ TEST_CASE("the reference-mode cvar table reproduces tests/golden/ref/sample-view
     CHECK(std::stoi(table.at("r.IBL.DiffuseSamples")) == int(p.lambertianSampleCount));
     // The environment file of the table is the one settings.json pins.
     CHECK(j.at("pinnedFiles").contains(table.at("r.IBL.Environment") + ".hdr"));
+}
+
+TEST_CASE("the sg.* scalability table (Config/DefaultScalability.ini) covers levels 0..4 with registered cvars") {
+    (void)eng::renderer::renderCVars();
+    eng::CVarRegistry& reg = eng::CVarRegistry::get();
+    for (const char* group : {"ShadowQuality", "LightingQuality"}) {
+        for (int level = 0; level <= 4; ++level) {
+            CAPTURE(group);
+            CAPTURE(level);
+            const auto row = eng::renderer::scalabilityRow(group, level);
+            CHECK_FALSE(row.empty());
+            for (const auto& [name, value] : row) {
+                CAPTURE(name);
+                CHECK(reg.find(name) != nullptr);
+            }
+        }
+    }
+    CHECK(eng::renderer::scalabilityRow("ShadowQuality", 5).empty());
+    // The r.* defaults equal the default level (3) of each group.
+    for (const char* group : {"ShadowQuality", "LightingQuality"}) {
+        for (const auto& [name, value] : eng::renderer::scalabilityRow(group, 3)) {
+            CAPTURE(name);
+            eng::CVar* c = reg.find(name);
+            REQUIRE(c != nullptr);
+            const eng::CVarValue& d = c->defaultValue();
+            std::string text;
+            if (const bool* b = std::get_if<bool>(&d)) {
+                text = *b ? "1" : "0";
+            } else if (const int32_t* i = std::get_if<int32_t>(&d)) {
+                text = std::to_string(*i);
+            } else if (const float* f = std::get_if<float>(&d)) {
+                text = std::to_string(int(*f));
+            } else {
+                text = std::get<std::string>(d);
+            }
+            CHECK(text == value);
+        }
+    }
+    // Reference mode: punctual lights only with r.ReferenceMode.Punctual, never shadows (effectiveLighting).
+    REQUIRE(reg.set("r.ReferenceMode", "1", eng::CVarSource::Code));
+    CHECK_FALSE(eng::renderer::effectiveLighting().punctual);
+    CHECK_FALSE(eng::renderer::effectiveLighting().shadows);
+    REQUIRE(reg.set("r.ReferenceMode.Punctual", "1", eng::CVarSource::Code));
+    CHECK(eng::renderer::effectiveLighting().punctual);
+    CHECK_FALSE(eng::renderer::effectiveLighting().shadows);
+    REQUIRE(reg.set("r.ReferenceMode.Punctual", "0", eng::CVarSource::Code));
+    REQUIRE(reg.set("r.ReferenceMode", "0", eng::CVarSource::Code));
+    CHECK(eng::renderer::effectiveLighting().punctual);
+    CHECK(eng::renderer::effectiveLighting().shadows);
 }
 
 TEST_CASE("reference mode forces its values at Code over CommandLine, and reports what it cannot override") {

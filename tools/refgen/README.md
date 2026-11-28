@@ -27,7 +27,9 @@ node --test tools/refgen/test/                                 # unit tests for 
 
 Options: `--width/--height` (default 512), `--mode auto|firefox-headless|firefox-headed-offscreen`
 (default `auto` tries them in that order and uses the first whose probe render passes all checks),
-`--settings <file>` (default `<out>/settings.json`, merged by model name across runs).
+`--settings <file>` (default `<out>/settings.json`, merged by model name across runs), `--use-punctual`
+(plan F3 Task 7: KHR_lights_punctual on, Sample-Viewer's own default; write those references into their own
+directory, `tests/golden/ref/sample-viewer-punctual`, whose `settings.json` records `usePunctual: true`).
 
 Exit codes: `0` all models written, `1` at least one model failed (nothing written for it),
 `2` setup error (bad arguments, missing model, download/sha256 failure, no launch mode worked;

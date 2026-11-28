@@ -94,6 +94,14 @@ public:
     Result<void> setVsync(bool vsync);           // window
     // Window + debugUi: starts a Dear ImGui frame (ImGui:: calls follow until renderFrame(), which draws it).
     void beginUi(float deltaSeconds, float dpiScale, std::span<const platform::InputEvent> events);
+    // Punctual lights of a glTF scene (plan F3 Task 7; empty for a built-in scene or an unknown handle): the asset's
+    // KHR_lights_punctual lights in Sample-Renderer's getVisibleLights order, then the added ones.
+    std::vector<LightInfo> lights(SceneHandle scene) const;
+    // False for an unknown scene / index. A disabled light neither lights nor casts a shadow.
+    bool setLightEnabled(SceneHandle scene, uint32_t index, bool enabled);
+    // Adds a light in world space (name, type, colour, intensity, range, cones, position, direction; `enabled`
+    // honoured). Returns its index in lights(). Error{2} for a built-in / unknown scene or a non-finite value.
+    Result<uint32_t> addLight(SceneHandle scene, const LightInfo& light);
     // Ends rendering: releases every GPU object (scenes, debug UI, target / swapchain) and waits for the GPU, so
     // validation messages of work in flight and of the teardown are counted (validationErrorCount) before the host
     // picks its exit code. Only validationErrorCount / caps / assetInfo are meaningful afterwards.

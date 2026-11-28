@@ -1,6 +1,7 @@
 // glTF PBR resource bindings (plan F1 Task 4), following the binding convention:
 //   register(<type><index>, space<S>), index unique per space across b/t/s/u.
-//   space0 = frame, space1 = view/pass (unused in F1), space2 = material, space3 = draw/object.
+//   space0 = frame, space1 = view/pass (punctual lights + shadows, plan F3 Task 7), space2 = material,
+//   space3 = draw/object.
 // Every cbuffer is made of float4 / uint4 / float4x4 only, so the HLSL cbuffer packing, the DXC
 // SPIR-V layout and GLSL std140 agree byte for byte (no float3 members, no scalar arrays).
 //
@@ -59,6 +60,46 @@ TextureCube<float4> irradianceEnvTexture : register(t2, space0); // Lambertian i
 Texture2D<float4> brdfLutTexture : register(t3, space0);         // GGX BRDF LUT (u_GGXLUT)
 SamplerState envSampler : register(s4, space0);
 SamplerState brdfLutSampler : register(s5, space0);
+
+// --- space1: view / pass: punctual lights and shadows (plan F3 Task 7, shaders/pbr/lights.hlsli) -----------
+// Lights: the (<= MAX_LIGHTS) lights of the objects drawn with this group (the renderer picks the strongest
+// r.Lighting.MaxLights per object, glTF-Sample-Renderer order otherwise). Shadows: the tiles of the shadow atlas, a
+// D32 depth texture read with SampleLevel through a nearest-filter sampler at texel centres (no comparison sampler and
+// no texelFetch: every shader target, the GLSL targets have no sampler-less fetch; explicit LOD: no derivatives in the
+// light loop).
+#if TIER == 0
+#define MAX_LIGHTS 8 // spec K-E: T0 forward, <= 8 lights per object
+#else
+#define MAX_LIGHTS 64 // T1 / T2 in F3 (clustered lighting is F8)
+#endif
+#define MAX_SHADOW_TILES 64
+#define LIGHT_DIRECTIONAL 0
+#define LIGHT_POINT 1
+#define LIGHT_SPOT 2
+
+cbuffer Lights : register(b0, space1)
+{
+    uint4 lightInfo;      // x = light count (<= MAX_LIGHTS), y = 1: punctual specular (r.Lighting.Specular), z = 1: PCF
+                          // 3 x 3 (0: one tap), w unused
+    float4 shadowInfo;    // x = normal offset in texels, y = depth bias in texels, zw = 1 / atlas width, height
+    float4 viewForward;   // xyz = camera forward (world): directional cascades are picked by view depth
+    // Light i (Sample-Renderer punctual.glsl struct Light, glTF-Sample-Renderer v1.1.0):
+    //   lights[4i]     = direction.xyz, range (<= 0: no range cut-off)
+    //   lights[4i + 1] = color.rgb, intensity
+    //   lights[4i + 2] = position.xyz, innerConeCos
+    //   lights[4i + 3] = outerConeCos, type (LIGHT_*), first shadow tile (< 0: none), shadow tile count
+    float4 lights[MAX_LIGHTS * 4];
+};
+cbuffer Shadows : register(b1, space1)
+{
+    float4x4 shadowMatrices[MAX_SHADOW_TILES]; // world -> tile clip space
+    float4 shadowRects[MAX_SHADOW_TILES];      // xy = tile origin in the atlas (texels), z = tile edge (texels),
+                                               // w = cascade far view depth (directional), else unused
+    float4 shadowParams[MAX_SHADOW_TILES];     // x = world size of a texel (perspective: per unit distance), y = 1:
+                                               // perspective, z = near, w = far (the tile projection's planes)
+};
+Texture2D<float> shadowAtlas : register(t2, space1);
+SamplerState shadowSampler : register(s3, space1); // nearest, clamp to edge
 
 // --- space2: material -----------------------------------------------------------------------
 cbuffer Material : register(b0, space2)

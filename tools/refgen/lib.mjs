@@ -6,12 +6,13 @@ export const MODES = ['auto', 'firefox-headless', 'firefox-headed-offscreen'];
 
 const USAGE = `usage: node tools/refgen/render.mjs --models <A,B,...|all> --out <dir>
        [--width 512] [--height 512] [--mode auto|firefox-headless|firefox-headed-offscreen]
-       [--firefox <firefox.exe>] [--settings <settings.json>]`;
+       [--firefox <firefox.exe>] [--settings <settings.json>] [--use-punctual]`;
 
 export function parseArgs(argv) {
-  const a = { models: null, out: null, width: 512, height: 512, mode: 'auto', settings: null, firefox: null };
+  const a = { models: null, out: null, width: 512, height: 512, mode: 'auto', settings: null, firefox: null, usePunctual: false };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
+    if (k === '--use-punctual') { a.usePunctual = true; continue; } // plan F3 Task 7: KHR_lights_punctual on
     const v = () => {
       if (i + 1 >= argv.length) throw new Error(`missing value for ${k}\n${USAGE}`);
       return argv[++i];

@@ -62,11 +62,18 @@ const BindGroupLayout* ModelRenderer::Pipeline::layout(uint32_t space) const {
 ModelRenderer::~ModelRenderer() {
     releaseIbl();
     background_.release(dev_);
-    for (const auto& [k, g] : drawGroups_) {
-        dev_.destroy(g);
+    for (const DrawGroups* m : {&drawGroups_, &shadowDrawGroups_}) {
+        for (const auto& [k, g] : *m) {
+            dev_.destroy(g);
+        }
     }
-    for (const auto& [k, g] : materialGroups_) {
-        dev_.destroy(g);
+    for (const MaterialGroups* m : {&materialGroups_, &shadowMaterialGroups_}) {
+        for (const auto& [k, g] : *m) {
+            dev_.destroy(g);
+        }
+    }
+    if (atlas_) {
+        dev_.destroy(atlas_);
     }
     if (depth_) {
         dev_.destroy(depth_);
@@ -110,6 +117,63 @@ Result<void> ModelRenderer::init(const std::filesystem::path& shaderDir, std::ve
     }
     if (auto r = background_.init(dev_, shaderDir_, colorFormat_, Format::D32_FLOAT, tier_ == "T0"); !r) {
         return r;
+    }
+    // Punctual lights (plan F3 Task 7): the scene's lights, the tier's loop limit, world bounding spheres of the draws
+    // (per-object light selection, shadow-tile culling) and the scene box (shadow ranges).
+    lights_ = sceneLights(model_, scene_);
+    tierMaxLights_ = tier_ == "T0" ? kMaxLightsT0 : kMaxLightsT12;
+    for (uint32_t d = 0; d < scene_.draws.size(); ++d) {
+        const scene::DrawNode& dn = scene_.draws[d];
+        const auto& prims = gpu_->meshes()[dn.mesh];
+        for (uint32_t p = 0; p < prims.size(); ++p) {
+            const asset::Bounds& b = prims[p].bounds;
+            if (!b.valid) {
+                continue;
+            }
+            scene::Vec3 lo{1e30f, 1e30f, 1e30f}, hi{-1e30f, -1e30f, -1e30f};
+            for (int c = 0; c < 8; ++c) {
+                const scene::Vec3 corner{(c & 1) ? b.max[0] : b.min[0], (c & 2) ? b.max[1] : b.min[1],
+                                         (c & 4) ? b.max[2] : b.min[2]};
+                const scene::Vec3 w = scene::transformPoint(dn.world, corner);
+                for (int k = 0; k < 3; ++k) {
+                    lo[k] = std::min(lo[k], w[k]);
+                    hi[k] = std::max(hi[k], w[k]);
+                }
+            }
+            if (!(std::isfinite(lo[0]) && std::isfinite(lo[1]) && std::isfinite(lo[2]) && std::isfinite(hi[0]) &&
+                  std::isfinite(hi[1]) && std::isfinite(hi[2]))) {
+                continue;
+            }
+            const scene::Vec3 centre{(lo[0] + hi[0]) * 0.5f, (lo[1] + hi[1]) * 0.5f, (lo[2] + hi[2]) * 0.5f};
+            const scene::Vec3 half = scene::sub(hi, centre);
+            drawSpheres_[{d, p}] = {centre, std::sqrt(scene::dot(half, half))};
+            for (int k = 0; k < 3; ++k) {
+                sceneBounds_.min[k] = sceneBounds_.valid ? std::min(sceneBounds_.min[k], lo[k]) : lo[k];
+                sceneBounds_.max[k] = sceneBounds_.valid ? std::max(sceneBounds_.max[k], hi[k]) : hi[k];
+            }
+            sceneBounds_.valid = true;
+        }
+    }
+    {
+        const uint8_t white[4] = {255, 255, 255, 255};
+        const SubresourceData init{std::as_bytes(std::span(white)), 0};
+        TextureDesc td;
+        td.format = Format::RGBA8_UNORM;
+        td.usage = TextureUsage::Sampled;
+        td.debugName = "shadow atlas placeholder (no tile)";
+        auto t = dev_.createTexture(td, {&init, 1});
+        if (!t) {
+            return std::unexpected(t.error());
+        }
+        noShadowTexture_ = keep(*t);
+        SamplerDesc sd;
+        sd.minFilter = sd.magFilter = sd.mipFilter = Filter::Nearest;
+        sd.addressU = sd.addressV = sd.addressW = AddressMode::ClampToEdge;
+        auto smp = dev_.createSampler(sd);
+        if (!smp) {
+            return std::unexpected(smp.error());
+        }
+        shadowSampler_ = keep(*smp);
     }
     if (auto r = makeIbl(environment_); !r) {
         return r;
@@ -324,8 +388,12 @@ Result<const ModelRenderer::Permutation*> ModelRenderer::permutation(bool skin, 
     // cbuffer sizes of the reflection = the CPU structs.
     for (const ShaderReflection* r : {&vsBlob->reflection, &psBlob->reflection}) {
         for (const ReflectedResource& res : r->resources) {
-            const size_t want = res.name == "Frame" ? sizeof(FrameCB) : res.name == "Material" ? sizeof(MaterialCB)
-                                : res.name == "Object" ? sizeof(ObjectCB) : 0;
+            const size_t want = res.name == "Frame"      ? sizeof(FrameCB)
+                                : res.name == "Material" ? sizeof(MaterialCB)
+                                : res.name == "Object"   ? sizeof(ObjectCB)
+                                : res.name == "Lights"   ? lightsCBSize(tierMaxLights_)
+                                : res.name == "Shadows"  ? sizeof(ShadowsCB)
+                                                         : 0;
             if (want && res.sizeBytes != want) {
                 return std::unexpected(Error{2, std::format("pbr {}: cbuffer {} is {} bytes in the reflection, {} on the CPU",
                                                             name, res.name, res.sizeBytes, want)});
@@ -367,27 +435,7 @@ Result<const ModelRenderer::Pipeline*> ModelRenderer::pipeline(const DrawItem& i
     GraphicsPipelineDesc pd;
     pd.vs = (*perm)->vs;
     pd.ps = (*perm)->ps;
-    pd.vertexLayout.buffers = {{sizeof(PbrVertex), false}};
-    pd.vertexLayout.attributes = {{"POSITION", Format::RGB32_FLOAT, 0, offsetof(PbrVertex, position)},
-                                  {"NORMAL", Format::RGB32_FLOAT, 0, offsetof(PbrVertex, normal)},
-                                  {"TANGENT", Format::RGBA32_FLOAT, 0, offsetof(PbrVertex, tangent)},
-                                  {"TEXCOORD0", Format::RG32_FLOAT, 0, offsetof(PbrVertex, uv0)},
-                                  {"TEXCOORD1", Format::RG32_FLOAT, 0, offsetof(PbrVertex, uv1)},
-                                  {"COLOR0", Format::RGBA32_FLOAT, 0, offsetof(PbrVertex, color)}};
-    uint32_t slot = 1;
-    if (item.skinned) {
-        pd.vertexLayout.buffers.push_back({sizeof(SkinVertex), false});
-        pd.vertexLayout.attributes.push_back({"BLENDINDICES0", Format::RGBA16_UINT, slot, offsetof(SkinVertex, joints)});
-        pd.vertexLayout.attributes.push_back({"BLENDWEIGHT0", Format::RGBA32_FLOAT, slot, offsetof(SkinVertex, weights)});
-        ++slot;
-    }
-    if (item.morph && tier_ == "T0") {
-        pd.vertexLayout.buffers.push_back({kT0MaxMorphTargets * 12, false});
-        for (uint32_t t = 0; t < kT0MaxMorphTargets; ++t) {
-            pd.vertexLayout.attributes.push_back({std::format("MORPH_POSITION{}", t), Format::RGB32_FLOAT, slot, t * 12});
-        }
-        ++slot;
-    }
+    pd.vertexLayout = vertexLayout(item);
     pd.topology = item.prim->topology;
     pd.raster.cull = cull;
     pd.raster.frontFace = front;
@@ -404,6 +452,218 @@ Result<const ModelRenderer::Pipeline*> ModelRenderer::pipeline(const DrawItem& i
     p.handle = keep(*pipe);
     p.layouts = (*perm)->layouts;
     return &(pipelines_[key] = std::move(p));
+}
+
+// Vertex streams of a draw item (GpuModel.h): PbrVertex, then the skin stream, then the T0 morph stream.
+VertexLayout ModelRenderer::vertexLayout(const DrawItem& item) const {
+    VertexLayout vl;
+    vl.buffers = {{sizeof(PbrVertex), false}};
+    vl.attributes = {{"POSITION", Format::RGB32_FLOAT, 0, offsetof(PbrVertex, position)},
+                     {"NORMAL", Format::RGB32_FLOAT, 0, offsetof(PbrVertex, normal)},
+                     {"TANGENT", Format::RGBA32_FLOAT, 0, offsetof(PbrVertex, tangent)},
+                     {"TEXCOORD0", Format::RG32_FLOAT, 0, offsetof(PbrVertex, uv0)},
+                     {"TEXCOORD1", Format::RG32_FLOAT, 0, offsetof(PbrVertex, uv1)},
+                     {"COLOR0", Format::RGBA32_FLOAT, 0, offsetof(PbrVertex, color)}};
+    uint32_t slot = 1;
+    if (item.skinned) {
+        vl.buffers.push_back({sizeof(SkinVertex), false});
+        vl.attributes.push_back({"BLENDINDICES0", Format::RGBA16_UINT, slot, offsetof(SkinVertex, joints)});
+        vl.attributes.push_back({"BLENDWEIGHT0", Format::RGBA32_FLOAT, slot, offsetof(SkinVertex, weights)});
+        ++slot;
+    }
+    if (item.morph && tier_ == "T0") {
+        vl.buffers.push_back({kT0MaxMorphTargets * 12, false});
+        for (uint32_t t = 0; t < kT0MaxMorphTargets; ++t) {
+            vl.attributes.push_back({std::format("MORPH_POSITION{}", t), Format::RGB32_FLOAT, slot, t * 12});
+        }
+        ++slot;
+    }
+    return vl;
+}
+
+Result<const ModelRenderer::Permutation*> ModelRenderer::shadowPermutation(bool skin, bool morph) {
+    const auto key = std::make_pair(skin, morph);
+    if (auto it = shadowPermutations_.find(key); it != shadowPermutations_.end()) {
+        return &it->second;
+    }
+    const std::string name = std::format("{}_SKIN{}_MORPH{}", tier_, skin ? 1 : 0, morph ? 1 : 0);
+    const Backend b = dev_.caps().backend;
+    auto vsBlob = ShaderLibrary::load(shaderDir_, "shadow", "VSMain", b, name);
+    if (!vsBlob) {
+        return std::unexpected(vsBlob.error());
+    }
+    auto psBlob = ShaderLibrary::load(shaderDir_, "shadow", "PSMain", b, name);
+    if (!psBlob) {
+        return std::unexpected(psBlob.error());
+    }
+    auto layouts = deriveBindGroupLayouts(vsBlob->reflection, psBlob->reflection);
+    if (!layouts) {
+        return std::unexpected(layouts.error());
+    }
+    auto vs = dev_.createShader(*vsBlob);
+    if (!vs) {
+        return std::unexpected(vs.error());
+    }
+    keep(*vs);
+    auto ps = dev_.createShader(*psBlob);
+    if (!ps) {
+        return std::unexpected(ps.error());
+    }
+    keep(*ps);
+    return &(shadowPermutations_[key] = Permutation{*vs, *ps, std::move(*layouts)});
+}
+
+// Depth-only caster pipeline (shaders/shadow/shadow.hlsl): no colour target, cull none (open meshes and back faces
+// cast too; the lit pass offsets along the normal instead of a raster depth bias), depth test / write Less.
+Result<const ModelRenderer::Pipeline*> ModelRenderer::shadowPipeline(const DrawItem& item) {
+    const ShadowPipelineKey key{item.skinned, item.morph, item.prim->topology};
+    if (auto it = shadowPipelines_.find(key); it != shadowPipelines_.end()) {
+        return &it->second;
+    }
+    auto perm = shadowPermutation(item.skinned, item.morph);
+    if (!perm) {
+        return std::unexpected(perm.error());
+    }
+    GraphicsPipelineDesc pd;
+    pd.vs = (*perm)->vs;
+    pd.ps = (*perm)->ps;
+    pd.vertexLayout = vertexLayout(item);
+    pd.topology = item.prim->topology;
+    pd.raster.cull = CullMode::None;
+    pd.depth = {true, true, CompareOp::Less};
+    pd.depthFormat = Format::D32_FLOAT;
+    pd.debugName = std::format("glTF shadow {}_SKIN{}_MORPH{}", tier_, item.skinned ? 1 : 0, item.morph ? 1 : 0);
+    auto pipe = dev_.createGraphicsPipeline(pd);
+    if (!pipe) {
+        return std::unexpected(pipe.error());
+    }
+    Pipeline p;
+    p.handle = keep(*pipe);
+    p.layouts = (*perm)->layouts;
+    return &(shadowPipelines_[key] = std::move(p));
+}
+
+// Shadow atlas pass: one depth-only render pass over the whole atlas (cleared to 1), every tile its viewport / scissor,
+// its Frame cbuffer (viewProj = the tile's) and the casters whose world bounding sphere touches the tile's frustum
+// (skinned / morphed casters are always drawn: their bounds are the base mesh's).
+Result<void> ModelRenderer::recordShadows(ICommandList& cmd, const ShadowPlan& plan, const DrawLists& lists,
+                                          std::vector<BindGroupHandle>& transient) {
+    if (!atlas_ || atlasSize_ != plan.atlasSize) {
+        if (atlas_) {
+            dev_.destroy(atlas_);
+            atlas_ = {};
+        }
+        TextureDesc td;
+        td.width = td.height = plan.atlasSize;
+        td.format = Format::D32_FLOAT;
+        td.usage = TextureUsage::DepthStencil | TextureUsage::Sampled;
+        td.debugName = std::format("shadow atlas {0}x{0}", plan.atlasSize);
+        auto t = dev_.createTexture(td);
+        if (!t) {
+            return std::unexpected(t.error());
+        }
+        atlas_ = *t;
+        atlasSize_ = plan.atlasSize;
+        atlasState_ = ResourceState::Undefined;
+    }
+    struct Caster {
+        const Pipeline* pipeline;
+        BindGroupHandle material, draw;
+        const DrawItem* item;
+    };
+    std::vector<Caster> casters;
+    for (const DrawItem& it : lists.opaque) {
+        if (!it.prim->triangles) {
+            continue; // points / lines cast no shadow
+        }
+        auto p = shadowPipeline(it);
+        if (!p) {
+            return std::unexpected(p.error());
+        }
+        auto mg = materialGroup(**p, it, shadowMaterialGroups_);
+        if (!mg) {
+            return std::unexpected(mg.error());
+        }
+        auto dg = drawGroup(**p, it, shadowDrawGroups_);
+        if (!dg) {
+            return std::unexpected(dg.error());
+        }
+        casters.push_back({*p, *mg, *dg, &it});
+    }
+    // Per tile and pipeline: the space-0 group with the tile's Frame cbuffer.
+    std::vector<std::map<const Pipeline*, BindGroupHandle>> tileGroups(plan.tiles.size());
+    for (size_t t = 0; t < plan.tiles.size(); ++t) {
+        FrameCB fcb{};
+        copyMat(fcb.viewProj, plan.tiles[t].viewProj);
+        const BufferBinding cb = dev_.allocTransient(sizeof(fcb), 256);
+        if (!cb.buffer) {
+            return std::unexpected(Error{2, "glTF passes: allocTransient failed (shadow tile)"});
+        }
+        std::memcpy(cb.cpu, &fcb, sizeof(fcb));
+        const std::map<std::string, Resource> res{{"Frame", cb}};
+        for (const Caster& c : casters) {
+            if (tileGroups[t].count(c.pipeline)) {
+                continue;
+            }
+            auto g = group(*c.pipeline, 0, res);
+            if (!g) {
+                return std::unexpected(g.error());
+            }
+            tileGroups[t][c.pipeline] = *g;
+            if (*g) {
+                transient.push_back(*g);
+            }
+        }
+    }
+    const TextureBarrier toDepth{atlas_, atlasState_, ResourceState::DepthWrite};
+    cmd.barrier({&toDepth, 1});
+    RenderPassDesc rp;
+    rp.depth.texture = atlas_;
+    rp.depth.load = LoadOp::Clear;
+    rp.depth.store = StoreOp::Store;
+    rp.depth.clearDepth = 1.0f;
+    cmd.beginRenderPass(rp);
+    for (size_t t = 0; t < plan.tiles.size(); ++t) {
+        const ShadowTile& tile = plan.tiles[t];
+        const auto x = static_cast<int32_t>(tile.rect[0]), y = static_cast<int32_t>(tile.rect[1]);
+        const auto size = static_cast<uint32_t>(tile.rect[2]);
+        cmd.setViewport({float(x), float(y), float(size), float(size), 0.0f, 1.0f});
+        cmd.setScissor({x, y, size, size});
+        for (const Caster& c : casters) {
+            if (!c.item->skinned && !c.item->morph) {
+                auto sp = drawSpheres_.find({c.item->draw, c.item->primitive});
+                if (sp != drawSpheres_.end() && !sphereInTile(tile, sp->second.first, sp->second.second)) {
+                    continue;
+                }
+            }
+            cmd.setPipeline(c.pipeline->handle);
+            if (BindGroupHandle g = tileGroups[t][c.pipeline]) {
+                cmd.setBindGroup(0, g);
+            }
+            if (c.material) {
+                cmd.setBindGroup(2, c.material);
+            }
+            if (c.draw) {
+                cmd.setBindGroup(3, c.draw);
+            }
+            const GpuPrimitive& g = *c.item->prim;
+            uint32_t slot = 0;
+            cmd.setVertexBuffer(slot++, g.vertices, 0);
+            if (c.item->skinned) {
+                cmd.setVertexBuffer(slot++, g.skin, 0);
+            }
+            if (c.item->morph && tier_ == "T0") {
+                cmd.setVertexBuffer(slot++, g.morphAttributes, 0);
+            }
+            cmd.setIndexBuffer(g.indices, IndexType::Uint32, 0);
+            cmd.drawIndexed(g.indexCount, 1, 0, 0, 0);
+        }
+    }
+    cmd.endRenderPass();
+    const TextureBarrier toRead{atlas_, ResourceState::DepthWrite, ResourceState::ShaderRead};
+    cmd.barrier({&toRead, 1});
+    atlasState_ = ResourceState::ShaderRead;
+    return {};
 }
 
 Result<BindGroupHandle> ModelRenderer::group(const Pipeline& p, uint32_t space,
@@ -425,9 +685,9 @@ Result<BindGroupHandle> ModelRenderer::group(const Pipeline& p, uint32_t space,
     return dev_.createBindGroup(d);
 }
 
-Result<BindGroupHandle> ModelRenderer::materialGroup(const Pipeline& p, const DrawItem& item, bool skin, bool morph) {
-    const auto key = std::make_tuple(item.prim->material, skin, morph);
-    if (auto it = materialGroups_.find(key); it != materialGroups_.end()) {
+Result<BindGroupHandle> ModelRenderer::materialGroup(const Pipeline& p, const DrawItem& item, MaterialGroups& cache) {
+    const auto key = std::make_tuple(item.prim->material, item.skinned, item.morph);
+    if (auto it = cache.find(key); it != cache.end()) {
         return it->second;
     }
     const GpuMaterial& m = *item.material;
@@ -444,13 +704,13 @@ Result<BindGroupHandle> ModelRenderer::materialGroup(const Pipeline& p, const Dr
     if (!g) {
         return std::unexpected(g.error());
     }
-    materialGroups_[key] = *g;
+    cache[key] = *g;
     return *g;
 }
 
-Result<BindGroupHandle> ModelRenderer::drawGroup(const Pipeline& p, const DrawItem& item, bool skin, bool morph) {
-    const auto key = std::make_tuple(item.draw, item.primitive, skin, morph);
-    if (auto it = drawGroups_.find(key); it != drawGroups_.end()) {
+Result<BindGroupHandle> ModelRenderer::drawGroup(const Pipeline& p, const DrawItem& item, DrawGroups& cache) {
+    const auto key = std::make_tuple(item.draw, item.primitive, item.skinned, item.morph);
+    if (auto it = cache.find(key); it != cache.end()) {
         return it->second;
     }
     const DrawResources& r = drawRes_.at({item.draw, item.primitive});
@@ -479,7 +739,7 @@ Result<BindGroupHandle> ModelRenderer::drawGroup(const Pipeline& p, const DrawIt
     if (!g) {
         return std::unexpected(g.error());
     }
-    drawGroups_[key] = *g;
+    cache[key] = *g;
     return *g;
 }
 
@@ -541,20 +801,107 @@ Result<void> ModelRenderer::record(ICommandList& cmd, TextureHandle color, const
     std::map<std::string, Resource> frameRes = frameResources_;
     frameRes["Frame"] = frameCb;
 
+    // Punctual lights and shadows (plan F3 Task 7): the per-object light count of this frame, the shadow tiles.
+    const LightingSettings& lighting = frame.lighting;
+    uint32_t maxLights = lighting.punctual ? std::min(lighting.maxLights, tierMaxLights_) : 0u;
+    if (lighting.punctual && lighting.maxLights > tierMaxLights_ && !maxLightsWarned_) {
+        ENG_LOG_WARN("r.Lighting.MaxLights {}: this tier ({}) draws at most {} lights per object", lighting.maxLights,
+                     tier_, tierMaxLights_);
+        maxLightsWarned_ = true;
+    }
+    // Camera basis from the view matrix (lookAt rows: s, u, -f).
+    const scene::Vec3 forward{-frame.view.at(2, 0), -frame.view.at(2, 1), -frame.view.at(2, 2)};
+    ShadowPlan plan;
+    if (maxLights > 0 && lighting.shadows) {
+        ShadowCamera sc;
+        sc.position = frame.cameraPosition;
+        sc.forward = forward;
+        sc.up = {frame.view.at(1, 0), frame.view.at(1, 1), frame.view.at(1, 2)};
+        sc.yfov = frame.yfov;
+        sc.aspect = frame.aspect;
+        sc.znear = frame.znear;
+        sc.zfar = frame.zfar;
+        plan = planShadows(lights_, lighting, sc, sceneBounds_, std::min(8192u, std::max(16u, dev_.caps().maxTexture2D)));
+        if (plan.truncated && !truncatedWarned_) {
+            ENG_LOG_WARN("glTF passes: more shadow tiles than {}; some lights cast no shadow", kMaxShadowTiles);
+            truncatedWarned_ = true;
+        }
+    }
+    lastShadowTiles_ = static_cast<uint32_t>(plan.tiles.size());
+    // Shadows cbuffer (per frame) and one Lights cbuffer per distinct per-object light selection.
+    const BufferBinding shadowsCb = dev_.allocTransient(sizeof(ShadowsCB), 256);
+    if (!shadowsCb.buffer) {
+        return std::unexpected(Error{2, "glTF passes: allocTransient failed (shadows)"});
+    }
+    {
+        auto* sh = reinterpret_cast<ShadowsCB*>(shadowsCb.cpu);
+        std::memset(sh, 0, sizeof(ShadowsCB));
+        for (size_t t = 0; t < plan.tiles.size(); ++t) {
+            copyMat(sh->matrices[t], plan.tiles[t].viewProj);
+            std::memcpy(sh->rects[t], plan.tiles[t].rect.data(), 16);
+            std::memcpy(sh->params[t], plan.tiles[t].params.data(), 16);
+        }
+    }
+    LightsHeader header{};
+    header.lightInfo[1] = lighting.specular ? 1u : 0u;
+    header.lightInfo[2] = lighting.pcf ? 1u : 0u;
+    header.shadowInfo[0] = 1.0f; // normal offset (texels)
+    header.shadowInfo[1] = 1.5f; // depth bias (texels)
+    header.shadowInfo[2] = plan.atlasSize ? 1.0f / float(plan.atlasSize) : 1.0f;
+    header.shadowInfo[3] = header.shadowInfo[2];
+    header.viewForward[0] = forward[0];
+    header.viewForward[1] = forward[1];
+    header.viewForward[2] = forward[2];
+    std::vector<std::vector<uint32_t>> selections;
+    std::vector<BufferBinding> lightsCbs;
+    const auto selectionOf = [&](const DrawItem& it) -> Result<size_t> {
+        std::vector<uint32_t> sel;
+        if (maxLights > 0) {
+            auto sp = drawSpheres_.find({it.draw, it.primitive});
+            const scene::Vec3 c = sp != drawSpheres_.end() ? sp->second.first : scene::Vec3{0, 0, 0};
+            const float r = sp != drawSpheres_.end() ? sp->second.second : 0.0f;
+            sel = selectLights(lights_, maxLights, c, r);
+        }
+        for (size_t i = 0; i < selections.size(); ++i) {
+            if (selections[i] == sel) {
+                return i;
+            }
+        }
+        const size_t bytes = lightsCBSize(tierMaxLights_);
+        const BufferBinding cb = dev_.allocTransient(bytes, 256);
+        if (!cb.buffer) {
+            return std::unexpected(Error{2, "glTF passes: allocTransient failed (lights)"});
+        }
+        packLights(lights_, plan.perLight, sel, header, tierMaxLights_, cb.cpu);
+        selections.push_back(std::move(sel));
+        lightsCbs.push_back(cb);
+        return selections.size() - 1;
+    };
+    const TextureHandle atlasView = plan.tiles.empty() ? noShadowTexture_ : TextureHandle{};
+
     // Pipelines and groups first (no command recorded yet if one fails).
     struct Prepared {
         const Pipeline* pipeline;
-        BindGroupHandle material, draw;
+        BindGroupHandle lights, material, draw;
         const DrawItem* item;
     };
     std::vector<Prepared> opaque, blend;
     std::map<const Pipeline*, BindGroupHandle> frameGroups;
+    std::map<std::pair<const Pipeline*, size_t>, BindGroupHandle> lightGroups;
     std::vector<BindGroupHandle> transient;
     const auto release = [&] {
         for (BindGroupHandle h : transient) {
             dev_.destroy(h);
         }
     };
+    // The atlas texture handle is known only after recordShadows (re)creates it: space-1 groups are made after that.
+    if (!plan.tiles.empty()) {
+        if (auto r = recordShadows(cmd, plan, lists, transient); !r) {
+            release();
+            return r;
+        }
+    }
+    const TextureHandle shadowTexture = plan.tiles.empty() ? atlasView : atlas_;
     const auto prepare = [&](const std::vector<DrawItem>& in, std::vector<Prepared>& out) -> Result<void> {
         for (const DrawItem& it : in) {
             auto p = pipeline(it);
@@ -580,15 +927,34 @@ Result<void> ModelRenderer::record(ICommandList& cmd, TextureHandle color, const
                     transient.push_back(*fg);
                 }
             }
-            auto mg = materialGroup(**p, it, it.skinned, it.morph);
+            auto sel = selectionOf(it);
+            if (!sel) {
+                return std::unexpected(sel.error());
+            }
+            const auto lkey = std::make_pair(*p, *sel);
+            if (!lightGroups.count(lkey)) {
+                const std::map<std::string, Resource> res{{"Lights", lightsCbs[*sel]},
+                                                          {"Shadows", shadowsCb},
+                                                          {"shadowAtlas", shadowTexture},
+                                                          {"shadowSampler", shadowSampler_}};
+                auto lg = group(**p, 1, res);
+                if (!lg) {
+                    return std::unexpected(lg.error());
+                }
+                lightGroups[lkey] = *lg;
+                if (*lg) {
+                    transient.push_back(*lg);
+                }
+            }
+            auto mg = materialGroup(**p, it, materialGroups_);
             if (!mg) {
                 return std::unexpected(mg.error());
             }
-            auto dg = drawGroup(**p, it, it.skinned, it.morph);
+            auto dg = drawGroup(**p, it, drawGroups_);
             if (!dg) {
                 return std::unexpected(dg.error());
             }
-            out.push_back({*p, *mg, *dg, &it});
+            out.push_back({*p, lightGroups[lkey], *mg, *dg, &it});
         }
         return {};
     };
@@ -619,6 +985,9 @@ Result<void> ModelRenderer::record(ICommandList& cmd, TextureHandle color, const
         cmd.setPipeline(p.pipeline->handle);
         if (BindGroupHandle fg = frameGroups[p.pipeline]) {
             cmd.setBindGroup(0, fg);
+        }
+        if (p.lights) {
+            cmd.setBindGroup(1, p.lights);
         }
         if (p.material) {
             cmd.setBindGroup(2, p.material);

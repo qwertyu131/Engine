@@ -1,0 +1,124 @@
+{
+  "generator": "tools/refgen/render.mjs",
+  "renderer": {
+    "package": "@khronosgroup/gltf-viewer",
+    "version": "1.1.0",
+    "sourceTag": "KhronosGroup/glTF-Sample-Renderer v1.1.0 (d59d1d612ab6a6c242ff561b753fd4623a0ee4bd)",
+    "draco3d": "1.5.7"
+  },
+  "browser": {
+    "puppeteer": "25.17.0",
+    "version": "firefox/161.0",
+    "launchMode": "firefox-headless",
+    "webgl": {
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce GTX 980 Direct3D11 vs_5_0 ps_5_0), or similar",
+      "vendor": "Google Inc. (NVIDIA)",
+      "version": "WebGL 2.0",
+      "toneMapConst": "Khronos PBR Neutral"
+    }
+  },
+  "launchAttempts": [
+    {
+      "mode": "firefox-headless",
+      "ok": true
+    }
+  ],
+  "sampleAssets": {
+    "repo": "https://github.com/KhronosGroup/glTF-Sample-Assets",
+    "commit": "e124e8d8d7330a5372bc2b4d00d39a4a9d7997ea",
+    "sparse": [
+      "/Models/",
+      "!/Models/*/screenshot/"
+    ]
+  },
+  "pinnedFiles": {
+    "Cannon_Exterior.hdr": {
+      "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Environments/3a030b54c2e4f0f4d469eec2f98f47398c9a2a30/Cannon_Exterior.hdr",
+      "sha256": "7d65926ed2fa41c121738af2addf1fd5f1ae42d12ff77255e2679777f06c984b",
+      "license": "CC0-1.0 (Greg Zaal), see Cannon_Exterior.hdr.license in the same commit"
+    },
+    "lut_sheen_E.png": {
+      "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Renderer/d59d1d612ab6a6c242ff561b753fd4623a0ee4bd/assets/images/lut_sheen_E.png",
+      "sha256": "7f21d7754dd3a2a972d9d1298ee3e67e20c5b2f21969095d322a1bc20f8b2f04",
+      "license": "Apache-2.0 (glTF-Sample-Renderer v1.1.0)"
+    }
+  },
+  "settings": {
+    "environment": "Cannon_Exterior",
+    "environmentNote": "first entry (index 0, selectedEnvironment: 0) of the Sample-Viewer environment list, low_resolution_hdrs branch",
+    "environmentRotationDeg": 90,
+    "environmentRotationNote": "Sample-Viewer rotation \"+Z\" == 90 degrees",
+    "toneMap": "Khronos PBR Neutral",
+    "exposure": 1,
+    "exposureNote": "Sample-Viewer UI exposure 0 EV -> factor 1/2^0",
+    "useIBL": true,
+    "iblIntensity": 1,
+    "usePunctual": true,
+    "useDirectionalLightsWithDisabledIBL": true,
+    "renderEnvironmentMap": true,
+    "blurEnvironmentMap": true,
+    "clearColor": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "clearColorNote": "float RGBA passed straight to gl.clearColor; Sample-Viewer app value when no colour is selected (syncClearColor in src/main.js). Not visible while renderEnvironmentMap is true: the environment covers the whole background",
+    "internalMSAA": 4,
+    "morphing": true,
+    "skinning": true,
+    "animation": "as the app (applyLoadedGltf): every animation not overlapping an earlier one (gltf.nonDisjointAnimations), sampled at t = 0 (AnimationTimer paused, elapsedSec() == 0); models without animations render in rest pose",
+    "camera": "scene.applyTransformHierarchy, then UserCamera.resetView(gltf, sceneIndex) default fit camera on the rest pose (before animation is applied, as the app); yfov 45 deg; aspect = width/height; no orbit",
+    "sceneIndex": "gltf.scene ?? 0",
+    "variant": "KHR_materials_variants: none (default materials)",
+    "contextAttributes": {
+      "alpha": false,
+      "antialias": true,
+      "preserveDrawingBuffer": true
+    },
+    "framesBeforeCapture": 3,
+    "width": 512,
+    "height": 512,
+    "usePunctualNote": "refgen --use-punctual (plan F3 Task 7): KHR_lights_punctual on, every light of the scene (renderer.js getVisibleLights), Sample-Viewer has no shadows",
+    "modelDiffThreshold": 8,
+    "minModelCoverage": 0.01
+  },
+  "models": [
+    {
+      "name": "LightsPunctualLamp",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "LightsPunctualLamp.glb",
+      "png": "LightsPunctualLamp.png",
+      "pngSha256": "ccd722384c29b911ccec5a0a13cf6f913887fd41fc8752fd13c0fd46b9c50761",
+      "pixelStdDev": 42.13,
+      "modelCoverage": 0.14,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 3,
+        "faceCount": 6000,
+        "opaqueMaterialsCount": 2,
+        "transparentMaterialsCount": 1
+      }
+    },
+    {
+      "name": "DirectionalLight",
+      "status": "OK",
+      "variant": "glTF-Binary",
+      "file": "DirectionalLight.glb",
+      "png": "DirectionalLight.png",
+      "pngSha256": "b3f44d4065c6c652bfbf2d1c883a4ea2fd73f2505139ba4a1d7e6d74e96414a1",
+      "pixelStdDev": 29.166,
+      "modelCoverage": 0.1192,
+      "animationIndices": [],
+      "deterministicRerender": true,
+      "sceneStats": {
+        "meshCount": 3,
+        "faceCount": 31800,
+        "opaqueMaterialsCount": 3,
+        "transparentMaterialsCount": 0
+      }
+    }
+  ]
+}
