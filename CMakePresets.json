@@ -38,8 +38,8 @@
     { "name": "macos-clang", "configurePreset": "macos-clang" }
   ],
   "testPresets": [
-    { "name": "win-msvc", "configurePreset": "win-msvc", "output": { "outputOnFailure": true } },
-    { "name": "linux-clang", "configurePreset": "linux-clang", "output": { "outputOnFailure": true } },
-    { "name": "macos-clang", "configurePreset": "macos-clang", "output": { "outputOnFailure": true } }
+    { "name": "win-msvc", "configurePreset": "win-msvc", "output": { "outputOnFailure": true }, "execution": { "jobs": 8 } },
+    { "name": "linux-clang", "configurePreset": "linux-clang", "output": { "outputOnFailure": true }, "execution": { "jobs": 8 } },
+    { "name": "macos-clang", "configurePreset": "macos-clang", "output": { "outputOnFailure": true }, "execution": { "jobs": 8 } }
   ]
 }

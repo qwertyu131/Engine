@@ -71,6 +71,8 @@ DAWN_DEPS = [
 # Tint CLI: SPIR-V reader + WGSL writer (+ WGSL reader for validation). Every Dawn backend, test,
 # sample and other Tint reader/writer is off.
 TINT_CMAKE_OPTIONS = [
+    "-DCMAKE_CXX_FLAGS_INIT=/MP",  # parallel cl.exe inside each project; MSVC defaults are appended to _INIT
+    "-DCMAKE_C_FLAGS_INIT=/MP",
     "-DTINT_BUILD_CMD_TOOLS=ON",
     "-DTINT_BUILD_SPV_READER=ON",
     "-DTINT_BUILD_WGSL_WRITER=ON",
