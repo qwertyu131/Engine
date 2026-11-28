@@ -799,7 +799,7 @@
       "ref": "../ref/sample-viewer/BrainStem.png",
       "thresholdFlip": 0.05,
       "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)",
-      "expectedFail": "file-specific fit camera: this variant's POSITION accessors carry quantized min / max under dequantizing node transforms, so getExtentsFromAccessor (which the renderer ports) gives a larger box, (-1.62, -0.47, -1.36) .. (1.26, 2.27, 1.30) vs the plain glTF's (-1.26, -0.11, -0.99) .. (1.21, 2.27, 0.91) (computed from the JSON), and the reference is the plain file's framing; the model is drawn smaller and lower. Mean FLIP 0.129 (plan F3 Task 6 run); the plain BrainStem cases pass."
+      "expectedFail": "file-specific fit camera: this variant is a different mesh partition (49 POSITION accessors vs 59 in the plain glTF, all FLOAT, no node scales), and getExtentsFromAccessor over its JSON min / max (which the renderer ports) gives a larger box, (-1.62, -0.47, -1.36) .. (1.26, 2.27, 1.30) vs the plain file's (-1.26, -0.11, -0.99) .. (1.21, 2.27, 0.91) (computed from the JSON); the reference frames the plain file, so the model is drawn smaller and lower. Framing-only rests on that arithmetic and a visual side-by-side, not on a same-camera render. Mean FLIP 0.129 (plan F3 Task 6 run); the plain BrainStem cases pass."
     },
     {
       "name": "BrainStem.glTF-Meshopt-EXT.d3d11",
@@ -814,7 +814,7 @@
       "ref": "../ref/sample-viewer/BrainStem.png",
       "thresholdFlip": 0.05,
       "thresholdReason": "plan F3 Task 6 default gate (mean FLIP <= 0.05)",
-      "expectedFail": "file-specific fit camera: this variant's POSITION accessors carry quantized min / max under dequantizing node transforms, so getExtentsFromAccessor (which the renderer ports) gives a larger box, (-1.62, -0.47, -1.36) .. (1.26, 2.27, 1.30) vs the plain glTF's (-1.26, -0.11, -0.99) .. (1.21, 2.27, 0.91) (computed from the JSON), and the reference is the plain file's framing; the model is drawn smaller and lower. Mean FLIP 0.129 (plan F3 Task 6 run); the plain BrainStem cases pass."
+      "expectedFail": "file-specific fit camera: this variant is a different mesh partition (49 POSITION accessors vs 59 in the plain glTF, all FLOAT, no node scales), and getExtentsFromAccessor over its JSON min / max (which the renderer ports) gives a larger box, (-1.62, -0.47, -1.36) .. (1.26, 2.27, 1.30) vs the plain file's (-1.26, -0.11, -0.99) .. (1.21, 2.27, 0.91) (computed from the JSON); the reference frames the plain file, so the model is drawn smaller and lower. Framing-only rests on that arithmetic and a visual side-by-side, not on a same-camera render. Mean FLIP 0.129 (plan F3 Task 6 run); the plain BrainStem cases pass."
     },
     {
       "name": "Cameras.glTF.vulkan",

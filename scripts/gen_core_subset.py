@@ -44,9 +44,10 @@ MAX_BYTES = 64 << 20
 BACKENDS = ("vulkan", "d3d11")
 # Model -> reason. Only models above MAX_BYTES or with a known Sample-Viewer limit (plan F3 Task 6).
 EXCLUDED: dict[str, str] = {
-    "TwoSidedPlane": "known Sample-Viewer limit: its fit camera (UserCamera.resetView looks down -Z) sees the XZ plane "
-                     "edge-on; refgen (tools/refgen/render.mjs) refuses it: 'model not visible: 0.000% of pixels "
-                     "differ from the environment-only frame' (build log of plan F3 Task 6), so there is no reference",
+    "TwoSidedPlane": "known Sample-Viewer limit, no reference: its only mesh lies in the XZ plane (POSITION min "
+                     "(-1, 0, -1), max (1, 0, 1)) and UserCamera.resetView looks down -Z, so the plane is edge-on; "
+                     "tools/refgen refuses it (tests/golden/ref/sample-viewer/settings.json models[TwoSidedPlane]: "
+                     "status FAIL, 'model not visible: 0.000% of pixels differ from the environment-only frame')",
 }
 DEFAULT_THRESHOLD = 0.05
 DEFAULT_REASON = "plan F3 Task 6 default gate (mean FLIP <= 0.05)"
