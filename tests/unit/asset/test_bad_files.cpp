@@ -13,11 +13,76 @@
 #include <set>
 #include <string>
 
+#if defined(_WIN32)
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+// windows.h first: psapi.h needs its types.
+#include <psapi.h>
+#endif
+
 using namespace eng::asset;
 using namespace eng::asset::test;
 using eng::Result;
 
 TEST_SUITE("asset.bad") {
+
+// First case of the file (doctest runs a file's cases in line order): PeakPagefileUsage only grows, so a case that
+// loaded the same fixtures earlier in the process (the expected.json case below) would hide a regression here.
+TEST_CASE("KTX2 files with a lying level index are refused before libktx allocates what they declare") {
+    // The ktx2_* fixtures of bad/ declare up to 2^62 bytes in a file of under 1.5 KB, and limits/ktx2_over_budget.gltf
+    // a 46336 x 46336 image whose 2 GiB inflated level 0 is consistent with its header. Loading all of them must not
+    // raise the process's peak committed memory (Windows: PROCESS_MEMORY_COUNTERS::PeakPagefileUsage) by more than
+    // 256 MiB: a loader that hands the file to libktx first commits the declared 2 / 8 / 64 GiB (Release), touches it
+    // (Debug) or aborts with allocation-size-too-big (ASan). The bad/ files give exit 2, the over-budget file loads
+    // with the decode-budget warning and its image undecoded. Other platforms: the outcomes only, the peak is not
+    // measured.
+    const std::filesystem::path dir = f03Dir() / "bad";
+    std::vector<std::filesystem::path> files;
+    for (const auto& e : std::filesystem::directory_iterator(dir)) {
+        const std::string name = toUtf8(e.path().filename());
+        if (name.starts_with("ktx2_") && name != "ktx2_truncated.gltf") {
+            files.push_back(e.path());
+        }
+    }
+    REQUIRE(files.size() >= 10);
+#if defined(_WIN32)
+    const auto peak = [] {
+        PROCESS_MEMORY_COUNTERS pmc{};
+        pmc.cb = sizeof(pmc);
+        REQUIRE(GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc)));
+        return uint64_t(pmc.PeakPagefileUsage);
+    };
+    const uint64_t before = peak();
+#endif
+    for (const auto& p : files) {
+        CAPTURE(toUtf8(p.filename()));
+        const Result<ModelData> r = loadGltf(p, LoadOptions{}, nullptr);
+        REQUIRE_FALSE(r.has_value());
+        CHECK(r.error().exitCode == 2);
+    }
+    {
+        std::vector<Diagnostic> diags;
+        const Result<ModelData> r = loadGltf(f03Dir() / "limits" / "ktx2_over_budget.gltf", LoadOptions{}, &diags);
+        CHECK_MESSAGE(r.has_value(), (r ? std::string() : r.error().message)); // CHECK: the peak below still runs
+        if (r) {
+            REQUIRE(r->images.size() == 1);
+            CHECK_FALSE(r->images[0].decoded);
+            CHECK_FALSE(r->images[0].ktx2);
+        }
+        bool warned = false;
+        for (const Diagnostic& d : diags) {
+            warned = warned || (d.level == Diagnostic::Warning &&
+                                d.message.find("46336x46336 exceeds the decode budget") != std::string::npos);
+        }
+        CHECK(warned);
+    }
+#if defined(_WIN32)
+    const uint64_t grown = peak() - before;
+    MESSAGE("peak committed memory grew by " << (grown >> 20) << " MiB over " << files.size() + 1 << " KTX2 fixtures");
+    CHECK(grown < (uint64_t{256} << 20));
+#endif
+}
 
 TEST_CASE("every bad/ fixture: exit 2 with its message, no diagnostics claim success") {
     const std::filesystem::path dir = f03Dir() / "bad";

@@ -117,6 +117,56 @@
    "reviewFocus": "truncated KTX2 image (KHR_texture_basisu)"
   },
   {
+   "file": "ktx2_huge_level_length.gltf",
+   "message": "KTX2 level 0 (byteOffset 519, byteLength 8589934592) is outside the 622-byte file",
+   "reviewFocus": "KTX2 level index whose level 0 byteLength (8 GiB) is past the end of the file"
+  },
+  {
+   "file": "ktx2_level_length_2pow62.gltf",
+   "message": "KTX2 level 0 (byteOffset 519, byteLength 4611686018427387904) is outside the 622-byte file",
+   "reviewFocus": "KTX2 level 0 byteLength 2^62 (byteOffset + byteLength stays below 2^64)"
+  },
+  {
+   "file": "ktx2_level_offset_wrap.gltf",
+   "message": "KTX2 level 0 (byteOffset 18446744073709551600, byteLength 103) is outside the 622-byte file",
+   "reviewFocus": "KTX2 level 0 byteOffset + byteLength wrapping past 2^64 into the file"
+  },
+  {
+   "file": "ktx2_huge_uncompressed.gltf",
+   "message": "KTX2 level 0 uncompressedByteLength 68719476736 exceeds the 1024 bytes a 32x32 UASTC level has",
+   "reviewFocus": "KTX2 Zstandard level 0 uncompressedByteLength (64 GiB) above the UASTC size of the level"
+  },
+  {
+   "file": "ktx2_uncompressed_2pow62.gltf",
+   "message": "KTX2 level 0 uncompressedByteLength 4611686018427387904 exceeds the 1024 bytes a 32x32 UASTC level has",
+   "reviewFocus": "KTX2 Zstandard level 0 uncompressedByteLength 2^62"
+  },
+  {
+   "file": "ktx2_uncompressed_total.gltf",
+   "message": "KTX2 levels inflate to more than r.Asset.MaxFileBytes",
+   "reviewFocus": "KTX2 levels each within their UASTC size and r.Asset.MaxFileBytes whose inflated total is above the cap"
+  },
+  {
+   "file": "ktx2_level_count.gltf",
+   "message": "KTX2 levelCount 4294967295 is not possible for a 32x32 image",
+   "reviewFocus": "KTX2 levelCount 2^32 - 1 (libktx sizes its level index by it)"
+  },
+  {
+   "file": "ktx2_huge_dfd.gltf",
+   "message": "KTX2 data format descriptor (byteOffset 224, byteLength 4294967280) is outside the 622-byte file",
+   "reviewFocus": "KTX2 dfdByteLength near 4 GiB"
+  },
+  {
+   "file": "ktx2_huge_kvd.gltf",
+   "message": "KTX2 key/value data (byteOffset 268, byteLength 4294967280) is outside the 622-byte file",
+   "reviewFocus": "KTX2 kvdByteLength near 4 GiB"
+  },
+  {
+   "file": "ktx2_huge_sgd.gltf",
+   "message": "KTX2 supercompression global data (byteOffset 376, byteLength 4611686018427387904) is outside the 1374-byte file",
+   "reviewFocus": "KTX2 BasisLZ sgdByteLength 2^62"
+  },
+  {
    "file": "webp_truncated.gltf",
    "message": "WebP",
    "reviewFocus": "truncated WebP image (EXT_texture_webp)"

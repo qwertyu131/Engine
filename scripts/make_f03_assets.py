@@ -9,6 +9,7 @@ Layout:
                bad/expected.json lists every fixture with the message substring the test requires.
     missing/   valid files with missing attributes / material (Review Focus 4) and extension handling.
     colorspace/ the crafted TextureLinearInterpolationTest variant of the Review Focus 3 colour-space probe (Task 3).
+    limits/    files within the structural checks but over a decode limit: they load with a warning.
     alpha/     MASK and BLEND quads over the bare background (Task 4 facade probes).
     rest/      a quad displaced +2 in x by a skin or by a morph target at rest pose (Task 4 facade probes).
     paths/     .gltf files with external .bin / .png in the same and in a sibling directory, non-ASCII names
@@ -286,6 +287,65 @@ def fixtures() -> dict[str, bytes]:
     ktx2 = (sample / "CarConcept" / "glTF-KTX-BasisU-Draco" / "Rib_N.ktx2").read_bytes()
     bad("ktx2_truncated.gltf", tex_ext_doc("KHR_texture_basisu", "image/ktx2", ktx2[:len(ktx2) // 2]), "image/ktx2",
         "truncated KTX2 image (KHR_texture_basisu)")
+
+    # KTX2 files whose header / level index lie about sizes (Rib_N.ktx2: 32 x 32 UASTC + Zstandard, 6 levels, 622
+    # bytes). libktx mallocs what the index declares before reading, so the loader checks the index against the file
+    # size and the UASTC block size of each level first (exit 2, no allocation). KTX2 layout (KTX 2.0 spec): header
+    # u32 vkFormat @12, pixelWidth @20, pixelHeight @24, levelCount @40, supercompressionScheme @44; index u32
+    # dfdByteOffset @48, dfdByteLength @52, kvdByteOffset @56, kvdByteLength @60, u64 sgdByteOffset @64,
+    # sgdByteLength @72; level index @80, 24 bytes per level: u64 byteOffset, byteLength, uncompressedByteLength.
+    def ktx2_patch(src: bytes, *edits: tuple[int, str, int]) -> bytes:
+        b = bytearray(src)
+        for off, fmt, value in edits:
+            struct.pack_into(fmt, b, off, value)
+        return bytes(b)
+
+    def ktx2_bad(name: str, data: bytes, message: str, focus: str) -> None:
+        bad(name, tex_ext_doc("KHR_texture_basisu", "image/ktx2", data), message, focus)
+
+    lvl0 = 80  # level 0 entry: byteOffset @80, byteLength @88, uncompressedByteLength @96
+    ktx2_bad("ktx2_huge_level_length.gltf", ktx2_patch(ktx2, (lvl0 + 8, "<Q", 8 << 30)),
+             "KTX2 level 0 (byteOffset 519, byteLength 8589934592) is outside the 622-byte file",
+             "KTX2 level index whose level 0 byteLength (8 GiB) is past the end of the file")
+    ktx2_bad("ktx2_level_length_2pow62.gltf", ktx2_patch(ktx2, (lvl0 + 8, "<Q", 1 << 62)),
+             "KTX2 level 0 (byteOffset 519, byteLength 4611686018427387904) is outside the 622-byte file",
+             "KTX2 level 0 byteLength 2^62 (byteOffset + byteLength stays below 2^64)")
+    ktx2_bad("ktx2_level_offset_wrap.gltf", ktx2_patch(ktx2, (lvl0, "<Q", (1 << 64) - 16), (lvl0 + 8, "<Q", 103)),
+             "KTX2 level 0 (byteOffset 18446744073709551600, byteLength 103) is outside the 622-byte file",
+             "KTX2 level 0 byteOffset + byteLength wrapping past 2^64 into the file")
+    ktx2_bad("ktx2_huge_uncompressed.gltf", ktx2_patch(ktx2, (lvl0 + 16, "<Q", 64 << 30)),
+             "KTX2 level 0 uncompressedByteLength 68719476736 exceeds the 1024 bytes a 32x32 UASTC level has",
+             "KTX2 Zstandard level 0 uncompressedByteLength (64 GiB) above the UASTC size of the level")
+    ktx2_bad("ktx2_uncompressed_2pow62.gltf", ktx2_patch(ktx2, (lvl0 + 16, "<Q", 1 << 62)),
+             "KTX2 level 0 uncompressedByteLength 4611686018427387904 exceeds the 1024 bytes a 32x32 UASTC level has",
+             "KTX2 Zstandard level 0 uncompressedByteLength 2^62")
+    # 65536 x 65536 declared (the UASTC bound of level 0 is 4 GiB, of level 1 1 GiB): level 0 inflates to 2 GiB (the
+    # r.Asset.MaxFileBytes default, so not above it), level 1 to 1 GiB; together 3 GiB, above the cap.
+    ktx2_bad("ktx2_uncompressed_total.gltf",
+             ktx2_patch(ktx2, (20, "<I", 65536), (24, "<I", 65536), (lvl0 + 16, "<Q", 2 << 30),
+                        (lvl0 + 24 + 16, "<Q", 1 << 30)),
+             "KTX2 levels inflate to more than r.Asset.MaxFileBytes",
+             "KTX2 levels each within their UASTC size and r.Asset.MaxFileBytes whose inflated total is above the cap")
+    ktx2_bad("ktx2_level_count.gltf", ktx2_patch(ktx2, (40, "<I", 0xFFFFFFFF)),
+             "KTX2 levelCount 4294967295 is not possible for a 32x32 image",
+             "KTX2 levelCount 2^32 - 1 (libktx sizes its level index by it)")
+    ktx2_bad("ktx2_huge_dfd.gltf", ktx2_patch(ktx2, (52, "<I", 0xFFFFFFF0)),
+             "KTX2 data format descriptor (byteOffset 224, byteLength 4294967280) is outside the 622-byte file",
+             "KTX2 dfdByteLength near 4 GiB")
+    ktx2_bad("ktx2_huge_kvd.gltf", ktx2_patch(ktx2, (60, "<I", 0xFFFFFFF0)),
+             "KTX2 key/value data (byteOffset 268, byteLength 4294967280) is outside the 622-byte file",
+             "KTX2 kvdByteLength near 4 GiB")
+    etc1s = (sample / "CarConcept" / "glTF-KTX-BasisU-Draco" / "Dot_C.ktx2").read_bytes()  # BasisLZ: has an SGD
+    ktx2_bad("ktx2_huge_sgd.gltf", ktx2_patch(etc1s, (72, "<Q", 1 << 62)),
+             "KTX2 supercompression global data (byteOffset 376, byteLength 4611686018427387904) is outside the "
+             "1374-byte file",
+             "KTX2 BasisLZ sgdByteLength 2^62")
+    # limits/: a consistent KTX2 header over the decode budget (46336 x 46336 > 16384^2 pixels) whose level 0 declares
+    # 2147024896 inflated bytes, exactly its UASTC size and under r.Asset.MaxFileBytes: the loader warns and leaves it
+    # undecoded before libktx would allocate the 2 GiB.
+    files["limits/ktx2_over_budget.gltf"] = tex_ext_doc(
+        "KHR_texture_basisu", "image/ktx2",
+        ktx2_patch(ktx2, (20, "<I", 46336), (24, "<I", 46336), (lvl0 + 16, "<Q", (46336 // 4) ** 2 * 16)))
     webp = (sample / "CarConcept" / "glTF-WEBP" / "Hex_N.webp").read_bytes()
     bad("webp_truncated.gltf", tex_ext_doc("EXT_texture_webp", "image/webp", webp[:len(webp) // 2]), "WebP",
         "truncated WebP image (EXT_texture_webp)")

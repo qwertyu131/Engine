@@ -1,0 +1,131 @@
+{
+ "asset": {
+  "version": "2.0",
+  "generator": "scripts/make_f03_assets.py"
+ },
+ "scene": 0,
+ "scenes": [
+  {
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0
+  }
+ ],
+ "meshes": [
+  {
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1,
+      "TEXCOORD_0": 2
+     },
+     "indices": 3,
+     "material": 0
+    }
+   ]
+  }
+ ],
+ "buffers": [
+  {
+   "byteLength": 104,
+   "uri": "data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAABAAIAAAA="
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 36,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 36,
+   "byteLength": 36,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 72,
+   "byteLength": 24,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 96,
+   "byteLength": 6,
+   "target": 34963
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 3,
+   "type": "VEC3",
+   "min": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "max": [
+    1.0,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 3,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5126,
+   "count": 3,
+   "type": "VEC2"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5123,
+   "count": 3,
+   "type": "SCALAR"
+  }
+ ],
+ "materials": [
+  {
+   "pbrMetallicRoughness": {
+    "baseColorTexture": {
+     "index": 0
+    }
+   }
+  }
+ ],
+ "images": [
+  {
+   "uri": "data:image/ktx2;base64,q0tUWCAyMLsNChoKAAAAAAEAAACAAAAAgAAAAAAAAAAAAAAAAQAAAAgAAAABAAAAEAEAACwAAAA8AQAAPAAAAHgBAAAAAAAAAAAAAAAAAEBvBAAAAAAAAO8AAAAAAAAAAAAAAAAAAADkAwAAAAAAAIsAAAAAAAAAAAAAAAAAAACwAwAAAAAAADQAAAAAAAAAAAAAAAAAAACeAwAAAAAAABIAAAAAAAAAAAAAAAAAAACXAwAAAAAAAAcAAAAAAAAAAAAAAAAAAACUAwAAAAAAAAMAAAAAAAAAAAAAAAAAAACSAwAAAAAAAAIAAAAAAAAAAAAAAAAAAACQAwAAAAAAAAIAAAAAAAAAAAAAAAAAAAAsAAAAAAAAAAIAKACjAQIAAwMAAAAAAAAAAAAAAAA/AAAAAAAAAAAA/////zcAAABLVFh3cml0ZXIAUmFwaWRQaXBlbGluZSAzRCBQcm9jZXNzb3IgLyBsaWJrdHggdjQuMC4wfjUAAAkAVAAyAAAAyQAAAGkAAAAAAAAAAAAAAAAAAADvAAAAAAAAAAAAAAAAAAAAAAAAAIsAAAAAAAAAAAAAAAAAAAAAAAAANAAAAAAAAAAAAAAAAAAAAAAAAAASAAAAAAAAAAAAAAAAAAAAAAAAAAcAAAAAAAAAAAAAAAAAAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAABHAhAABAAAAENSBwAogCoAAAAAA5BqWgAATAQAAAAAAyIMBCEAEAAEAAEAIddtAa8tZGAemCEwDQRQA0Pd3lmbbbsiKJUFAWFGJGIcdhe4ROAIHQAw36BHA9gQIxCS9QB0CRIOqqqrq8fh5Q18kEg05DLrUw0iClDBCYoQIt134hUaGxoxdLfK+VhmTMiLRaGIhHnFChqSRMgziRaSzLp5/alkvrzWTZZgwjY2kwRJM1zSYsaNRilr3uRXrUs//mEU3iqvv6Jw391+Hfik0lkpuOK+2l8PVQPTEQNeLzby1feg7hqAP7oYwr98v+sl2NWXKQp2Uj/n09vcEAcEcAU0giAIA+gSLLbbwO6QOnkHshLGw8ALWskcIIaWkSRlvY2pHENIEQrxJemF/AhABAAAAQRA0eUYlEAtSWgegAMrbQN8G7wkRAv5UBBX8SWpHW20dcAF4KoAHDAAgCINkMTWi8gEBowGjAeP9B7U/37tX/AKX/5j4DF8QFy/HVxQfeTgWUQFjSjwsCBefmXNvfghePilE3P/t2Rz8PBe7W84OiXiqpNOkCFGrj1UjLrZmfC7cG83SwdIuJaX8p+z9EhPv3UYmTYi4R8jdjPj/bvFtgsTpjZUrYdnbXz7Wt88ZKDE89u/6Etv7vZ48f7LO7G8ngqWTH5DheGFguB0OpA5hOIwMbxkMt4FA2ipGriPDqW56xdJ+m1GbYGqtI0ltNL9R22/33LPN8Nj2ukOXNGnftLlTDgcRtyOBxHFmYJgkeLWfCCWlXDmTJo0og5bj9fABD9BuRQXba4GWY78Jiq/oV3iHVrkB/JJ0GwdscAccWzD/VG4CV5puwwKx4e6tGnjq659SBju0pX/O9DukDw449XHALYNnRR7HGWjVncKKbv+AP3hO7MfwDRycEirFbi7QOI+6gg6sdkGlmO4LNA6NDrygpWiBhhUUBTqwr0Kl2F4NNAZR3/ENdM0BO7RKA/hjHCstcAZ0nQVy01TawJ3hdbdHMDFZBfvzwawTowMeadrS3ul+RsQCLufFDN3SgEOSVl0UNiv4uSzewe59oOU4OCIUR9GrqGCaB1qO1Rp8QB8S"
+  }
+ ],
+ "textures": [
+  {
+   "extensions": {
+    "KHR_texture_basisu": {
+     "source": 0
+    }
+   }
+  }
+ ],
+ "extensionsUsed": [
+  "KHR_texture_basisu"
+ ],
+ "extensionsRequired": [
+  "KHR_texture_basisu"
+ ]
+}
