@@ -3,6 +3,7 @@
 //   headless --backend <name> --scene <path|builtin:...> --out <png>
 //            [--width N=256] [--height N=256] [--cvar name=value]... [--bench <frames>]
 //            [--warp] [--adapter <index>] [--shader-dir <dir>] [--asset-dir <dir>]
+//            [--d3d11-feature-level 10_0|10_1|11_0|11_1] [--dump-caps <json>]
 //
 // Backends:
 //   cpu     F0: `--scene builtin:test-pattern` (deterministic CPU pattern, see TestPattern.h).
@@ -13,6 +14,11 @@
 // (default: the build tree's, compiled in). --asset-dir is the test asset root (default: the source
 // tree's tests/assets, compiled in).
 //
+// --d3d11-feature-level  caps the D3D11 feature level (DeviceDesc::d3d11FeatureLevelCap; 10_x = T0, plan F2
+//          Task 7). Default: the highest the adapter offers.
+// --dump-caps  writes the device's DeviceCaps as JSON (rhi::capsToJson, with a "note" on where the values
+//          come from) and prints `caps: <backend> tier <n> (<apiVersion>, <adapter>) -> <json>`. With
+//          --dump-caps, --scene and --out are optional (both or neither): without them nothing is rendered.
 // --cvar   applied with CVarSource::CommandLine, in order. An unknown cvar or a rejected value is
 //          a usage error (a test gate must not silently run with a typo'd setting).
 // --bench  renders r.Bench.WarmupFrames untimed frames, then N timed frames, and prints
@@ -40,6 +46,7 @@
 #include <cstdio>
 #include <exception>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -64,6 +71,8 @@ void printUsage(std::ostream& os) {
           "  headless --backend <name> --scene <path|builtin:...> --out <png>\n"
           "           [--width N=256] [--height N=256] [--cvar name=value]... [--bench <frames>]\n"
           "           [--warp] [--adapter <index>] [--shader-dir <dir>] [--asset-dir <dir>]\n"
+          "           [--d3d11-feature-level 10_0|10_1|11_0|11_1] [--dump-caps <json>]\n"
+          "  headless --backend <gpu> --dump-caps <json> [--warp] [--adapter <index>] [--d3d11-feature-level ...]\n"
           "backends in this build: cpu";
     for (const eng::rhi::Backend b : eng::rhi::compiledBackends()) {
         os << ", " << eng::rhi::toString(b);
@@ -85,7 +94,27 @@ struct Options {
     int adapter = -1;
     std::string shaderDir;
     std::string assetDir;
+    int d3d11FeatureLevel = 0; // 0 = highest; 0xa000 = 10_0 ...
+    std::string featureLevelName;
+    std::string dumpCaps;
 };
+
+// "10_0" -> 0xa000 ... "11_1" -> 0xb100; 0 for anything else.
+int parseFeatureLevel(const std::string& s) {
+    if (s == "10_0") {
+        return 0xa000;
+    }
+    if (s == "10_1") {
+        return 0xa100;
+    }
+    if (s == "11_0") {
+        return 0xb000;
+    }
+    if (s == "11_1") {
+        return 0xb100;
+    }
+    return 0;
+}
 
 std::optional<int> parseInt(const std::string& s, int min, int max) {
     int v = 0;
@@ -142,6 +171,16 @@ std::optional<Options> parseArgs(const std::vector<std::string>& args) {
             o.shaderDir = val;
         } else if (key == "--asset-dir") {
             o.assetDir = val;
+        } else if (key == "--d3d11-feature-level") {
+            o.d3d11FeatureLevel = parseFeatureLevel(val);
+            if (o.d3d11FeatureLevel == 0) {
+                std::cerr << "headless: --d3d11-feature-level must be one of 10_0, 10_1, 11_0, 11_1 (got '" << val
+                          << "')\n";
+                return std::nullopt;
+            }
+            o.featureLevelName = val;
+        } else if (key == "--dump-caps") {
+            o.dumpCaps = val;
         } else if (key == "--cvar") {
             o.cvars.push_back(val);
         } else if (key == "--bench") {
@@ -157,8 +196,10 @@ std::optional<Options> parseArgs(const std::vector<std::string>& args) {
             return std::nullopt;
         }
     }
-    if (!haveBackend || !haveScene || !haveOut) {
-        std::cerr << "headless: --backend, --scene and --out are required\n";
+    const bool capsOnly = !o.dumpCaps.empty() && !haveScene && !haveOut;
+    if (!haveBackend || (!capsOnly && (!haveScene || !haveOut))) {
+        std::cerr << "headless: --backend, --scene and --out are required (--scene / --out are optional with "
+                     "--dump-caps)\n";
         return std::nullopt;
     }
     return o;
@@ -187,6 +228,50 @@ bool applyCVars(const std::vector<std::string>& cvars) {
     return true;
 }
 
+// Where the numbers come from, written into every caps JSON (plan F2 Task 7).
+std::string capsNote(const eng::rhi::DeviceCaps& c, const Options& o) {
+    const std::string warp = c.software ? " (WARP software rasterizer)" : "";
+    std::string n;
+    if (c.backend == eng::rhi::Backend::D3D11) {
+        if (o.d3d11FeatureLevel != 0) {
+            n = "D3D11 device created with its feature level capped at " + o.featureLevelName + " on '" + c.adapterName +
+                "'" + warp +
+                ": these are the API limits (Windows SDK constants of that feature level) and the format / feature "
+                "support this driver reports at that feature level, NOT measurements of real FL" +
+                o.featureLevelName + " hardware.";
+        } else {
+            n = "D3D11 device at the adapter's highest feature level (" + c.apiVersion + ") on '" + c.adapterName + "'" +
+                warp +
+                ": limits are the Windows SDK constants of that feature level; format and feature support as the "
+                "driver reports it.";
+        }
+    } else {
+        n = "Vulkan physical device '" + c.adapterName + "' (API " + c.apiVersion +
+            "): limits, formats and features the device SUPPORTS (vkGetPhysicalDevice*); the F2 RHI enables only "
+            "dynamicRendering.";
+    }
+    return n + " Written by headless --dump-caps (plan F2 Task 7).";
+}
+
+int dumpCaps(const eng::rhi::IDevice& device, const Options& o) {
+    const eng::rhi::DeviceCaps& c = device.caps();
+    const fs::path path = eng::golden::fromUtf8(o.dumpCaps);
+    std::error_code ec;
+    if (path.has_parent_path()) {
+        fs::create_directories(path.parent_path(), ec);
+    }
+    std::ofstream f(path, std::ios::binary);
+    f << eng::rhi::capsToJson(c, capsNote(c, o));
+    f.close();
+    if (!f) {
+        std::cerr << "headless: cannot write '" << o.dumpCaps << "'\n";
+        return kExitError;
+    }
+    std::cout << "caps: " << eng::rhi::toString(c.backend) << " tier " << c.tier << " (" << c.apiVersion << ", "
+              << c.adapterName << ") -> " << o.dumpCaps << "\n";
+    return kExitOk;
+}
+
 int run(const std::vector<std::string>& args) {
     if (args.size() == 2 && (args[1] == "--help" || args[1] == "-h")) {
         printUsage(std::cout);
@@ -208,10 +293,15 @@ int run(const std::vector<std::string>& args) {
         std::cerr << "backend '" << opts->backend << "' not available in this build\n";
         return kExitNoBackend;
     }
-    if (!gpu && (opts->warp || opts->adapter >= 0)) {
-        std::cerr << "headless: --warp / --adapter need a GPU backend\n";
+    if (!gpu && (opts->warp || opts->adapter >= 0 || !opts->dumpCaps.empty())) {
+        std::cerr << "headless: --warp / --adapter / --dump-caps need a GPU backend\n";
         return kExitError;
     }
+    if (opts->d3d11FeatureLevel != 0 && gpu != eng::rhi::Backend::D3D11) {
+        std::cerr << "headless: --d3d11-feature-level needs --backend d3d11\n";
+        return kExitError;
+    }
+    const bool capsOnly = opts->scene.empty();
 
     eng::CVar* warmup = eng::CVarRegistry::get().registerInt(
         "r.Bench.WarmupFrames", 0, "Untimed frames rendered before --bench timing starts", eng::CVarFlags::None, 0,
@@ -224,7 +314,7 @@ int run(const std::vector<std::string>& args) {
     std::unique_ptr<eng::rhi::IDevice> device;
     fs::path shaderDir;
     fs::path assetDir;
-    if (gpu) {
+    if (gpu && !capsOnly) {
         bool known = false;
         std::string names;
         for (const std::string_view n : eng::scenes::sceneNames()) {
@@ -250,10 +340,13 @@ int run(const std::vector<std::string>& args) {
 #else
         assetDir = eng::rhi::pathFromUtf8(opts->assetDir);
 #endif
+    }
+    if (gpu) {
         eng::rhi::DeviceDesc dd;
         dd.backend = *gpu;
         dd.warp = opts->warp;
         dd.adapterIndex = opts->adapter;
+        dd.d3d11FeatureLevelCap = opts->d3d11FeatureLevel;
         auto dev = eng::rhi::createDevice(dd);
         if (!dev) {
             std::cerr << "headless: " << dev.error().message << "\n";
@@ -261,6 +354,14 @@ int run(const std::vector<std::string>& args) {
         }
         device = std::move(*dev);
         ENG_LOG_INFO("backend {}: {} (API {})", opts->backend, device->caps().adapterName, device->caps().apiVersion);
+        if (!opts->dumpCaps.empty()) {
+            if (const int rc = dumpCaps(*device, *opts); rc != kExitOk) {
+                return rc;
+            }
+            if (capsOnly) {
+                return kExitOk;
+            }
+        }
     } else if (opts->scene != kBuiltinTestPattern) {
         std::cerr << "headless: scene '" << opts->scene << "' not supported in this build (only "
                   << kBuiltinTestPattern << ")\n";

@@ -1,5 +1,7 @@
 #include "Types.h"
 
+#include <iterator>
+
 namespace eng::rhi {
 
 const char* toString(Backend b) {
@@ -34,6 +36,16 @@ const char* toString(Format f) {
     case Format::RGBA8_UINT: return "RGBA8_UINT";
     }
     return "Unknown";
+}
+
+std::span<const Format> allFormats() {
+    static constexpr Format kAll[] = {
+        Format::RGBA8_UNORM, Format::RGBA8_SRGB,  Format::BGRA8_UNORM, Format::BGRA8_SRGB, Format::RGBA16_FLOAT,
+        Format::RGBA32_FLOAT, Format::D32_FLOAT,  Format::D24_UNORM_S8_UINT, Format::R32_FLOAT, Format::RG32_FLOAT,
+        Format::RGB32_FLOAT, Format::R32_UINT,    Format::RG32_UINT,   Format::RGB32_UINT, Format::RGBA32_UINT,
+        Format::R32_SINT,    Format::RGBA32_SINT, Format::RGBA16_UINT, Format::RGBA8_UINT};
+    static_assert(std::size(kAll) == static_cast<size_t>(Format::RGBA8_UINT), "allFormats(): a Format is missing");
+    return kAll;
 }
 
 uint32_t formatBytes(Format f) {

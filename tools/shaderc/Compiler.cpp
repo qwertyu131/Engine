@@ -80,6 +80,8 @@ private:
     std::expected<void, std::string> toDxbcCross(CompileResult& out);
     std::expected<void, std::string> toDxbcDirect(CompileResult& out);
     std::expected<void, std::string> checkTargetFeatures() const;
+    // DXBC shader model (plan F2 Task 7): "4_0" with TIER=0 (D3D11 FL10_x = T0), else "5_0" (FL11_x).
+    const char* dxbcShaderModel() const;
 
     const CompileRequest& req_;
     const ToolPaths& tools_;
@@ -146,7 +148,8 @@ std::expected<std::vector<uint8_t>, std::string> Job::fxc(const fs::path& hlsl, 
         return std::unexpected(exe.error());
     }
     const fs::path out = tmp_.path() / "out.dxbc";
-    if (auto r = tool(*exe, "fxc", {"/nologo", "/T", profile(req_.stage, "5_0"), "/E", entry, "/Fo", out, hlsl}); !r) {
+    if (auto r = tool(*exe, "fxc", {"/nologo", "/T", profile(req_.stage, dxbcShaderModel()), "/E", entry, "/Fo", out, hlsl});
+        !r) {
         return std::unexpected(r.error());
     }
     return readFile(out);
@@ -313,7 +316,7 @@ std::expected<void, std::string> Job::toGlsl(CompileResult& out, uint32_t versio
 std::expected<void, std::string> Job::toDxbcCross(CompileResult& out) {
     spirv_cross::CompilerHLSL hlsl(spirv_);
     auto opts = hlsl.get_hlsl_options();
-    opts.shader_model = 50;
+    opts.shader_model = std::string_view(dxbcShaderModel()) == "4_0" ? 40 : 50;
     hlsl.set_hlsl_options(opts);
     const auto flat = d3d11FlatRegisters(refl_);
     for (Resource& r : refl_.resources) {
@@ -375,6 +378,16 @@ std::expected<void, std::string> Job::toDxbcDirect(CompileResult& out) {
         r.targetBinding = {{"register", std::string(1, cls) + std::to_string(flat.at({cls, r.space, r.index}))}};
     }
     return {};
+}
+
+const char* Job::dxbcShaderModel() const {
+    std::string tier;
+    for (const auto& [k, v] : req_.defines) {
+        if (k == "TIER") {
+            tier = v; // last definition wins, as on the DXC command line
+        }
+    }
+    return tier == "0" ? "4_0" : "5_0";
 }
 
 // Features a target cannot express are rejected here, by name, instead of emitting a shader that a
@@ -509,8 +522,10 @@ std::expected<CompileResult, std::string> Job::run() {
     }
     out.reflection = toJson(refl_, req_.stage, req_.entry, req_.target);
     if (req_.target == Target::DXBC) {
-        // The D3D11 RHI rejects a VS / PS pair from different paths (F1 Risk 1; plan F2 Task 4).
+        // The D3D11 RHI rejects a VS / PS pair from different paths (F1 Risk 1; plan F2 Task 4) and a
+        // shader model above the device's tier (plan F2 Task 7: "4_0" = T0, "5_0" = T1).
         out.reflection["dxbcPath"] = toString(req_.dxbcPath);
+        out.reflection["shaderModel"] = dxbcShaderModel();
     }
     out.diagnostics = std::move(diagnostics_);
     return out;

@@ -143,7 +143,9 @@ if(TARGET shaders)
         rhi/test_cube.cpp
         rhi/test_d3d11.cpp
         rhi/test_cross_backend.cpp
-        rhi/test_pbr_spheres.cpp)
+        rhi/test_pbr_spheres.cpp
+        rhi/test_caps.cpp
+        rhi/SceneProbes.h)
     target_link_libraries(rhi_unit_tests PRIVATE engine::rhi headless_core nlohmann_json::nlohmann_json doctest::doctest)
     target_compile_definitions(rhi_unit_tests PRIVATE ENG_TEST_SHADER_LIB_DIR="${ENG_SHADER_LIB_DIR}"
         ENG_TEST_ASSET_DIR="${PROJECT_SOURCE_DIR}/tests/assets")
@@ -157,7 +159,8 @@ if(TARGET shaders)
         list(APPEND rhi_backends vulkan)
     endif()
     if(ENG_RHI_D3D11)
-        list(APPEND rhi_backends d3d11 d3d11-warp)
+        # d3d11-fl10_0 / d3d11-warp-fl10_0: D3D11 capped at FL10_0 = T0 (plan F2 Task 7, suite rhi.t0).
+        list(APPEND rhi_backends d3d11 d3d11-warp d3d11-fl10_0 d3d11-warp-fl10_0)
     endif()
     foreach(b IN LISTS rhi_backends)
         add_test(NAME unit.rhi.${b} COMMAND rhi_unit_tests --rhi-backend=${b} --no-version=true)

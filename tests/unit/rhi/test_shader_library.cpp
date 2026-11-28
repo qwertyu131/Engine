@@ -115,6 +115,32 @@ TEST_CASE("reflection carries dxbcPath (D3D11) and renderTargets (pixel shader);
     }
 }
 
+TEST_CASE("reflection carries the DXBC shaderModel: 5_0 by default, 4_0 for the T0 keys (plan F2 Task 7)") {
+    const fs::path dir = eng::rhi::test::shaderLibDir();
+    struct Case {
+        const char* shader;
+        const char* key;
+        const char* sm;
+    };
+    for (const Case& c : {Case{"pbr", "T1_SKIN0_MORPH0_UNLIT0", "5_0"}, Case{"pbr", "T0_SKIN0_MORPH0_UNLIT0", "4_0"},
+                          Case{"pbr", "T0_SKIN1_MORPH1_UNLIT1", "4_0"}, Case{"color_triangle", "default", "5_0"},
+                          Case{"color_triangle", "default-t0", "4_0"}, Case{"skybox", "default", "5_0"},
+                          Case{"skybox", "default-t0", "4_0"}, Case{"textured", "default", "5_0"}}) {
+        for (const char* entry : {"VSMain", "PSMain"}) {
+            CAPTURE(c.shader);
+            CAPTURE(c.key);
+            CAPTURE(entry);
+            auto blob = ShaderLibrary::load(dir, c.shader, entry, Backend::D3D11, c.key);
+            REQUIRE_MESSAGE(blob.has_value(), (blob ? std::string() : blob.error().message));
+            CHECK(blob->reflection.shaderModel == c.sm);
+            CHECK(blob->reflection.dxbcPath == "cross");
+        }
+    }
+    auto spirv = ShaderLibrary::load(dir, "pbr", "VSMain", Backend::Vulkan, "T2_SKIN0_MORPH0_UNLIT0");
+    REQUIRE_MESSAGE(spirv.has_value(), (spirv ? std::string() : spirv.error().message));
+    CHECK(spirv->reflection.shaderModel.empty());
+}
+
 TEST_CASE("a missing shader is Error{2, shader not found: <path>}") {
     const fs::path dir = eng::rhi::test::shaderLibDir();
     auto r = ShaderLibrary::load(dir, "no_such_shader", "VSMain", Backend::Vulkan, "default");

@@ -156,6 +156,10 @@ Costs accepted with cross:
     match.
   - shaderc emits SM 5.0, which is FL11_x (T1). The T0 D3D11 FL10_x backend needs SM 4.0 profiles and is
     not covered. F2 measures FL10.
+    **Update F2 Task 7:** with `TIER=0` shaderc now emits SM 4.0 (`vs_4_0` / `ps_4_0`, SPIRV-Cross
+    `shader_model = 40` on the cross path) and records `"shaderModel":"4_0"` (else `"5_0"`) in the
+    reflection. `pbr` dxbc builds T0 and T1 (16 define sets per stage). The D3D11 RHI rejects an SM 5.0
+    pipeline on a FL10_x device with `pipeline needs TIER 1, device is TIER 0`.
   - **The VS and PS of a draw must come from the same DXBC path.** The two paths use different
     inter-stage semantics (`WORLD_POSITION` vs `TEXCOORD0`).
 - **GLSL ES 3.00 (T0).**

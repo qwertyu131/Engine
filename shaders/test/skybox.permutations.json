@@ -1,5 +1,5 @@
 {
-  "comment": "builtin:pbr-spheres environment background (plan F2 Task 5). No permutation axes: key 'default'. Only the targets the F2 RHI backends load.",
+  "comment": "builtin:pbr-spheres environment background (plan F2 Task 5). No permutation axes: key 'default'. Only the targets the F2 RHI backends load. dxbc tier0Variant (plan F2 Task 7): also built with TIER=0 = SM 4.0 under key 'default-t0', for the D3D11 FL10_x (T0) device; 'default' stays SM 5.0.",
   "source": "shaders/test/skybox.hlsl",
   "entries": [
     { "entry": "VSMain", "stage": "vs" },
@@ -8,6 +8,6 @@
   "axes": {},
   "targets": {
     "spirv": { "backend": "Vulkan" },
-    "dxbc":  { "backend": "D3D11" }
+    "dxbc":  { "backend": "D3D11", "tier0Variant": true }
   }
 }

@@ -21,30 +21,13 @@
 #include <string>
 
 #include "RhiTestEnv.h"
+#include "SceneProbes.h"
 
 using namespace eng::rhi;
 using eng::rhi::test::currentBackend;
 using eng::rhi::test::shaderLibDir;
 
 namespace {
-
-using Rgba = std::array<int, 4>;
-
-Rgba pixel(const Image& img, uint32_t x, uint32_t y) {
-    const size_t i = (static_cast<size_t>(y) * img.width + x) * 4u;
-    return {img.rgba8[i], img.rgba8[i + 1], img.rgba8[i + 2], img.rgba8[i + 3]};
-}
-
-void checkProbe(const Image& img, uint32_t x, uint32_t y, Rgba expected, int tol) {
-    const Rgba got = pixel(img, x, y);
-    CAPTURE(x);
-    CAPTURE(y);
-    for (int c = 0; c < 4; ++c) {
-        CAPTURE(c);
-        CAPTURE(got[c]);
-        CHECK(std::abs(got[c] - expected[c]) <= tol);
-    }
-}
 
 std::unique_ptr<IDevice> makeDevice() {
     auto dev = createDevice(currentBackend().desc);
@@ -92,21 +75,7 @@ TEST_CASE("builtin:triangle 64x64: corner colours, clear colour, validation clea
     auto dev = makeDevice();
     auto img = eng::scenes::renderTriangle(*dev, shaderLibDir(), 64, 64);
     REQUIRE_MESSAGE(img.has_value(), (img ? std::string() : img.error().message));
-    REQUIRE(img->width == 64);
-    REQUIRE(img->height == 64);
-    REQUIRE(img->rgba8.size() == 64u * 64u * 4u);
-    checkProbe(*img, 8, 8, {255, 0, 0, 255}, 2);  // red, top-left vertex (8.4, 8.4)
-    checkProbe(*img, 55, 8, {0, 255, 0, 255}, 2); // green, top-right vertex (55.6, 8.4)
-    checkProbe(*img, 32, 56, {0, 0, 255, 255}, 2); // blue, bottom vertex (32.5, 56.75)
-    // Background: clear colour 0.1 (UNORM 26), corners outside the triangle.
-    checkProbe(*img, 2, 61, {26, 26, 26, 255}, 1);
-    checkProbe(*img, 61, 61, {26, 26, 26, 255}, 1);
-    checkProbe(*img, 32, 2, {26, 26, 26, 255}, 1);
-    // Centroid (32.17, 24.52): all three colours mixed, none dominant.
-    const Rgba mid = pixel(*img, 32, 24);
-    CHECK(mid[0] > 40);
-    CHECK(mid[1] > 40);
-    CHECK(mid[2] > 40);
+    eng::rhi::test::checkTriangleProbes(*img);
     CHECK(dev->validationErrorCount() == 0);
 }
 

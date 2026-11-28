@@ -23,7 +23,7 @@ public:
     TriangleScene(IDevice& dev, uint32_t w, uint32_t h) : dev_(dev), own_(dev), width_(w), height_(h) {}
 
     Result<void> init(const SceneDesc& d) {
-        auto sp = detail::loadShaderPair(dev_, own_, d.shaderDir, "color_triangle", "default");
+        auto sp = detail::loadShaderPair(dev_, own_, d.shaderDir, "color_triangle", detail::tierKey(dev_, "default"));
         if (!sp) {
             return std::unexpected(sp.error());
         }

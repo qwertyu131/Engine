@@ -71,3 +71,21 @@ headless_cli_test(bad_size 2 ARGS --backend cpu ${tp} --width 0 --out @WORK@/tp.
 headless_cli_test(usage 2 ARGS --backend cpu)
 headless_cli_test(utf8_out 0 EXPECT_FILE "@UTF8DIR@/desen.png"
                   ARGS --backend cpu ${tp} --out "@UTF8DIR@/desen.png")
+
+# headless --dump-caps (plan F2 Task 7): the DeviceCaps table as JSON, without --scene / --out. The FL10_0
+# entry caps D3D11 at feature level 10_0 (T0); the JSON lands under a non-ASCII path with spaces.
+headless_cli_test(dump_caps_bad_feature_level 2 EXPECT_IN_OUTPUT "--d3d11-feature-level must be one of"
+                  ARGS --backend d3d11 --d3d11-feature-level 9_3 --dump-caps @WORK@/caps.json)
+if(ENG_RHI_D3D11)
+    headless_cli_test(dump_caps_d3d11_fl10_0 0 EXPECT_IN_OUTPUT "caps: d3d11 tier 0 (10_0"
+                      EXPECT_FILE "@UTF8DIR@/caps fl10.json"
+                      ARGS --backend d3d11 --d3d11-feature-level 10_0 --dump-caps "@UTF8DIR@/caps fl10.json")
+    headless_cli_test(dump_caps_d3d11_warp 0 EXPECT_IN_OUTPUT "caps: d3d11 tier 1 (11_1"
+                      EXPECT_FILE @WORK@/caps.json
+                      ARGS --backend d3d11 --warp --dump-caps @WORK@/caps.json)
+endif()
+if(ENG_RHI_VULKAN)
+    headless_cli_test(dump_caps_vulkan 0 EXPECT_IN_OUTPUT "caps: vulkan tier 2"
+                      EXPECT_FILE @WORK@/caps.json
+                      ARGS --backend vulkan --dump-caps @WORK@/caps.json)
+endif()

@@ -72,7 +72,8 @@ std::expected<void, std::string> checkBindingConvention(const Reflection& r, con
 // "resource <name> has no explicit register() (binding convention)".
 std::expected<void, std::string> checkExplicitRegisters(const Reflection& r, const std::string& preprocessedHlsl);
 
-// Pixel shaders also get "renderTargets"; Compiler adds "dxbcPath" (cross | direct) for the dxbc target.
+// Pixel shaders also get "renderTargets"; Compiler adds "dxbcPath" (cross | direct) and "shaderModel"
+// ("4_0" for TIER=0, else "5_0"; plan F2 Task 7) for the dxbc target.
 nlohmann::json toJson(const Reflection& r, Stage stage, const std::string& entry, Target target);
 
 } // namespace eng::sc

@@ -76,6 +76,105 @@ Error D3D11Device::hrError(const char* what, long hr) {
     return Error{kExitUsage, std::format("d3d11: {} failed ({})", what, hrString(hr))};
 }
 
+namespace {
+
+// Feature-level limits of the Windows SDK headers (10.0.26100). d3d10.h / d3d10_1.h are not included next to
+// d3d11.h; their values (FL10_x) are copied here with the header they come from:
+constexpr uint32_t kD3D10Texture2D = 8192;      // d3d10.h D3D10_REQ_TEXTURE2D_U_OR_V_DIMENSION
+constexpr uint32_t kD3D10TextureCube = 8192;    // d3d10.h D3D10_REQ_TEXTURECUBE_DIMENSION
+constexpr uint32_t kD3D10VertexInputs = 16;     // d3d10.h D3D10_IA_VERTEX_INPUT_STRUCTURE_ELEMENT_COUNT
+constexpr uint32_t kD3D10_1VertexInputs = 32;   // d3d10_1.h D3D10_1_IA_VERTEX_INPUT_STRUCTURE_ELEMENT_COUNT
+static_assert(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT == 8); // = d3d10.h D3D10_SIMULTANEOUS_RENDER_TARGET_COUNT
+static_assert(D3D11_REQ_CONSTANT_BUFFER_ELEMENT_COUNT == 4096); // = d3d10.h D3D10_REQ_CONSTANT_BUFFER_ELEMENT_COUNT
+static_assert(D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT == 14); // = D3D10_COMMONSHADER_...
+static_assert(D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT == 128);     // = D3D10_COMMONSHADER_...
+static_assert(D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT == 16);             // = D3D10_COMMONSHADER_...
+
+} // namespace
+
+void D3D11Device::queryCaps(D3D_FEATURE_LEVEL level) {
+    const bool fl11 = level >= D3D_FEATURE_LEVEL_11_0;
+    const bool fl10_1 = level >= D3D_FEATURE_LEVEL_10_1;
+    caps_.maxTexture2D = fl11 ? D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION : kD3D10Texture2D;
+    caps_.maxCubeSize = fl11 ? D3D11_REQ_TEXTURECUBE_DIMENSION : kD3D10TextureCube;
+    caps_.maxColorAttachments = D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT;
+    caps_.maxVertexAttributes =
+        fl11 ? D3D11_IA_VERTEX_INPUT_STRUCTURE_ELEMENT_COUNT : (fl10_1 ? kD3D10_1VertexInputs : kD3D10VertexInputs);
+    caps_.maxUniformBufferBytes = uint64_t(D3D11_REQ_CONSTANT_BUFFER_ELEMENT_COUNT) * 16u;
+    caps_.maxBindingsPerStage.cbuffer = D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT;
+    caps_.maxBindingsPerStage.texture = D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT;
+    caps_.maxBindingsPerStage.sampler = D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT;
+    // UAVs: pixel / compute stage only, FL11_0 8, FL11_1 64, none below FL11 in the graphics stages.
+    caps_.maxBindingsPerStage.storage =
+        level >= D3D_FEATURE_LEVEL_11_1 ? D3D11_1_UAV_SLOT_COUNT : (fl11 ? D3D11_PS_CS_UAV_REGISTER_COUNT : 0u);
+
+    // Compute: FL11 always; FL10_x only as the optional CS 4.x (+ raw / structured buffers in CS).
+    if (fl11) {
+        caps_.computeShaders = true;
+    } else {
+        D3D11_FEATURE_DATA_D3D10_X_HARDWARE_OPTIONS hw{};
+        caps_.computeShaders =
+            SUCCEEDED(device_->CheckFeatureSupport(D3D11_FEATURE_D3D10_X_HARDWARE_OPTIONS, &hw, sizeof(hw))) &&
+            hw.ComputeShaders_Plus_RawAndStructuredBuffers_Via_Shader_4_x != FALSE;
+    }
+    // Structured buffers in the graphics stages (T1/T2 skin + morph in the VS) need FL11.
+    caps_.storageBuffers = fl11;
+    caps_.vertexStorageBuffers = fl11;
+
+    auto support = [&](DXGI_FORMAT f) {
+        UINT s = 0;
+        return SUCCEEDED(device_->CheckFormatSupport(f, &s)) ? s : 0u;
+    };
+    caps_.formatSupport.clear();
+    for (const Format f : allFormats()) {
+        const UINT s = support(toDxgiFormat(f));
+        FormatCaps c;
+        c.sample = (s & D3D11_FORMAT_SUPPORT_TEXTURE2D) && (s & D3D11_FORMAT_SUPPORT_SHADER_LOAD);
+        c.filter = (s & D3D11_FORMAT_SUPPORT_TEXTURE2D) && (s & D3D11_FORMAT_SUPPORT_SHADER_SAMPLE);
+        c.render = (s & D3D11_FORMAT_SUPPORT_RENDER_TARGET) != 0;
+        c.blend = c.render && (s & D3D11_FORMAT_SUPPORT_BLENDABLE);
+        c.depth = (s & D3D11_FORMAT_SUPPORT_DEPTH_STENCIL) != 0;
+        c.vertex = (s & D3D11_FORMAT_SUPPORT_IA_VERTEX_BUFFER) != 0;
+        caps_.formatSupport.emplace_back(f, c);
+    }
+    auto sampled = [&](std::initializer_list<DXGI_FORMAT> fs) {
+        for (DXGI_FORMAT f : fs) {
+            const UINT s = support(f);
+            if (!(s & D3D11_FORMAT_SUPPORT_TEXTURE2D) || !(s & D3D11_FORMAT_SUPPORT_SHADER_SAMPLE)) {
+                return false;
+            }
+        }
+        return true;
+    };
+    caps_.bc = sampled({DXGI_FORMAT_BC1_UNORM, DXGI_FORMAT_BC2_UNORM, DXGI_FORMAT_BC3_UNORM, DXGI_FORMAT_BC4_UNORM,
+                        DXGI_FORMAT_BC5_UNORM});
+    caps_.bc6h7 = sampled({DXGI_FORMAT_BC6H_UF16, DXGI_FORMAT_BC7_UNORM});
+    caps_.etc2 = false; // no ETC2 / EAC / ASTC formats in DXGI
+    caps_.astc = false;
+
+    caps_.msaaSampleCounts = 0;
+    for (uint32_t bit = 0; bit <= 5; ++bit) {
+        const UINT n = 1u << bit;
+        UINT qc = 0, qd = 0;
+        if (SUCCEEDED(device_->CheckMultisampleQualityLevels(DXGI_FORMAT_R8G8B8A8_UNORM, n, &qc)) && qc > 0 &&
+            SUCCEEDED(device_->CheckMultisampleQualityLevels(DXGI_FORMAT_D32_FLOAT, n, &qd)) && qd > 0) {
+            caps_.msaaSampleCounts |= 1u << bit;
+        }
+    }
+    // D3D11 has no 16-bit float arithmetic, only min-precision hints: reported when VS and PS both honour
+    // 16-bit min precision.
+    D3D11_FEATURE_DATA_SHADER_MIN_PRECISION_SUPPORT mp{};
+    caps_.float16 = SUCCEEDED(device_->CheckFeatureSupport(D3D11_FEATURE_SHADER_MIN_PRECISION_SUPPORT, &mp, sizeof(mp))) &&
+                    (mp.PixelShaderMinPrecision & D3D11_SHADER_MIN_PRECISION_16_BIT) &&
+                    (mp.AllOtherShaderStagesMinPrecision & D3D11_SHADER_MIN_PRECISION_16_BIT);
+    caps_.waveOps = false;    // SM 6 (D3D12)
+    caps_.rayTracing = false; // DXR (D3D12)
+    caps_.bindless = false;   // D3D12 descriptor heaps
+    D3D11_QUERY_DESC tq{D3D11_QUERY_TIMESTAMP, 0};
+    ComPtr<ID3D11Query> ts;
+    caps_.timestampQueries = SUCCEEDED(device_->CreateQuery(&tq, &ts));
+}
+
 Result<std::unique_ptr<IDevice>> D3D11Device::create(const DeviceDesc& desc) {
     std::unique_ptr<D3D11Device> dev(new D3D11Device());
     if (auto r = dev->init(desc); !r) {
@@ -153,6 +252,7 @@ Result<void> D3D11Device::init(const DeviceDesc& desc) {
         caps_.vendorId = ad.VendorId;
     }
     caps_.software = desc.warp;
+    queryCaps(got);
     // Transient uniforms bind ranges of one dynamic constant buffer (VS/PSSetConstantBuffers1) and append
     // to it with MAP_WRITE_NO_OVERWRITE (plan F2 Task 4); both are optional D3D11.1 features.
     D3D11_FEATURE_DATA_D3D11_OPTIONS opts{};

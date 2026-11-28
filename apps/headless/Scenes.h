@@ -55,7 +55,7 @@ rhi::Result<rhi::Image> renderOffscreen(rhi::IDevice& device, Scene& scene, rhi:
 
 // --- builtin:triangle --------------------------------------------------------------------------------
 // One triangle with per-vertex colours, cleared to (0.1, 0.1, 0.1, 1). Shader
-// shaders/test/color_triangle.hlsl (key "default"), no resources.
+// shaders/test/color_triangle.hlsl (key "default"; "default-t0" = SM 4.0 on a D3D11 T0 device), no resources.
 // Vertices, in pixels of a W x H target (origin top-left), chosen so that the pixel centres of the
 // test probes are inside the triangle and less than 0.3 px from a vertex (other colours < 0.6 %):
 //   red   (W * 8.4 / 64,  H * 8.4 / 64)     top-left
@@ -104,7 +104,8 @@ rhi::Result<rhi::Image> renderTexturedCube(rhi::IDevice& device, const std::file
 // --- builtin:pbr-spheres (plan F2 Task 5) --------------------------------------------------------------
 // The F1 glTF PBR shader shaders/pbr/pbr.hlsl with its IBL path, permutation per backend:
 //   Vulkan: spirv T2_SKIN0_MORPH0_UNLIT0 (+ T2_SKIN0_MORPH0_UNLIT1 for the unlit row)
-//   D3D11:  dxbc  T1_SKIN0_MORPH0_UNLIT0 (+ T1_SKIN0_MORPH0_UNLIT1); bodies identical in F1.
+//   D3D11:  dxbc  T1_SKIN0_MORPH0_UNLIT0 (+ T1_SKIN0_MORPH0_UNLIT1); bodies identical in F1;
+//   D3D11 at FL10_x (T0, plan F2 Task 7): dxbc T0_SKIN0_MORPH0_UNLIT0 (+ UNLIT1), SM 4.0; skybox "default-t0".
 // Target RGBA8_UNORM with the shader's gamma 2.2 encode (Frame.frameFlags.x = 1, as Sample-Viewer).
 //   camera   eye (0, 0, 12) looking down -Z, +Y up, right-handed, vertical FOV 32 deg, near 0.1, far 100;
 //   spheres  UV spheres (48 segments x 24 rings), radius 0.45, centre ((col - 2) * 1.1, (2.5 - row) * 1.1, 0);

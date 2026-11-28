@@ -166,6 +166,23 @@ Result<ShaderHandle> D3D11Device::createShader(const ShaderBlob& blob) {
     s.entry = blob.entry;
     s.code = blob.code;
     s.reflection = blob.reflection;
+    // Plan F2 Task 7 (Review Focus 4): the shader model decides the tier. An SM 5.0 blob on a T0 (FL10_x)
+    // device is not handed to the driver (CreateVertexShader would fail with a debug-layer error); the
+    // pipeline that uses it is rejected with the tier named.
+    if (s.reflection.shaderModel == "4_0" || s.reflection.shaderModel == "4_1") {
+        s.requiredTier = 0;
+    } else if (s.reflection.shaderModel == "5_0") {
+        s.requiredTier = 1;
+    } else if (s.reflection.shaderModel.empty()) {
+        return std::unexpected(Error{kExitUsage, "d3d11: " + blob.entry +
+                                                     ": reflection has no shaderModel (rebuild the shaders with this shaderc)"});
+    } else {
+        return std::unexpected(Error{kExitUsage, "d3d11: " + blob.entry + ": unsupported shaderModel " +
+                                                     s.reflection.shaderModel});
+    }
+    if (s.requiredTier > caps_.tier) {
+        return ShaderHandle{shaders_.add(std::move(s))};
+    }
     HRESULT hr = E_INVALIDARG;
     if (blob.stage == ShaderStage::Vertex) {
         hr = device_->CreateVertexShader(s.code.data(), s.code.size(), nullptr, &s.vs);
@@ -239,6 +256,11 @@ Result<PipelineHandle> D3D11Device::createGraphicsPipeline(const GraphicsPipelin
     }
     if (vs->reflection.dxbcPath != ps->reflection.dxbcPath) {
         return std::unexpected(Error{kExitUsage, "VS and PS from different dxbc paths"});
+    }
+    // Review Focus 4: a T1 pipeline (SM 5.0) on a T0 device (FL10_x) is rejected here, not by the driver.
+    if (const int need = std::max(vs->requiredTier, ps->requiredTier); need > caps_.tier) {
+        return std::unexpected(Error{kExitNoBackend, "pipeline needs TIER " + std::to_string(need) + ", device is TIER " +
+                                                         std::to_string(caps_.tier)});
     }
     // Bind group layouts with each stage's own registers (plan F2 Task 4).
     auto bgl = deriveBindGroupLayouts(vs->reflection, ps->reflection);

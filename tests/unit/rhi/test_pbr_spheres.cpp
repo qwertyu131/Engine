@@ -29,6 +29,7 @@
 #include <string>
 
 #include "RhiTestEnv.h"
+#include "SceneProbes.h"
 
 using namespace eng::rhi;
 using eng::rhi::test::assetDir;
@@ -36,25 +37,6 @@ using eng::rhi::test::currentBackend;
 using eng::rhi::test::shaderLibDir;
 
 namespace {
-
-using Rgba = std::array<int, 4>;
-
-Rgba pixel(const Image& img, uint32_t x, uint32_t y) {
-    const size_t i = (static_cast<size_t>(y) * img.width + x) * 4u;
-    return {img.rgba8[i], img.rgba8[i + 1], img.rgba8[i + 2], img.rgba8[i + 3]};
-}
-
-void checkProbe(const Image& img, uint32_t x, uint32_t y, Rgba expected, int tol) {
-    const Rgba got = pixel(img, x, y);
-    CAPTURE(x);
-    CAPTURE(y);
-    for (int c = 0; c < 4; ++c) {
-        CAPTURE(c);
-        CAPTURE(got[c]);
-        CAPTURE(expected[c]);
-        CHECK(std::abs(got[c] - expected[c]) <= tol);
-    }
-}
 
 Image renderPbr(const DeviceDesc& desc) {
     auto dev = createDevice(desc);
@@ -79,35 +61,7 @@ TEST_SUITE("rhi.device") {
 
 TEST_CASE("builtin:pbr-spheres 256x256: background, unlit row, sun probe, validation clean") {
     const Image img = renderPbr(currentBackend().desc);
-    // background = environment lookup (scripts/f02_pbr_model.py)
-    checkProbe(img, 6, 6, {157, 175, 210, 255}, 3);
-    checkProbe(img, 249, 6, {176, 196, 234, 255}, 3);
-    checkProbe(img, 6, 249, {98, 88, 75, 255}, 3);
-    checkProbe(img, 249, 249, {114, 102, 89, 255}, 3);
-    // unlit row = baseColorFactor (identity PBR Neutral, gamma 2.2)
-    checkProbe(img, 46, 230, {217, 123, 0, 255}, 1);
-    checkProbe(img, 87, 230, {0, 202, 148, 255}, 1);
-    checkProbe(img, 128, 230, {136, 0, 217, 255}, 1);
-    checkProbe(img, 168, 230, {194, 186, 0, 255}, 1);
-    checkProbe(img, 209, 230, {0, 158, 210, 255}, 1);
-    // reflection: the mirror metal sphere (metallic 1, roughness 0) reflects the sky above its centre and
-    // the ground below it; an inside-out sphere (wrong front face) swaps them on every backend alike
-    const Rgba above = pixel(img, 212, 14), below = pixel(img, 212, 29);
-    CAPTURE(above[0]);
-    CAPTURE(above[2]);
-    CAPTURE(below[0]);
-    CAPTURE(below[2]);
-    CHECK(above[2] >= above[0] + 20);
-    CHECK(below[0] >= below[2] + 10);
-    // sun: rough dielectric centre darker than the smooth dielectric centre
-    const Rgba rough = pixel(img, 46, 189), smooth = pixel(img, 46, 25);
-    CAPTURE(rough[0]);
-    CAPTURE(rough[1]);
-    CAPTURE(rough[2]);
-    CAPTURE(smooth[0]);
-    CAPTURE(smooth[1]);
-    CAPTURE(smooth[2]);
-    CHECK(rough[0] + rough[1] + rough[2] + 10 <= smooth[0] + smooth[1] + smooth[2]);
+    eng::rhi::test::checkPbrSpheresProbes(img);
 }
 
 } // TEST_SUITE

@@ -48,6 +48,7 @@ enum class Format : uint16_t {
 
 const char* toString(Format f);
 uint32_t formatBytes(Format f); // bytes per texel / vertex element; 0 for Unknown
+std::span<const Format> allFormats(); // every Format except Unknown, in declaration order (DeviceCaps table)
 
 // --- errors ---------------------------------------------------------------------------------------
 
@@ -201,6 +202,7 @@ struct ShaderReflection {
     std::string entry;
     std::string target; // spirv | dxbc
     std::string dxbcPath; // dxbc: "cross" | "direct" (shaderc records it since plan F2 Task 4), else empty
+    std::string shaderModel; // dxbc: "4_0" (T0, D3D11 FL10_x) | "5_0" (T1) (plan F2 Task 7), else empty
     uint32_t renderTargets = 0; // pixel shader: highest SV_Target + 1 (D3D11 UAVStartSlot), else 0
     std::vector<ReflectedResource> resources;
     std::vector<ReflectedVertexInput> vertexInputs;

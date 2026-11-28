@@ -20,6 +20,9 @@ permutation file without a TIER axis has no tiers and the single key "default".
 A dxbc target may list "dxbcPaths": ["cross", "direct"] (plan F2 Task 4): each path is compiled; the cross
 output keeps the permutation key, the direct output gets the key "<key>-direct". A per-target path wins
 over --dxbc-path.
+A dxbc target of a shader WITHOUT a TIER axis may set "tier0Variant": true (plan F2 Task 7): it is also
+compiled with TIER=0 (shaderc then emits SM 4.0, vs_4_0 / ps_4_0, for D3D11 FL10_x = T0) under the key
+"<key>-t0" (cross path); the "<key>" output stays SM 5.0.
 
 Writes <out>/summary.json:
     {"total", "ok", "failed": [{"id", "target", "stage", "key", "error"}], "pendingCi": [id...], "msTotal",
@@ -51,7 +54,7 @@ from typing import Callable
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_PERMUTATIONS = REPO / "shaders" / "pbr" / "permutations.json"
 TARGETS = ["dxil", "dxbc", "spirv", "msl", "glsl-es300", "glsl-es320", "wgsl"]  # shaderc order
-MAX_PER_TARGET_PER_STAGE = 8  # plan F1 Task 4 / spec K-A budget
+MAX_PER_TIER_PER_TARGET_PER_STAGE = 8  # plan F1 Task 4 / spec K-A budget, per tier since F2 Task 7 (dxbc T0 + T1)
 KEY_NAMES = {"TIER": "T", "FG_SKIN": "SKIN", "FG_MORPH": "MORPH", "FG_UNLIT": "UNLIT"}
 RESULT_LINE = re.compile(r"-> (?P<path>.+?) \[(?P<status>passed|PENDING-CI)\]\s*$")
 
@@ -103,6 +106,15 @@ def check_permutations(perms: dict) -> None:
             raise ValueError(f"{target}: 'dxbcPaths' is only valid for the dxbc target")
         if not paths or len(set(paths)) != len(paths) or not set(paths) <= DXBC_PATHS:
             raise ValueError(f"dxbc: 'dxbcPaths' must be distinct values of {sorted(DXBC_PATHS)}, got {paths}")
+    for target, spec in perms["targets"].items():
+        if "tier0Variant" not in spec:
+            continue
+        if target != "dxbc":
+            raise ValueError(f"{target}: 'tier0Variant' is only valid for the dxbc target")
+        if "TIER" in perms["axes"]:
+            raise ValueError("dxbc: 'tier0Variant' is only valid without a TIER axis (list tier 0 in 'tiers')")
+        if not isinstance(spec["tier0Variant"], bool):
+            raise ValueError("dxbc: 'tier0Variant' must be true or false")
     if "TIER" not in perms["axes"]:
         if any(spec.get("tiers") for spec in perms["targets"].values()) or perms.get("excluded"):
             raise ValueError("'tiers' / 'excluded' need a TIER axis")
@@ -123,8 +135,8 @@ def check_permutations(perms: dict) -> None:
         if excluded & tiers or excluded | tiers != all_tiers:
             raise ValueError(f"{target}: 'excluded' TIER {sorted(excluded)} is not the complement of tiers "
                              f"{sorted(tiers)}")
-        if len(tiers) * other > MAX_PER_TARGET_PER_STAGE:
-            raise ValueError(f"{target}: {len(tiers) * other} define sets per stage > {MAX_PER_TARGET_PER_STAGE}")
+        if other > MAX_PER_TIER_PER_TARGET_PER_STAGE:
+            raise ValueError(f"{target}: {other} define sets per tier per stage > {MAX_PER_TIER_PER_TARGET_PER_STAGE}")
 
 
 def permutation_key(defines: dict[str, str]) -> str:
@@ -150,6 +162,10 @@ def expand_jobs(perms: dict, targets: list[str] | None = None, library: bool = F
                 path_key = f"{key}-direct" if path == "direct" else key
                 for e in perms["entries"]:
                     jobs.append(Job(target, e["entry"], e["stage"], path_key, dict(defines), stem, src, library, path))
+            if perms["targets"][target].get("tier0Variant"):
+                t0 = {"TIER": "0", **defines}
+                for e in perms["entries"]:
+                    jobs.append(Job(target, e["entry"], e["stage"], f"{key}-t0", t0, stem, src, library, "cross"))
     # Stable order: target (shaderc order), permutation key, entry.
     jobs.sort(key=lambda j: (TARGETS.index(j.target), j.key, j.entry))
     return jobs

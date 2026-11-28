@@ -7,6 +7,7 @@ add_library(engine_rhi STATIC
     Types.h
     Types.cpp
     DeviceCaps.h
+    DeviceCaps.cpp
     HandlePool.h
     BindGroupLayout.cpp
     Registry.cpp
@@ -19,6 +20,8 @@ target_link_libraries(engine_rhi PUBLIC engine::engine PRIVATE nlohmann_json::nl
 if(ENG_RHI_VULKAN)
     target_sources(engine_rhi PRIVATE
         vulkan/VkCommon.h
+        vulkan/VkFeatureCheck.h
+        vulkan/VkFeatureCheck.cpp
         vulkan/VkLibs.cpp
         vulkan/VkDevice.cpp
         vulkan/VkCommandList.cpp

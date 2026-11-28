@@ -1,6 +1,7 @@
 // Vulkan device: instance, validation, physical / logical device, frames, submission, readback,
 // deferred destruction (plan F2 Task 2).
 #include "VkCommon.h"
+#include "VkFeatureCheck.h"
 
 #include "core/Log.h"
 
@@ -211,33 +212,27 @@ Result<void> VulkanDevice::pickPhysicalDevice(const DeviceDesc& desc) {
                 break;
             }
         }
-        if (c.queueFamily == UINT32_MAX) {
-            c.missing = "graphics queue";
-            return c;
-        }
-        if (c.props.apiVersion < VK_API_VERSION_1_2) {
-            c.missing = "Vulkan 1.2 (device has " + versionString(c.props.apiVersion) + ")";
-            return c;
-        }
+        // Required features (VkFeatureCheck.h; Review Focus 4: a device without one exits 3, feature named).
+        PhysicalDeviceSupport s;
+        s.graphicsQueue = c.queueFamily != UINT32_MAX;
+        s.apiMajor = VK_API_VERSION_MAJOR(c.props.apiVersion);
+        s.apiMinor = VK_API_VERSION_MINOR(c.props.apiVersion);
+        s.apiPatch = VK_API_VERSION_PATCH(c.props.apiVersion);
         if (c.props.apiVersion >= VK_API_VERSION_1_3) {
             VkPhysicalDeviceVulkan13Features f13{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
             VkPhysicalDeviceFeatures2 f2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
             f2.pNext = &f13;
             vkGetPhysicalDeviceFeatures2(pd, &f2);
-            if (!f13.dynamicRendering) {
-                c.missing = "dynamicRendering";
-            }
-            return c;
+            s.dynamicRenderingFeature = f13.dynamicRendering == VK_TRUE;
+        } else {
+            uint32_t en = 0;
+            vkEnumerateDeviceExtensionProperties(pd, nullptr, &en, nullptr);
+            std::vector<VkExtensionProperties> exts(en);
+            vkEnumerateDeviceExtensionProperties(pd, nullptr, &en, exts.data());
+            s.khrDynamicRenderingExtension = hasExtension(exts, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
         }
-        uint32_t en = 0;
-        vkEnumerateDeviceExtensionProperties(pd, nullptr, &en, nullptr);
-        std::vector<VkExtensionProperties> exts(en);
-        vkEnumerateDeviceExtensionProperties(pd, nullptr, &en, exts.data());
-        if (!hasExtension(exts, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME)) {
-            c.missing = "dynamicRendering (Vulkan 1.3 or VK_KHR_dynamic_rendering)";
-            return c;
-        }
-        c.khrDynamicRendering = true;
+        c.missing = missingRequiredFeature(s);
+        c.khrDynamicRendering = c.missing.empty() && c.props.apiVersion < VK_API_VERSION_1_3;
         return c;
     };
 
@@ -268,8 +263,7 @@ Result<void> VulkanDevice::pickPhysicalDevice(const DeviceDesc& desc) {
         }
     }
     if (!chosen->missing.empty()) {
-        return std::unexpected(Error{kExitNoBackend, std::format("vulkan: device '{}' lacks required feature: {}",
-                                                                 chosen->props.deviceName, chosen->missing)});
+        return std::unexpected(missingFeatureError(chosen->props.deviceName, chosen->missing));
     }
     physical_ = chosen->device;
     queueFamily_ = chosen->queueFamily;
@@ -282,7 +276,81 @@ Result<void> VulkanDevice::pickPhysicalDevice(const DeviceDesc& desc) {
     caps_.vendorId = chosen->props.vendorID;
     caps_.software = chosen->props.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU;
     minUniformOffsetAlignment_ = std::max<VkDeviceSize>(chosen->props.limits.minUniformBufferOffsetAlignment, 1);
+    queryCaps(chosen->props);
     return {};
+}
+
+// Plan F2 Task 7: what the physical device SUPPORTS (the RHI enables only dynamicRendering in F2).
+void VulkanDevice::queryCaps(const VkPhysicalDeviceProperties& props) {
+    const VkPhysicalDeviceLimits& l = props.limits;
+    caps_.maxTexture2D = l.maxImageDimension2D;
+    caps_.maxCubeSize = l.maxImageDimensionCube;
+    caps_.maxColorAttachments = l.maxColorAttachments;
+    caps_.maxVertexAttributes = l.maxVertexInputAttributes;
+    caps_.maxUniformBufferBytes = l.maxUniformBufferRange;
+    caps_.maxBindingsPerStage.cbuffer = l.maxPerStageDescriptorUniformBuffers;
+    caps_.maxBindingsPerStage.texture = l.maxPerStageDescriptorSampledImages;
+    caps_.maxBindingsPerStage.sampler = l.maxPerStageDescriptorSamplers;
+    caps_.maxBindingsPerStage.storage = l.maxPerStageDescriptorStorageBuffers;
+    // Vulkan: a graphics queue family always supports compute when the device has one (spec 1.2 "queue
+    // family"); storage buffers are core; read-only storage in the vertex stage needs no feature.
+    caps_.computeShaders = true;
+    caps_.storageBuffers = true;
+    caps_.vertexStorageBuffers = true;
+
+    VkPhysicalDeviceVulkan12Features f12{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+    VkPhysicalDeviceFeatures2 f2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+    f2.pNext = &f12;
+    vkGetPhysicalDeviceFeatures2(physical_, &f2);
+    const VkPhysicalDeviceFeatures& f = f2.features;
+
+    caps_.formatSupport.clear();
+    for (const Format fmt : allFormats()) {
+        VkFormatProperties fp{};
+        vkGetPhysicalDeviceFormatProperties(physical_, toVkFormat(fmt), &fp);
+        const VkFormatFeatureFlags o = fp.optimalTilingFeatures;
+        FormatCaps c;
+        c.sample = (o & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) != 0;
+        c.filter = c.sample && (o & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT);
+        c.render = (o & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) != 0;
+        c.blend = (o & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) != 0;
+        c.depth = (o & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0;
+        c.vertex = (fp.bufferFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT) != 0;
+        caps_.formatSupport.emplace_back(fmt, c);
+    }
+    // textureCompressionBC covers BC1..BC7.
+    caps_.bc = f.textureCompressionBC == VK_TRUE;
+    caps_.bc6h7 = f.textureCompressionBC == VK_TRUE;
+    caps_.etc2 = f.textureCompressionETC2 == VK_TRUE;
+    caps_.astc = f.textureCompressionASTC_LDR == VK_TRUE;
+    caps_.msaaSampleCounts = l.framebufferColorSampleCounts & l.framebufferDepthSampleCounts; // bit n = 2^n samples
+    caps_.float16 = f12.shaderFloat16 == VK_TRUE;
+    caps_.bindless = f12.descriptorIndexing == VK_TRUE && f12.runtimeDescriptorArray == VK_TRUE &&
+                     f12.descriptorBindingPartiallyBound == VK_TRUE &&
+                     f12.shaderSampledImageArrayNonUniformIndexing == VK_TRUE;
+
+    VkPhysicalDeviceSubgroupProperties sg{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES};
+    VkPhysicalDeviceProperties2 p2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+    p2.pNext = &sg;
+    vkGetPhysicalDeviceProperties2(physical_, &p2);
+    const VkSubgroupFeatureFlags ops =
+        VK_SUBGROUP_FEATURE_BASIC_BIT | VK_SUBGROUP_FEATURE_BALLOT_BIT | VK_SUBGROUP_FEATURE_ARITHMETIC_BIT;
+    const VkShaderStageFlags stages = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
+    caps_.waveOps = (sg.supportedOperations & ops) == ops && (sg.supportedStages & stages) == stages;
+
+    uint32_t en = 0;
+    vkEnumerateDeviceExtensionProperties(physical_, nullptr, &en, nullptr);
+    std::vector<VkExtensionProperties> exts(en);
+    vkEnumerateDeviceExtensionProperties(physical_, nullptr, &en, exts.data());
+    caps_.rayTracing = hasExtension(exts, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) &&
+                       (hasExtension(exts, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) ||
+                        hasExtension(exts, VK_KHR_RAY_QUERY_EXTENSION_NAME));
+
+    uint32_t qn = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(physical_, &qn, nullptr);
+    std::vector<VkQueueFamilyProperties> qf(qn);
+    vkGetPhysicalDeviceQueueFamilyProperties(physical_, &qn, qf.data());
+    caps_.timestampQueries = l.timestampPeriod > 0.0f && queueFamily_ < qn && qf[queueFamily_].timestampValidBits > 0;
 }
 
 Result<void> VulkanDevice::createLogicalDevice() {

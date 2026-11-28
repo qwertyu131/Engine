@@ -189,6 +189,7 @@ private:
     Result<void> init(const DeviceDesc& desc);
     Result<void> createInstance(const DeviceDesc& desc);
     Result<void> pickPhysicalDevice(const DeviceDesc& desc);
+    void queryCaps(const VkPhysicalDeviceProperties& props); // plan F2 Task 7: limits, formats, features of caps_
     Result<void> createLogicalDevice();
     void runDeferred(bool all);
     Result<void> waitFrame(uint32_t index);

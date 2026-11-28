@@ -147,25 +147,27 @@ Sonuç her zaman şu üçünden biri: **ON**, **FALLBACK(<belgelenmiş yöntem>)
 | **T2+RT** | D3D12 DXR 1.1, Vulkan RT, Metal RT | ray tracing extra'ları (opsiyonel, glTF dışı) |
 
 ### 6.2 Özellik × tier tablosu (ilk sürüm — Faz 0'da tamamlanır, her faz günceller)
-| Özellik | T0 | T1 | T2 |
-|---|---|---|---|
-| Core PBR metal-roughness, normal/occlusion/emissive | ON | ON | ON |
-| Alpha mask / blend, double-sided | ON | ON | ON |
-| Skinning | FALLBACK: CPU skinning veya uniform-dizi kemik limiti (≤ N joint) | ON (GPU, storage buffer) | ON |
-| Morph targets | FALLBACK: CPU blend veya ≤ 8 aktif target vertex-attrib | ON (storage buffer, sınırsız) | ON |
-| KHR_materials_transmission / volume / dispersion | FALLBACK: tek-katman ekran kopyası, mip'siz blur yaklaşık | ON (transmission pass, mip chain) | ON |
-| KHR_materials_clearcoat / sheen / specular / ior / iridescence / anisotropy / emissive_strength / diffuse_transmission / unlit | ON (shader-only; texture sayısı limitine göre FALLBACK) | ON | ON |
-| KHR_texture_basisu (KTX2) | ON: transcode hedefi caps'e göre (BC / ETC2 / ASTC / RGBA8) | ON | ON |
-| KHR_draco / EXT/KHR_meshopt / KHR_mesh_quantization | ON (CPU decode) | ON | ON |
-| EXT_mesh_gpu_instancing | FALLBACK: draw başına instance-buffer (D3D11/GLES instancing var) | ON | ON |
-| KHR_lights_punctual | ON (forward, ışık sayısı limitli) | ON (clustered) | ON (clustered) |
-| IBL (image based lighting) | ON (önceden hesaplanmış, CPU/offline prefilter) | ON (GPU prefilter compute) | ON |
-| Shadow map (CSM / spot / point) | ON (azaltılmış cascade) | ON | ON |
-| TAA | OFF (compute yok) veya FALLBACK FXAA | ON | ON |
-| Upscaler'lar | FSR1 (spatial, sadece pixel shader) | FSR1 / FSR2-3 analitik (compute) | DLSS / FSR / XeSS / MetalFX (bkz. §9) |
-| Ray tracing extras (yansıma/gölge) | OFF | OFF | ON (T2+RT) |
+| Özellik | T0 | T1 | T2 | T0 ölçümü F2 (D3D11 FL10_0; GLES 3.0 / WebGL2 hâlâ varsayım, F10/F11) |
+|---|---|---|---|---|
+| Core PBR metal-roughness, normal/occlusion/emissive | ON | ON | ON | **ölçüldü, ON:** `pbr` dxbc `T0_SKIN0_MORPH0_UNLIT0` (+`UNLIT1`, SM 4.0) FL10_0'da render edildi (GPU + WARP), mutlak prob'lar geçti, validation 0; aynı adaptörün FL11 (T1) görüntüsüne göre mean FLIP 0 (GPU) / 1.6e-6 (WARP), kapı ≤ 0.05 |
+| Alpha mask / blend, double-sided | ON | ON | ON | F2'de sahne yok, render ölçülmedi; caps: RGBA8 / RGBA16_FLOAT `blend` = true |
+| Skinning | FALLBACK: CPU skinning veya uniform-dizi kemik limiti (≤ N joint) | ON (GPU, storage buffer) | ON | caps: `storageBuffers` = `vertexStorageBuffers` = false (FL10_0) → storage-buffer skinning T0'da yok, FALLBACK doğrulandı; cbuffer-dizi permütasyonu (`T0_SKIN1_*`, SM 4.0) derlendi + doğrulandı, render edilmedi |
+| Morph targets | FALLBACK: CPU blend veya ≤ 8 aktif target vertex-attrib | ON (storage buffer, sınırsız) | ON | caps: `maxVertexAttributes` = 16 (FL10_0) → 6 temel + 2 skin + 8 morph = 16 sığar; `T0_*_MORPH1_*` (SM 4.0) derlendi + doğrulandı, render edilmedi |
+| KHR_materials_transmission / volume / dispersion | FALLBACK: tek-katman ekran kopyası, mip'siz blur yaklaşık | ON (transmission pass, mip chain) | ON | F2'de ölçülmedi |
+| KHR_materials_clearcoat / sheen / specular / ior / iridescence / anisotropy / emissive_strength / diffuse_transmission / unlit | ON (shader-only; texture sayısı limitine göre FALLBACK) | ON | ON | unlit ölçüldü (pbr-spheres unlit satırı, T0); diğerleri F2'de ölçülmedi; caps: stage başına 128 texture / 16 sampler / 14 cbuffer |
+| KHR_texture_basisu (KTX2) | ON: transcode hedefi caps'e göre (BC / ETC2 / ASTC / RGBA8) | ON | ON | caps: BC1–BC5 = true, BC6H/BC7 = false, ETC2/ASTC yok (DXGI) → T0 D3D11 hedefi BC1–BC5 veya RGBA8; transcode F2'de ölçülmedi |
+| KHR_draco / EXT/KHR_meshopt / KHR_mesh_quantization | ON (CPU decode) | ON | ON | F2'de ölçülmedi (CPU) |
+| EXT_mesh_gpu_instancing | FALLBACK: draw başına instance-buffer (D3D11/GLES instancing var) | ON | ON | F2'de ölçülmedi |
+| KHR_lights_punctual | ON (forward, ışık sayısı limitli) | ON (clustered) | ON (clustered) | F2'de ölçülmedi (direct-light BRDF F3'e kadar test edilmiyor) |
+| IBL (image based lighting) | ON (önceden hesaplanmış, CPU/offline prefilter) | ON (GPU prefilter compute) | ON | **ölçüldü, ON:** CPU-prefilter RGBA16_FLOAT cube + irradiance + BRDF LUT FL10_0'da örneklendi (pbr-spheres T0); caps: RGBA16_FLOAT `filter` = true |
+| Shadow map (CSM / spot / point) | ON (azaltılmış cascade) | ON | ON | caps: D32_FLOAT `depth` = true; shadow render F2'de ölçülmedi |
+| TAA | OFF (compute yok) veya FALLBACK FXAA | ON | ON | caps: `computeShaders` = true (CS 4.x, `D3D10_X_HARDWARE_OPTIONS`) hem RTX 3070 Ti hem WARP'ta; FL10'da opsiyonel olduğu için T0 kararı (OFF / FXAA) değişmez; TAA F2'de ölçülmedi |
+| Upscaler'lar | FSR1 (spatial, sadece pixel shader) | FSR1 / FSR2-3 analitik (compute) | DLSS / FSR / XeSS / MetalFX (bkz. §9) | F2'de ölçülmedi |
+| Ray tracing extras (yansıma/gölge) | OFF | OFF | ON (T2+RT) | caps: `rayTracing` = false (D3D11) |
 
 Not: T0 tablosunun **gerçek** değerleri Faz 2'de D3D11 FL10_0 üzerinde ölçülerek doğrulanır; tablo varsayım değil, test sonucu olur.
+
+**F2 ölçümü (plan F2 Task 7, 2026-11-28):** son sütun D3D11 FL10_0'da ölçülen değerlerdir: `docs/caps/d3d11-fl10_0-hw.json` (RTX 3070 Ti), `docs/caps/d3d11-fl10_0-warp.json` (WARP), karşılaştırma için `d3d11-fl11_1-hw.json` ve `vulkan-hw.json` (`headless --dump-caps`); testler `unit.rhi.d3d11-fl10_0` / `unit.rhi.d3d11-warp-fl10_0` (suite `rhi.t0`). **Önemli:** bu FL10_0 değerleri bir RTX 3070 Ti ve WARP üzerinde feature level'ı 10_0'a kısıtlanmış (`D3D11CreateDevice`) cihazın API limitleri ve sürücünün o seviyede raporladığı format/özellik desteğidir, **gerçek FL10 donanımı değildir** (gerçek FL10 GPU'su bu makinede yok). Limitler: 2D/cube 8192, 8 render target, 16 vertex attribute, 64 KiB cbuffer, stage başına 14 cbuffer / 128 texture / 16 sampler, storage (UAV) 0. "F2'de ölçülmedi" yazan satırlar varsayım olarak kalır; GLES 3.0 ve WebGL2 sütunları F10/F11'e kadar varsayımdır.
 
 ## 7. glTF kapsamı
 

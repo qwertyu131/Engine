@@ -190,15 +190,17 @@ public:
     }
 
     Result<void> init() {
+        // Vulkan T2 (spirv); D3D11 the device's tier: T1 (dxbc SM 5.0, FL11_x) or T0 (dxbc SM 4.0, FL10_x;
+        // plan F2 Task 7).
         const bool vulkan = dev_.caps().backend == Backend::Vulkan;
-        const std::string tier = vulkan ? "T2" : "T1";
+        const std::string tier = vulkan ? "T2" : (dev_.caps().tier == 0 ? "T0" : "T1");
         if (auto r = makePipeline(lit_, "pbr", tier + "_SKIN0_MORPH0_UNLIT0", true); !r) {
             return r;
         }
         if (auto r = makePipeline(unlit_, "pbr", tier + "_SKIN0_MORPH0_UNLIT1", true); !r) {
             return r;
         }
-        if (auto r = makePipeline(sky_, "skybox", "default", false); !r) {
+        if (auto r = makePipeline(sky_, "skybox", tierKey(dev_, "default"), false); !r) {
             return r;
         }
         for (const PipelineInfo* pi : {&lit_, &unlit_}) {

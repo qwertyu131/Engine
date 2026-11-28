@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <numbers>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -119,6 +120,13 @@ struct ShaderPair {
     rhi::ShaderHandle vs, ps;
     rhi::ShaderReflection vsReflection, psReflection;
 };
+// Key of a shader without a TIER axis for this device (plan F2 Task 7): a D3D11 T0 device (FL10_x) takes
+// the SM 4.0 build "<key>-t0" (permutation file "tier0Variant"); every other device takes "<key>".
+inline std::string tierKey(const rhi::IDevice& dev, std::string_view key) {
+    const bool t0 = dev.caps().backend == rhi::Backend::D3D11 && dev.caps().tier == 0;
+    return std::string(key) + (t0 ? "-t0" : "");
+}
+
 inline rhi::Result<ShaderPair> loadShaderPair(rhi::IDevice& dev, Owned& own, const std::filesystem::path& dir,
                                               std::string_view shader, std::string_view key) {
     const rhi::Backend backend = dev.caps().backend;

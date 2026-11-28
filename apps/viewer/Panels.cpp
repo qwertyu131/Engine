@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <map>
 #include <string>
+#include <string_view>
 #include <variant>
 
 namespace eng::viewer {
@@ -38,19 +39,31 @@ void capsPanel(const rhi::DeviceCaps& caps) {
     ImGui::SetNextWindowPos(ImVec2(10.0f, 10.0f), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(330.0f, 0.0f), ImGuiCond_Always);
     ImGui::Begin("Device", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
-    if (ImGui::BeginTable("caps", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+    // Every DeviceCaps field (rhi::forEachCapsField, the same list as headless --dump-caps), scrollable.
+    if (ImGui::BeginTable("caps", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY,
+                          ImVec2(0.0f, 150.0f))) {
+        ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableSetupColumn("field");
         ImGui::TableSetupColumn("value");
         ImGui::TableHeadersRow();
-        // Every DeviceCaps field (plan F2 Task 7 adds the full capability table).
-        row("backend", rhi::toString(caps.backend));
-        row("adapter", caps.adapterName);
-        row("tier", "T" + std::to_string(caps.tier));
-        row("apiVersion", caps.apiVersion);
-        char vendor[16];
-        std::snprintf(vendor, sizeof(vendor), "0x%04x", caps.vendorId);
-        row("vendorId", vendor);
-        row("software", caps.software ? "yes" : "no");
+        rhi::forEachCapsField(caps, [](std::string_view name, const rhi::CapsValue& v) {
+            std::string value;
+            if (const bool* b = std::get_if<bool>(&v)) {
+                value = *b ? "yes" : "no";
+            } else if (const int64_t* i = std::get_if<int64_t>(&v)) {
+                char buf[32];
+                std::snprintf(buf, sizeof(buf), name == "vendorId" ? "0x%04llx" : "%lld", static_cast<long long>(*i));
+                value = buf;
+            } else if (const std::string* str = std::get_if<std::string>(&v)) {
+                value = *str;
+            } else {
+                value = rhi::toString(std::get<rhi::FormatCaps>(v));
+            }
+            if (name == "tier") {
+                value = "T" + value;
+            }
+            row(std::string(name).c_str(), value);
+        });
         ImGui::EndTable();
     }
     ImGui::End();

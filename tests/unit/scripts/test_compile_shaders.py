@@ -51,18 +51,28 @@ class FakeShaderc:
 
 
 class MatrixTest(unittest.TestCase):
-    def test_matrix_is_8_per_target_per_stage(self) -> None:
+    def test_matrix_is_8_per_target_per_stage_dxbc_16(self) -> None:
+        # Plan F2 Task 7: dxbc carries T0 (SM 4.0, D3D11 FL10_x) and T1 (SM 5.0, FL11_x), 16 define sets.
         perms = cs.load_permutations(PERMS)
         jobs = cs.expand_jobs(perms)
-        self.assertEqual(len(jobs), 7 * 8 * 2)
+        self.assertEqual(len(jobs), (6 * 8 + 16) * 2)
         per = {}
         for j in jobs:
             per[(j.target, j.stage)] = per.get((j.target, j.stage), 0) + 1
-        self.assertEqual(set(per.values()), {8})
+        self.assertEqual({k: v for k, v in per.items() if v != 8}, {("dxbc", "vs"): 16, ("dxbc", "fs"): 16})
         self.assertEqual(len(per), 14)
         self.assertEqual({t for j in jobs if j.target == "glsl-es300" for t in [j.defines["TIER"]]}, {"0"})
         self.assertEqual({t for j in jobs if j.target == "dxil" for t in [j.defines["TIER"]]}, {"2"})
         self.assertEqual({t for j in jobs if j.target == "wgsl" for t in [j.defines["TIER"]]}, {"1"})
+        self.assertEqual({t for j in jobs if j.target == "dxbc" for t in [j.defines["TIER"]]}, {"0", "1"})
+        self.assertIn("T0_SKIN0_MORPH0_UNLIT0", {j.key for j in jobs if j.target == "dxbc"})
+
+    def test_budget_is_8_per_tier_per_target_per_stage(self) -> None:
+        # The F1 budget (8 define sets per target per stage) holds per tier; dxbc has two tiers since F2 Task 7.
+        perms = json.loads(PERMS.read_text(encoding="utf-8"))
+        perms["axes"]["FG_EXTRA"] = [0, 1]  # 16 define sets per tier
+        with self.assertRaisesRegex(ValueError, "dxil: 16 define sets per tier per stage > 8"):
+            cs.check_permutations(perms)
 
     def test_defines_are_in_canonical_order(self) -> None:
         jobs = cs.expand_jobs(cs.load_permutations(PERMS))
@@ -93,17 +103,17 @@ class RunTest(unittest.TestCase):
             rc, _ = self.run_main(fake, out)
             self.assertEqual(rc, 0)
             s = json.loads((out / "summary.json").read_text(encoding="utf-8"))
-            self.assertEqual(s["total"], 112)
-            self.assertEqual(s["ok"], 96)
+            self.assertEqual(s["total"], 128)
+            self.assertEqual(s["ok"], 112)
             self.assertEqual(s["failed"], [])
             self.assertEqual(len(s["pendingCi"]), 16)
             self.assertTrue(all("msl" in p for p in s["pendingCi"]))
             self.assertIsInstance(s["msTotal"], (int, float))
-            self.assertEqual(len(s["items"]), 112)
+            self.assertEqual(len(s["items"]), 128)
             self.assertEqual(s["items"][0]["bytes"], 10)
             # One output directory per (target, permutation): nothing overwritten.
             dirs = {c[c.index("--out") + 1] for c in fake.calls}
-            self.assertEqual(len(dirs), 56)
+            self.assertEqual(len(dirs), 64)
             self.assertTrue(all("--validate" in c for c in fake.calls))
 
     def test_failure_exits_1_and_is_listed(self) -> None:
@@ -159,15 +169,19 @@ class LibraryTest(unittest.TestCase):
             rc, text = self.run_main(fake, out, ["--library", str(LIBRARY), "--targets", "spirv,dxbc"])
             self.assertEqual(rc, 0, text)
             s = json.loads((out / "summary.json").read_text(encoding="utf-8"))
-            # pbr: spirv T2 x 8 + dxbc T1 x 8 define sets, 2 entries; triangle, color_triangle: 2 targets x
-            # 2 entries each; textured: the same + its dxbc direct-path variant (2 entries); skybox (plan F2
-            # Task 5) and ui/imgui (Task 6): 2 targets x 2 entries each.
-            self.assertEqual(s["total"], 32 + 4 + 4 + 6 + 4 + 4)
+            # pbr: spirv T2 x 8 + dxbc (T0 + T1) x 8 define sets, 2 entries; triangle: 2 targets x 2 entries;
+            # color_triangle: the same + its dxbc T0 variant (2 entries, plan F2 Task 7); textured: 2 x 2 + its
+            # dxbc direct-path variant (2 entries); skybox (plan F2 Task 5): 2 x 2 + dxbc T0 variant (2);
+            # ui/imgui (Task 6): 2 targets x 2 entries.
+            self.assertEqual(s["total"], 48 + 4 + 6 + 6 + 6 + 4)
             self.assertEqual(s["failed"], [])
             self.assertEqual({i["target"] for i in s["items"]}, {"spirv", "dxbc"})
             dirs = {Path(c[c.index("--out") + 1]).relative_to(out).as_posix() for c in fake.calls}
             self.assertIn("pbr/spirv/T2_SKIN0_MORPH0_UNLIT0", dirs)
             self.assertIn("pbr/dxbc/T1_SKIN1_MORPH1_UNLIT1", dirs)
+            self.assertIn("pbr/dxbc/T0_SKIN0_MORPH0_UNLIT0", dirs)
+            self.assertIn("color_triangle/dxbc/default-t0", dirs)
+            self.assertIn("skybox/dxbc/default-t0", dirs)
             self.assertIn("triangle/spirv/default", dirs)
             self.assertIn("triangle/dxbc/default", dirs)
             self.assertIn("color_triangle/spirv/default", dirs)
@@ -199,6 +213,32 @@ class LibraryTest(unittest.TestCase):
         # A per-target path wins over the run's --dxbc-path.
         cmd = cs.command(Path("shaderc"), cross.source, cross, Path("out"), "direct")
         self.assertEqual(cmd[cmd.index("--dxbc-path") + 1], "cross")
+
+    def test_tier0_variant_builds_a_t0_key_with_tier_0(self) -> None:
+        # Plan F2 Task 7: a shader without a TIER axis can add a dxbc T0 variant (key "<key>-t0", TIER=0, so
+        # shaderc emits SM 4.0 for D3D11 FL10_x); the "default" outputs stay SM 5.0 and unchanged.
+        perms = cs.load_permutations(REPO / "shaders" / "test" / "color_triangle.permutations.json")
+        jobs = cs.expand_jobs(perms, library=True)
+        dxbc = sorted((j.key, j.entry, tuple(j.defines.items())) for j in jobs if j.target == "dxbc")
+        self.assertEqual(dxbc, [("default", "PSMain", ()), ("default", "VSMain", ()),
+                                ("default-t0", "PSMain", (("TIER", "0"),)),
+                                ("default-t0", "VSMain", (("TIER", "0"),))])
+        self.assertEqual({j.key for j in jobs if j.target == "spirv"}, {"default"})
+        t0 = next(j for j in jobs if j.key == "default-t0")
+        cmd = cs.command(Path("shaderc"), t0.source, t0, Path("out"), None)
+        self.assertEqual(cmd[cmd.index("--define") + 1], "TIER=0")
+        self.assertEqual(t0.out_dir(Path("o")).as_posix(), "o/color_triangle/dxbc/default-t0")
+
+    def test_tier0_variant_is_checked(self) -> None:
+        base = json.loads((REPO / "shaders" / "test" / "color_triangle.permutations.json").read_text(encoding="utf-8"))
+        bad = json.loads(json.dumps(base))
+        bad["targets"]["spirv"]["tier0Variant"] = True
+        with self.assertRaisesRegex(ValueError, "tier0Variant"):
+            cs.check_permutations(bad)
+        tiered = json.loads(PERMS.read_text(encoding="utf-8"))
+        tiered["targets"]["dxbc"]["tier0Variant"] = True
+        with self.assertRaisesRegex(ValueError, "tier0Variant"):
+            cs.check_permutations(tiered)
 
     def test_dxbc_paths_are_checked(self) -> None:
         base = json.loads((REPO / "shaders" / "test" / "textured.permutations.json").read_text(encoding="utf-8"))

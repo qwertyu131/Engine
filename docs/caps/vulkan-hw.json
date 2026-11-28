@@ -1,0 +1,187 @@
+{
+  "backend": "vulkan",
+  "tier": 2,
+  "apiVersion": "1.4.357",
+  "adapterName": "NVIDIA GeForce RTX 3070 Ti",
+  "vendorId": 4318,
+  "software": false,
+  "maxTexture2D": 32768,
+  "maxCubeSize": 32768,
+  "maxColorAttachments": 8,
+  "maxVertexAttributes": 32,
+  "maxUniformBufferBytes": 65536,
+  "maxBindingsPerStage": {
+    "cbuffer": 1048576,
+    "texture": 1048576,
+    "sampler": 1048576,
+    "storage": 1048576
+  },
+  "computeShaders": true,
+  "storageBuffers": true,
+  "vertexStorageBuffers": true,
+  "formatSupport": {
+    "RGBA8_UNORM": {
+      "sample": true,
+      "filter": true,
+      "render": true,
+      "blend": true,
+      "depth": false,
+      "vertex": true
+    },
+    "RGBA8_SRGB": {
+      "sample": true,
+      "filter": true,
+      "render": true,
+      "blend": true,
+      "depth": false,
+      "vertex": false
+    },
+    "BGRA8_UNORM": {
+      "sample": true,
+      "filter": true,
+      "render": true,
+      "blend": true,
+      "depth": false,
+      "vertex": true
+    },
+    "BGRA8_SRGB": {
+      "sample": true,
+      "filter": true,
+      "render": true,
+      "blend": true,
+      "depth": false,
+      "vertex": false
+    },
+    "RGBA16_FLOAT": {
+      "sample": true,
+      "filter": true,
+      "render": true,
+      "blend": true,
+      "depth": false,
+      "vertex": true
+    },
+    "RGBA32_FLOAT": {
+      "sample": true,
+      "filter": true,
+      "render": true,
+      "blend": true,
+      "depth": false,
+      "vertex": true
+    },
+    "D32_FLOAT": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": true,
+      "vertex": false
+    },
+    "D24_UNORM_S8_UINT": {
+      "sample": true,
+      "filter": true,
+      "render": false,
+      "blend": false,
+      "depth": true,
+      "vertex": false
+    },
+    "R32_FLOAT": {
+      "sample": true,
+      "filter": true,
+      "render": true,
+      "blend": true,
+      "depth": false,
+      "vertex": true
+    },
+    "RG32_FLOAT": {
+      "sample": true,
+      "filter": true,
+      "render": true,
+      "blend": true,
+      "depth": false,
+      "vertex": true
+    },
+    "RGB32_FLOAT": {
+      "sample": false,
+      "filter": false,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": true
+    },
+    "R32_UINT": {
+      "sample": true,
+      "filter": false,
+      "render": true,
+      "blend": false,
+      "depth": false,
+      "vertex": true
+    },
+    "RG32_UINT": {
+      "sample": true,
+      "filter": false,
+      "render": true,
+      "blend": false,
+      "depth": false,
+      "vertex": true
+    },
+    "RGB32_UINT": {
+      "sample": false,
+      "filter": false,
+      "render": false,
+      "blend": false,
+      "depth": false,
+      "vertex": true
+    },
+    "RGBA32_UINT": {
+      "sample": true,
+      "filter": false,
+      "render": true,
+      "blend": false,
+      "depth": false,
+      "vertex": true
+    },
+    "R32_SINT": {
+      "sample": true,
+      "filter": false,
+      "render": true,
+      "blend": false,
+      "depth": false,
+      "vertex": true
+    },
+    "RGBA32_SINT": {
+      "sample": true,
+      "filter": false,
+      "render": true,
+      "blend": false,
+      "depth": false,
+      "vertex": true
+    },
+    "RGBA16_UINT": {
+      "sample": true,
+      "filter": false,
+      "render": true,
+      "blend": false,
+      "depth": false,
+      "vertex": true
+    },
+    "RGBA8_UINT": {
+      "sample": true,
+      "filter": false,
+      "render": true,
+      "blend": false,
+      "depth": false,
+      "vertex": true
+    }
+  },
+  "bc": true,
+  "bc6h7": true,
+  "etc2": false,
+  "astc": false,
+  "msaaSampleCounts": 15,
+  "float16": true,
+  "waveOps": true,
+  "rayTracing": true,
+  "bindless": true,
+  "timestampQueries": true,
+  "note": "Vulkan physical device 'NVIDIA GeForce RTX 3070 Ti' (API 1.4.357): limits, formats and features the device SUPPORTS (vkGetPhysicalDevice*); the F2 RHI enables only dynamicRendering. Written by headless --dump-caps (plan F2 Task 7)."
+}

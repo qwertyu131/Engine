@@ -76,6 +76,9 @@ struct Shader {
     std::string entry;
     std::vector<uint8_t> code; // DXBC (the VS bytecode is needed for CreateInputLayout)
     ShaderReflection reflection;
+    // Tier the shader model needs (plan F2 Task 7): SM 4.x = 0, SM 5.0 = 1. Above the device's tier the
+    // blob is kept without a driver object (vs / ps null); createGraphicsPipeline rejects it.
+    int requiredTier = 1;
     ComPtr<ID3D11VertexShader> vs;
     ComPtr<ID3D11PixelShader> ps;
 };
@@ -173,6 +176,7 @@ public:
 private:
     D3D11Device() = default;
     Result<void> init(const DeviceDesc& desc);
+    void queryCaps(D3D_FEATURE_LEVEL level); // plan F2 Task 7: limits, formats, features of caps_
     Result<void> wrapBackBuffer(Swapchain& sc); // D3D11Swapchain.cpp: back buffer 0 -> RHI texture
 
     DeviceCaps caps_;
