@@ -53,6 +53,12 @@ rhi::Result<rhi::Image> renderSceneOffscreen(rhi::IDevice& device, std::string_v
 rhi::Result<rhi::Image> renderOffscreen(rhi::IDevice& device, Scene& scene, rhi::Format format, uint32_t width,
                                         uint32_t height);
 
+// One frame of `scene` into an existing offscreen target (usage RenderTarget | CopySrc, the scene's size):
+// beginFrame, barrier to RenderTarget (from Undefined when `firstFrame`, else from CopySrc), record, barrier
+// to CopySrc, submitAndWait. No readback (headless --bench, plan F2 Task 8: a timed frame is record + submit
+// + GPU wait, without target creation or readback). The target is in CopySrc afterwards.
+rhi::Result<void> renderFrameInto(rhi::IDevice& device, Scene& scene, rhi::TextureHandle target, bool firstFrame);
+
 // --- builtin:triangle --------------------------------------------------------------------------------
 // One triangle with per-vertex colours, cleared to (0.1, 0.1, 0.1, 1). Shader
 // shaders/test/color_triangle.hlsl (key "default"; "default-t0" = SM 4.0 on a D3D11 T0 device), no resources.

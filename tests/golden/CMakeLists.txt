@@ -89,3 +89,20 @@ if(ENG_RHI_VULKAN)
                       EXPECT_FILE @WORK@/caps.json
                       ARGS --backend vulkan --dump-caps @WORK@/caps.json)
 endif()
+
+# headless --bench on a GPU backend (plan F2 Task 8): the scene and ONE offscreen target are created once;
+# a timed frame = record + submit + GPU wait (no target creation, no readback); the PNG is the last frame.
+if(ENG_RHI_D3D11)
+    headless_cli_test(bench_gpu_d3d11 0
+                      EXPECT_IN_OUTPUT "bench: d3d11 builtin:triangle 64x64, 3 timed frames after 1 warm-up, one offscreen target"
+                      EXPECT_FILE @WORK@/tri.png
+                      ARGS --backend d3d11 --scene builtin:triangle --width 64 --height 64 --bench 3
+                           --cvar r.Bench.WarmupFrames=1 --out @WORK@/tri.png)
+endif()
+if(ENG_RHI_VULKAN)
+    headless_cli_test(bench_gpu_vulkan 0
+                      EXPECT_IN_OUTPUT "bench: vulkan builtin:triangle 64x64, 3 timed frames after 1 warm-up, one offscreen target"
+                      EXPECT_FILE @WORK@/tri.png
+                      ARGS --backend vulkan --scene builtin:triangle --width 64 --height 64 --bench 3
+                           --cvar r.Bench.WarmupFrames=1 --out @WORK@/tri.png)
+endif()

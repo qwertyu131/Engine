@@ -23,7 +23,11 @@
 //          a usage error (a test gate must not silently run with a typo'd setting).
 // --bench  renders r.Bench.WarmupFrames untimed frames, then N timed frames, and prints
 //          `frame_ms_avg=<float> frame_ms_p95=<float>` on stdout (p95 = nearest rank).
-//          The PNG written is the last frame.
+//          The PNG written is the last frame. GPU backends (plan F2 Task 8) first print
+//          `bench: <backend> <scene> <W>x<H>, <N> timed frames after <M> warm-up, one offscreen target, ...`:
+//          the scene and one target are created once; a timed frame = record + submit + GPU wait
+//          (renderFrameInto, frames serialised, validation on as in every gate run), no readback; the last
+//          frame is read back once after the timing.
 //
 // Exit codes: 0 = image written, 2 = usage / IO error, 3 = backend not available in this build or on
 // this machine, 4 = validation error (also: validation layer missing), 5 = device lost / GPU error.
@@ -228,6 +232,21 @@ bool applyCVars(const std::vector<std::string>& cvars) {
     return true;
 }
 
+// `frame_ms_avg=<float> frame_ms_p95=<float>` (p95 = nearest rank) on stdout.
+void printBenchLine(const std::vector<double>& ms) {
+    double sum = 0.0;
+    for (const double v : ms) {
+        sum += v;
+    }
+    std::vector<double> sorted = ms;
+    std::sort(sorted.begin(), sorted.end());
+    const auto rank = static_cast<size_t>(std::ceil(0.95 * static_cast<double>(sorted.size())));
+    const double p95 = sorted[std::max<size_t>(rank, 1) - 1];
+    char line[128];
+    std::snprintf(line, sizeof(line), "frame_ms_avg=%.6f frame_ms_p95=%.6f", sum / static_cast<double>(ms.size()), p95);
+    std::cout << line << "\n";
+}
+
 // Where the numbers come from, written into every caps JSON (plan F2 Task 7).
 std::string capsNote(const eng::rhi::DeviceCaps& c, const Options& o) {
     const std::string warp = c.software ? " (WARP software rasterizer)" : "";
@@ -410,7 +429,59 @@ int run(const std::vector<std::string>& args) {
         return out;
     };
     eng::Image8 frame;
-    if (opts->benchFrames) {
+    if (opts->benchFrames && device) {
+        // GPU bench: one offscreen target; timed = record + submit + GPU wait, no readback per frame.
+        eng::rhi::TextureDesc td;
+        td.width = static_cast<uint32_t>(opts->width);
+        td.height = static_cast<uint32_t>(opts->height);
+        td.format = targetFormat;
+        td.usage = eng::rhi::TextureUsage::RenderTarget | eng::rhi::TextureUsage::CopySrc;
+        td.debugName = "bench target";
+        auto rt = device->createTexture(td);
+        if (!rt) {
+            std::cerr << "headless: " << rt.error().message << "\n";
+            return rt.error().exitCode;
+        }
+        std::cout << "bench: " << opts->backend << " " << opts->scene << " " << opts->width << "x" << opts->height
+                  << ", " << *opts->benchFrames << " timed frames after " << warmup->getInt()
+                  << " warm-up, one offscreen target, frame = record + submit + GPU wait (no readback), validation "
+                  << "on (" << device->caps().adapterName << ")\n";
+        bool first = true;
+        auto gpuFrame = [&]() {
+            if (gpuError != kExitOk) {
+                return;
+            }
+            if (auto r = eng::scenes::renderFrameInto(*device, *scene, *rt, first); !r) {
+                gpuError = r.error().exitCode;
+                gpuMessage = r.error().message;
+            }
+            first = false;
+        };
+        for (int i = 0; i < warmup->getInt(); ++i) {
+            gpuFrame();
+        }
+        std::vector<double> ms;
+        ms.reserve(static_cast<size_t>(*opts->benchFrames));
+        for (int i = 0; i < *opts->benchFrames; ++i) {
+            const auto t0 = std::chrono::steady_clock::now();
+            gpuFrame();
+            const auto t1 = std::chrono::steady_clock::now();
+            ms.push_back(std::chrono::duration<double, std::milli>(t1 - t0).count());
+        }
+        printBenchLine(ms);
+        if (gpuError == kExitOk) {
+            if (auto img = device->readback(*rt); img) {
+                frame.width = static_cast<int>(img->width);
+                frame.height = static_cast<int>(img->height);
+                frame.channels = 4;
+                frame.rgba8 = std::move(img->rgba8);
+            } else {
+                gpuError = img.error().exitCode;
+                gpuMessage = img.error().message;
+            }
+        }
+        device->destroy(*rt);
+    } else if (opts->benchFrames) {
         for (int i = 0; i < warmup->getInt(); ++i) {
             frame = renderFrame();
         }
@@ -422,18 +493,7 @@ int run(const std::vector<std::string>& args) {
             const auto t1 = std::chrono::steady_clock::now();
             ms.push_back(std::chrono::duration<double, std::milli>(t1 - t0).count());
         }
-        double sum = 0.0;
-        for (const double v : ms) {
-            sum += v;
-        }
-        std::vector<double> sorted = ms;
-        std::sort(sorted.begin(), sorted.end());
-        const auto rank = static_cast<size_t>(std::ceil(0.95 * static_cast<double>(sorted.size())));
-        const double p95 = sorted[std::max<size_t>(rank, 1) - 1];
-        char line[128];
-        std::snprintf(line, sizeof(line), "frame_ms_avg=%.6f frame_ms_p95=%.6f", sum / static_cast<double>(ms.size()),
-                      p95);
-        std::cout << line << "\n";
+        printBenchLine(ms);
     } else {
         frame = renderFrame();
     }

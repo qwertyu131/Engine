@@ -181,6 +181,21 @@ Result<Image> renderOffscreen(IDevice& dev, Scene& scene, Format format, uint32_
     return dev.readback(*rt);
 }
 
+Result<void> renderFrameInto(IDevice& dev, Scene& scene, TextureHandle target, bool firstFrame) {
+    ICommandList& cmd = dev.beginFrame();
+    const TextureBarrier toTarget{target, firstFrame ? ResourceState::Undefined : ResourceState::CopySrc,
+                                  ResourceState::RenderTarget};
+    cmd.barrier({&toTarget, 1});
+    const Result<void> rec = scene.record(cmd, target);
+    const TextureBarrier toCopy{target, ResourceState::RenderTarget, ResourceState::CopySrc};
+    cmd.barrier({&toCopy, 1});
+    const Result<void> sub = dev.submitAndWait();
+    if (!rec) {
+        return std::unexpected(rec.error());
+    }
+    return sub;
+}
+
 Result<Image> renderSceneOffscreen(IDevice& dev, std::string_view name, const SceneDesc& desc) {
     Result<Image> img;
     {
